@@ -19,7 +19,7 @@ local URLs
 if isfile and isfile('newvape/URL.lua') then
     URLs = loadstring(readfile('newvape/URL.lua'))()
 else
-    URLs = loadstring(game:HttpGet('https://raw.githubusercontent.com/YourUsername/YourRepo/main/URL.lua', true))()
+    URLs = loadstring(game:HttpGet('https://raw.githubusercontent.com/HiyokoPVp/HIYOKO-VAPE/main/URL.lua', true))()
 end
 
 -- Basic functions (no hooks!)
@@ -104,7 +104,7 @@ local function finishLoading()
                 if shared.VapeDeveloper then
                     loadstring(readfile('newvape/loader.lua'), 'loader')()
                 else
-                    local URLs = loadstring(game:HttpGet('https://raw.githubusercontent.com/YourUsername/YourRepo/main/URL.lua', true))()
+                    local URLs = loadstring(game:HttpGet('https://raw.githubusercontent.com/HiyokoPVp/HIYOKO-VAPE/main/URL.lua', true))()
                     loadstring(game:HttpGet(URLs:GetLoader(), true), 'loader')()
                 end
             ]]
