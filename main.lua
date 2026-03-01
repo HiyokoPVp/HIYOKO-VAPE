@@ -160,23 +160,54 @@ if not shared.VapeIndependent then
     
     -- Game-specific script
     local gameId = tostring(game.PlaceId)
+    print('[Vape] Current game PlaceId: ' .. gameId)
     
-    if isfile('newvape/games/'..gameId..'.lua') then
-        print('[Vape] Loading game script: ' .. gameId)
-        loadstring(readfile('newvape/games/'..gameId..'.lua'), gameId)(...)
-    else
-        if not shared.VapeDeveloper then
-            local suc, res = pcall(function()
-                return game:HttpGet(URLs:GetGame(gameId), true)
-            end)
-            
-            if suc and res ~= '404: Not Found' then
-                print('[Vape] Downloading game script: ' .. gameId)
-                loadstring(downloadFile('newvape/games/'..gameId..'.lua'), gameId)(...)
-            else
-                print('[Vape] No specific script for game: ' .. gameId)
-            end
+    -- まずローカルファイルをチェック
+    local gameScriptPath = 'newvape/games/'..gameId..'.lua'
+    local gameScriptLoaded = false
+    
+    if isfile(gameScriptPath) then
+        print('[Vape] Loading game script from local: ' .. gameId)
+        local suc, err = pcall(function()
+            loadstring(readfile(gameScriptPath), gameId)()
+        end)
+        if suc then
+            gameScriptLoaded = true
+        else
+            warn('[Vape] Failed to load local game script: ' .. tostring(err))
         end
+    end
+    
+    -- ローカルになければGitHubから試す
+    if not gameScriptLoaded and not shared.VapeDeveloper then
+        local suc, res = pcall(function()
+            return game:HttpGet(URLs:GetGame(gameId), true)
+        end)
+        
+        if suc and res ~= '404: Not Found' and res ~= '' then
+            print('[Vape] Downloading game script: ' .. gameId)
+            -- ファイルを保存
+            if res:find('.lua') then
+                res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
+            end
+            writefile(gameScriptPath, res)
+            
+            -- ロード
+            local loadSuc, loadErr = pcall(function()
+                loadstring(res, gameId)()
+            end)
+            if loadSuc then
+                gameScriptLoaded = true
+            else
+                warn('[Vape] Failed to load downloaded game script: ' .. tostring(loadErr))
+            end
+        else
+            print('[Vape] No specific script for game: ' .. gameId .. ' (using universal only)')
+        end
+    end
+    
+    if gameScriptLoaded then
+        print('[Vape] Game-specific script loaded successfully')
     end
     
     finishLoading()
