@@ -5,8 +5,8 @@
 
 local URLs = {
     -- Base Configuration
-    Owner = "YourUsername",
-    Repo = "YourRepo",
+    Owner = "HiyokoPVp",
+    Repo = "HIYOKO-VAPE",
     Branch = "main",
     
     -- Auto-generated base URL
