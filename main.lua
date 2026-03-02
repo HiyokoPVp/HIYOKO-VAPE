@@ -189,6 +189,27 @@ if drawingLoaded and drawingLib then
     print('[Vape] drawing.lua loaded')
 end
 
+-- Create missing Libraries if they don't exist
+if not vape.Libraries.whitelist then
+    print('[Vape] Creating whitelist fallback...')
+    vape.Libraries.whitelist = {
+        get = function(self, plr)
+            return 0, true  -- level 0, attackable true
+        end,
+        tag = function(self, plr, text, rich)
+            return ''  -- no tags
+        end
+    }
+end
+
+if not vape.Libraries.targetinfo then
+    vape.Libraries.targetinfo = {}
+end
+
+if not vape.Libraries.sessioninfo then
+    vape.Libraries.sessioninfo = {}
+end
+
 print('[Vape] Libraries loaded successfully')
 
 -- Load game scripts
