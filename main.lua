@@ -153,6 +153,44 @@ vape = loadstring(downloadFile('newvape/guis/'..gui..'.lua'), 'gui')()
 shared.vape = vape
 getgenv().vape = vape
 
+-- Load required libraries BEFORE universal.lua
+print('[Vape] Loading libraries...')
+
+-- entity.lua
+local entityLibLoaded, entityLib = pcall(function()
+    return loadstring(downloadFile('newvape/libraries/entity.lua'), 'entity')()
+end)
+
+if entityLibLoaded and entityLib then
+    vape.Libraries.entity = entityLib
+    shared.vapeentity = entityLib
+    print('[Vape] entity.lua loaded')
+else
+    warn('[Vape] Failed to load entity.lua: ' .. tostring(entityLib))
+end
+
+-- prediction.lua  
+local predictionLoaded, predictionLib = pcall(function()
+    return loadstring(downloadFile('newvape/libraries/prediction.lua'), 'prediction')()
+end)
+
+if predictionLoaded and predictionLib then
+    vape.Libraries.prediction = predictionLib
+    print('[Vape] prediction.lua loaded')
+end
+
+-- drawing.lua
+local drawingLoaded, drawingLib = pcall(function()
+    return loadstring(downloadFile('newvape/libraries/drawing.lua'), 'drawing')()
+end)
+
+if drawingLoaded and drawingLib then
+    vape.Libraries.drawing = drawingLib
+    print('[Vape] drawing.lua loaded')
+end
+
+print('[Vape] Libraries loaded successfully')
+
 -- Load game scripts
 if not shared.VapeIndependent then
     print('[Vape] Loading universal script...')
