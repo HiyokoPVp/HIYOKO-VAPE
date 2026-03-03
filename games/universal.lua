@@ -88,6 +88,11 @@ local function notif(...)
 	return vape:CreateNotification(...)
 end
 
+local function removeTags(str)
+	str = str:gsub('<br%s*/>', '\n')
+	return (str:gsub('<[^<>]->', ''))
+end
+
 while true do
 	task.wait(1)
 	notif("aaaaaa")
