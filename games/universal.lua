@@ -60,10 +60,17 @@ local gameCamera = workspace.CurrentCamera
 local lplr = playersService.LocalPlayer
 local assetfunction = getcustomasset
 
+print('[Universal] Script starting...')
+print('[Universal] game.PlaceId:', game.PlaceId)
+
 local vape = shared.vape
+print('[Universal] vape exists:', vape ~= nil)
+print('[Universal] vape.Categories exists:', vape and vape.Categories ~= nil)
+print('[Universal] vape.Categories.Combat exists:', vape and vape.Categories and vape.Categories.Combat ~= nil)
 
 -- Load libraries if they don't exist
 if not vape.Libraries.entity then
+    print('[Universal] Loading libraries...')
     local hash = loadstring(downloadFile('newvape/libraries/hash.lua'), 'hash')()
     local prediction = loadstring(downloadFile('newvape/libraries/prediction.lua'), 'prediction')()
     local entitylib = loadstring(downloadFile('newvape/libraries/entity.lua'), 'entitylibrary')()
@@ -85,6 +92,9 @@ if not vape.Libraries.entity then
     vape.Libraries.whitelist = whitelist
     vape.Libraries.prediction = prediction
     vape.Libraries.hash = hash
+    print('[Universal] Libraries loaded')
+else
+    print('[Universal] Libraries already exist')
 end
 
 local entitylib = vape.Libraries.entity
@@ -97,6 +107,8 @@ local whitelist = vape.Libraries.whitelist
 local prediction = vape.Libraries.prediction
 local getfontsize = vape.Libraries.getfontsize
 local getcustomasset = vape.Libraries.getcustomasset
+
+print('[Universal] All variables initialized')
 
 local store = {
 	attackReach = 0,
