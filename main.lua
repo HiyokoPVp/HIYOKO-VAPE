@@ -80,8 +80,28 @@ end
 
 -- Finish loading function
 local function finishLoading()
+    print('[Vape] finishLoading() called')
+    
+    if not vape then
+        warn('[Vape] ERROR: vape object is nil!')
+        return
+    end
+    
+    print('[Vape] vape object exists')
+    print('[Vape] vape.Load exists:', vape.Load ~= nil)
+    
     vape.Init = nil
-    vape:Load()
+    
+    local loadSuccess, loadErr = pcall(function()
+        vape:Load()
+    end)
+    
+    if not loadSuccess then
+        warn('[Vape] ERROR in vape:Load():', loadErr)
+        return
+    end
+    
+    print('[Vape] vape:Load() successful')
     
     -- Auto-save
     task.spawn(function()
@@ -149,9 +169,27 @@ end
 
 -- Load GUI
 print('[Vape] Loading GUI: ' .. gui)
-vape = loadstring(downloadFile('newvape/guis/'..gui..'.lua'), 'gui')()
+
+local guiLoadSuccess, guiLoadResult = pcall(function()
+    return loadstring(downloadFile('newvape/guis/'..gui..'.lua'), 'gui')()
+end)
+
+if not guiLoadSuccess then
+    error('[Vape] CRITICAL: Failed to load GUI: ' .. tostring(guiLoadResult))
+end
+
+if not guiLoadResult then
+    error('[Vape] CRITICAL: GUI loaded but returned nil')
+end
+
+vape = guiLoadResult
 shared.vape = vape
 getgenv().vape = vape
+
+print('[Vape] GUI loaded successfully')
+print('[Vape] vape object type:', type(vape))
+print('[Vape] vape.Load exists:', vape.Load ~= nil)
+print('[Vape] vape.Libraries exists:', vape.Libraries ~= nil)
 
 -- Load required libraries BEFORE universal.lua
 print('[Vape] Loading libraries...')
