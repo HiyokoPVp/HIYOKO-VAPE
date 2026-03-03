@@ -61,9 +61,35 @@ local lplr = playersService.LocalPlayer
 local assetfunction = getcustomasset
 
 local vape = shared.vape
+
+-- Load libraries if they don't exist
+if not vape.Libraries.entity then
+    local hash = loadstring(downloadFile('newvape/libraries/hash.lua'), 'hash')()
+    local prediction = loadstring(downloadFile('newvape/libraries/prediction.lua'), 'prediction')()
+    local entitylib = loadstring(downloadFile('newvape/libraries/entity.lua'), 'entitylibrary')()
+    local whitelist = {
+        alreadychecked = {},
+        customtags = {},
+        data = {WhitelistedUsers = {}},
+        hashes = setmetatable({}, {
+            __index = function(_, v)
+                return hash and hash.sha512(v..'SelfReport') or ''
+            end
+        }),
+        hooked = false,
+        loaded = false,
+        localprio = 0,
+        said = {}
+    }
+    vape.Libraries.entity = entitylib
+    vape.Libraries.whitelist = whitelist
+    vape.Libraries.prediction = prediction
+    vape.Libraries.hash = hash
+end
+
 local entitylib = vape.Libraries.entity
-local targetinfo = vape.Libraries.targetinfo
-local sessioninfo = vape.Libraries.sessioninfo
+local targetinfo = vape.Libraries.targetinfo or {}
+local sessioninfo = vape.Libraries.sessioninfo or {}
 local uipallet = vape.Libraries.uipallet
 local tween = vape.Libraries.tween
 local color = vape.Libraries.color
@@ -8519,4 +8545,3 @@ run(function()
 		List = WinEffectName
 	})
 end)
-	
