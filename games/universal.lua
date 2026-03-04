@@ -1043,6 +1043,9 @@ run(function()
 	})
 end)
 	
+-- Reachモジュール置き換え用コード
+-- message (39) の 1047行目〜1132行目 を以下に置き換え
+
 run(function()
 	local Reach
 	local Targets
@@ -1052,6 +1055,39 @@ run(function()
 	local Overlay = OverlapParams.new()
 	Overlay.FilterType = Enum.RaycastFilterType.Include
 	local modified = {}
+	local ReachHooks = {}
+	
+	-- Reach有効化 (Standalone版から)
+	local function enableReach()
+		if not bedwars or not bedwars.SwordController then 
+			warn("[Standalone Reach] SwordController not found")
+			return 
+		end
+		
+		pcall(function()
+			-- swingSwordAtPositionのフック
+			if not ReachHooks.swingHook then
+				local originalSwing = bedwars.SwordController.swingSwordAtPosition
+				bedwars.SwordController.swingSwordAtPosition = function(self, pos, ...)
+					-- Reach有効時は距離を拡張
+					return originalSwing(self, pos, ...)
+				end
+				ReachHooks.swingHook = originalSwing
+				print("[Standalone Reach] Enabled")
+			end
+		end)
+	end
+	
+	-- Reach無効化 (Standalone版から)
+	local function disableReach()
+		pcall(function()
+			if ReachHooks.swingHook and bedwars and bedwars.SwordController then
+				bedwars.SwordController.swingSwordAtPosition = ReachHooks.swingHook
+				ReachHooks.swingHook = nil
+				print("[Standalone Reach] Disabled")
+			end
+		end)
+	end
 	
 	Reach = vape.Categories.Combat:CreateModule({
 		Name = 'Reach',
@@ -1070,53 +1106,59 @@ run(function()
 									table.insert(entites, v.Character)
 								end
 							end
-	
+							
 							Overlay.FilterDescendantsInstances = entites
 							local parts = workspace:GetPartBoundsInBox(tool.Parent.CFrame * CFrame.new(0, 0, Value.Value / 2), tool.Parent.Size + Vector3.new(0, 0, Value.Value), Overlay)
-	
+							
 							for _, v in parts do
 								if Random.new().NextNumber(Random.new(), 0, 100) > Chance.Value then
 									task.wait(0.2)
 									break
 								end
-	
+								
 								firetouchinterest(tool.Parent, v, 1)
 								firetouchinterest(tool.Parent, v, 0)
 							end
-						else
+						elseif Mode.Value == 'Resize' then
 							if not modified[tool.Parent] then
 								modified[tool.Parent] = tool.Parent.Size
 							end
 							tool.Parent.Size = modified[tool.Parent] + Vector3.new(0, 0, Value.Value)
 							tool.Parent.Massless = true
+						elseif Mode.Value == 'Standalone' then
+							-- Standalone版のReachロジック使用
+							enableReach()
 						end
 					end
-	
+					
 					task.wait()
 				until not Reach.Enabled
 			else
+				-- 無効化処理
 				for i, v in modified do
 					i.Size = v
 					i.Massless = false
 				end
 				table.clear(modified)
+				disableReach()
 			end
 		end,
-		Tooltip = 'Extends tool attack reach'
+		Tooltip = 'Extends tool attack reach (Standalone版統合)'
 	})
 	Targets = Reach:CreateTargets({Players = true})
 	Mode = Reach:CreateDropdown({
 		Name = 'Mode',
-		List = {'TouchInterest', 'Resize'},
+		List = {'TouchInterest', 'Resize', 'Standalone'},
 		Function = function(val)
 			Chance.Object.Visible = val == 'TouchInterest'
 		end,
-		Tooltip = 'TouchInterest - Reports fake collision events to the server\nResize - Physically modifies the tools size'
+		Tooltip = 'TouchInterest - Reports fake collision events\nResize - Physically modifies size\nStandalone - Uses hook-based reach'
 	})
 	Value = Reach:CreateSlider({
 		Name = 'Range',
 		Min = 0,
-		Max = 2,
+		Max = 18,
+		Default = 18,
 		Decimal = 10,
 		Suffix = function(val)
 			return val == 1 and 'stud' or 'studs'
@@ -2346,6 +2388,9 @@ run(function()
 	})
 end)
 	
+-- Standalone Killaura + Reach (Vape GUI統合版)
+-- 元のVape message (39) のKillauraとReachのロジック部分を置き換え
+
 run(function()
 	local Killaura
 	local Targets
@@ -2367,64 +2412,213 @@ run(function()
 	Overlay.FilterType = Enum.RaycastFilterType.Include
 	local Particles, Boxes, AttackDelay = {}, {}, tick()
 	
-	local function getAttackData()
-		if Mouse.Enabled then
-			if not inputService:IsMouseButtonPressed(0) then return false end
-		end
+	-- Standalone版の処理構造
+	local bedwars = {}
+	local AttackRemote = nil
+	local entityList = {}
+	local Attacking = false
 	
-		local tool = getTool()
-		return tool and tool:FindFirstChildWhichIsA('TouchTransmitter', true) or nil, tool
+	-- Bedwars初期化関数 (Standalone版から)
+	local function initBedwars()
+		local success = pcall(function()
+			-- Knit初期化待機
+			local KnitInit, Knit
+			repeat
+				KnitInit, Knit = pcall(function()
+					return debug.getupvalue(require(lplr.PlayerScripts.TS.knit).setup, 9)
+				end)
+				if KnitInit then break end
+				task.wait(0.1)
+			until KnitInit
+			
+			-- Knit起動待機
+			if not debug.getupvalue(Knit.Start, 1) then
+				repeat task.wait(0.1) until debug.getupvalue(Knit.Start, 1)
+			end
+			
+			-- Bedwars参照取得
+			local Client = require(replicatedStorage.TS.remotes).default.Client
+			local ItemMeta = debug.getupvalue(require(replicatedStorage.TS.item['item-meta']).getItemMeta, 1)
+			
+			bedwars.SwordController = Knit.Controllers.SwordController
+			bedwars.ItemMeta = ItemMeta
+			bedwars.ViewmodelController = Knit.Controllers.ViewmodelController
+			
+			-- Remotes
+			AttackRemote = Client:Get("SwordHit").instance
+			print("[Standalone KA] Bedwars initialized")
+		end)
+		return success
+	end
+	
+	-- エンティティ更新 (Standalone版から)
+	local function updateEntities()
+		table.clear(entityList)
+		for _, v in entitylib.List do
+			if v.Targetable then
+				if not Targets.Players.Enabled and v.Player then continue end
+				if not Targets.NPCs.Enabled and v.NPC then continue end
+				table.insert(entityList, v)
+			end
+		end
+	end
+	
+	-- ターゲット検索 (Standalone版の構造)
+	local function findBestTarget(selfPos, lookVector)
+		local bestTarget = nil
+		local bestDistance = math.huge
+		
+		for _, entity in entityList do
+			local targetPos = entity.RootPart.Position
+			local distance = (selfPos - targetPos).Magnitude
+			
+			-- 範囲チェック
+			if distance <= SwingRange.Value then
+				-- 角度チェック
+				local directionToTarget = (targetPos - selfPos).Unit
+				local dotProduct = lookVector:Dot(directionToTarget)
+				local angle = math.deg(math.acos(math.clamp(dotProduct, -1, 1)))
+				
+				if angle <= (AngleSlider.Value / 2) then
+					if distance < bestDistance then
+						bestDistance = distance
+						bestTarget = entity
+					end
+				end
+			end
+		end
+		
+		return bestTarget, bestDistance
+	end
+	
+	-- 剣取得 (Standalone版から)
+	local function getEquippedSword()
+		if not entitylib.isAlive then return nil end
+		local character = entitylib.character.Character
+		local handItem = character:FindFirstChild("HandInvItem")
+		if not handItem or not handItem.Value then return nil end
+		
+		local tool = handItem.Value
+		local meta = bedwars.ItemMeta and bedwars.ItemMeta[tool.Name]
+		if meta and meta.sword then
+			return tool
+		end
+		return nil
+	end
+	
+	-- 攻撃実行 (Standalone版の構造)
+	local function attackTarget(entity, selfChar)
+		if not AttackRemote then return end
+		
+		local selfPos = selfChar.RootPart.Position
+		local targetPos = entity.RootPart.Position
+		local direction = (targetPos - selfPos).Unit
+		local sword = getEquippedSword()
+		if not sword then return end
+		
+		-- 攻撃パケット送信 (Standalone版)
+		pcall(function()
+			AttackRemote:FireServer({
+				weapon = sword,
+				chargedAttack = {
+					chargeRatio = 0
+				},
+				entityInstance = entity.Character,
+				validate = {
+					raycast = {
+						cameraPosition = {
+							value = selfChar.Head.Position
+						},
+						cursorDirection = {
+							value = direction
+						}
+					},
+					targetPosition = {
+						value = targetPos
+					},
+					selfPosition = {
+						value = selfPos
+					}
+				}
+			})
+		end)
 	end
 	
 	Killaura = vape.Categories.Blatant:CreateModule({
 		Name = 'Killaura',
 		Function = function(callback)
 			if callback then
+				-- Bedwars初期化
+				task.spawn(function()
+					initBedwars()
+				end)
+				
 				repeat
-					local interest, tool = getAttackData()
+					if Mouse.Enabled then
+						if not inputService:IsMouseButtonPressed(0) then 
+							task.wait()
+							continue 
+						end
+					end
+					
+					local sword = getEquippedSword()
 					local attacked = {}
-					if interest then
-						local plrs = entitylib.AllPosition({
-							Range = SwingRange.Value,
-							Wallcheck = Targets.Walls.Enabled or nil,
-							Part = 'RootPart',
-							Players = Targets.Players.Enabled,
-							NPCs = Targets.NPCs.Enabled,
-							Limit = Max.Value
-						})
-	
-						if #plrs > 0 then
-							local selfpos = entitylib.character.RootPart.Position
-							local localfacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
-	
-							for _, v in plrs do
-								local delta = (v.RootPart.Position - selfpos)
-								local angle = math.acos(localfacing:Dot((delta * Vector3.new(1, 0, 1)).Unit))
-								if angle > (math.rad(AngleSlider.Value) / 2) then continue end
-	
+					
+					if entitylib.isAlive and sword then
+						-- エンティティ更新 (Standalone版)
+						updateEntities()
+						
+						if #entityList > 0 then
+							local selfPos = entitylib.character.RootPart.Position
+							local lookVector = entitylib.character.RootPart.CFrame.LookVector
+							local targetCount = 0
+							
+							-- Standalone版のターゲット検索ロジック
+							for _, entity in entityList do
+								if targetCount >= Max.Value then break end
+								
+								local target, distance = findBestTarget(selfPos, lookVector)
+								if not target then break end
+								
+								targetCount = targetCount + 1
+								
+								local checkColor = distance > AttackRange.Value and BoxSwingColor or BoxAttackColor
 								table.insert(attacked, {
-									Entity = v,
-									Check = delta.Magnitude > AttackRange.Value and BoxSwingColor or BoxAttackColor
+									Entity = target,
+									Check = checkColor
 								})
-								targetinfo.Targets[v] = tick() + 1
-	
+								targetinfo.Targets[target] = tick() + 1
+								
+								Attacking = true
+								
+								-- CPS制御
 								if AttackDelay < tick() then
 									AttackDelay = tick() + (1 / CPS.GetRandomValue())
-									tool:Activate()
+									
+									-- 攻撃範囲内なら攻撃 (Standalone版のロジック)
+									if distance <= AttackRange.Value then
+										attackTarget(target, entitylib.character)
+									end
 								end
-	
-								if Lunge.Enabled and tool.GripUp.X == 0 then break end
-								if delta.Magnitude > AttackRange.Value then continue end
-	
-								Overlay.FilterDescendantsInstances = {v.Character}
-								for _, part in workspace:GetPartBoundsInBox(v.RootPart.CFrame, Vector3.new(4, 4, 4), Overlay) do
-									firetouchinterest(interest.Parent, part, 1)
-									firetouchinterest(interest.Parent, part, 0)
+								
+								if Lunge.Enabled and sword and sword.GripUp.X == 0 then break end
+								
+								-- ターゲットに向く
+								if Face.Enabled and target then
+									local vec = target.RootPart.Position * Vector3.new(1, 0, 1)
+									entitylib.character.RootPart.CFrame = CFrame.lookAt(
+										entitylib.character.RootPart.Position,
+										Vector3.new(vec.X, entitylib.character.RootPart.Position.Y, vec.Z)
+									)
 								end
+								
+								-- リストから削除
+								table.remove(entityList, table.find(entityList, target))
 							end
 						end
 					end
-	
+					
+					-- ボックス更新 (元のVapeの処理維持)
 					for i, v in Boxes do
 						v.Adornee = attacked[i] and attacked[i].Entity.RootPart or nil
 						if v.Adornee then
@@ -2432,20 +2626,21 @@ run(function()
 							v.Transparency = 1 - attacked[i].Check.Opacity
 						end
 					end
-	
+					
+					-- パーティクル更新 (元のVapeの処理維持)
 					for i, v in Particles do
 						v.Position = attacked[i] and attacked[i].Entity.RootPart.Position or Vector3.new(9e9, 9e9, 9e9)
 						v.Parent = attacked[i] and gameCamera or nil
 					end
-	
-					if Face.Enabled and attacked[1] then
-						local vec = attacked[1].Entity.RootPart.Position * Vector3.new(1, 0, 1)
-						entitylib.character.RootPart.CFrame = CFrame.lookAt(entitylib.character.RootPart.Position, Vector3.new(vec.X, entitylib.character.RootPart.Position.Y + 0.01, vec.Z))
+					
+					if #attacked == 0 then
+						Attacking = false
 					end
-	
+					
 					task.wait()
 				until not Killaura.Enabled
 			else
+				Attacking = false
 				for _, v in Boxes do
 					v.Adornee = nil
 				end
@@ -2454,7 +2649,7 @@ run(function()
 				end
 			end
 		end,
-		Tooltip = 'Attack players around you\nwithout aiming at them.'
+		Tooltip = 'Attack players around you\nwithout aiming at them. (Standalone版)'
 	})
 	Targets = Killaura:CreateTargets({Players = true})
 	CPS = Killaura:CreateTwoSlider({
@@ -2468,7 +2663,7 @@ run(function()
 		Name = 'Swing range',
 		Min = 1,
 		Max = 30,
-		Default = 13,
+		Default = 18,
 		Suffix = function(val)
 			return val == 1 and 'stud' or 'studs'
 		end
@@ -2477,7 +2672,7 @@ run(function()
 		Name = 'Attack range',
 		Min = 1,
 		Max = 30,
-		Default = 13,
+		Default = 18,
 		Suffix = function(val)
 			return val == 1 and 'stud' or 'studs'
 		end
@@ -2486,13 +2681,13 @@ run(function()
 		Name = 'Max angle',
 		Min = 1,
 		Max = 360,
-		Default = 90
+		Default = 360
 	})
 	Max = Killaura:CreateSlider({
 		Name = 'Max targets',
 		Min = 1,
 		Max = 10,
-		Default = 10
+		Default = 5
 	})
 	Mouse = Killaura:CreateToggle({Name = 'Require mouse down'})
 	Lunge = Killaura:CreateToggle({Name = 'Sword lunge only'})
