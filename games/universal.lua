@@ -49,341 +49,80 @@ local textChatService = cloneref(game:GetService('TextChatService'))
 local contextService = cloneref(game:GetService('ContextActionService'))
 local coreGui = cloneref(game:GetService('CoreGui'))
 
-print("ver 1.7")
-
-local mainapi = {
-	Categories = {},
-	GUIColor = {
-		Hue = 0.46,
-		Sat = 0.96,
-		Value = 0.52
-	},
-	HeldKeybinds = {},
-	Keybind = {'RightShift'},
-	Loaded = false,
-	Libraries = {},
-	Modules = {},
-	Place = game.PlaceId,
-	Profile = 'default',
-	Profiles = {},
-	RainbowSpeed = {Value = 1},
-	RainbowUpdateSpeed = {Value = 60},
-	RainbowTable = {},
-	Scale = {Value = 1},
-	ThreadFix = setthreadidentity and true or false,
-	ToggleNotifications = {},
-	Version = '4.18',
-	Windows = {}
-}
-
-local cloneref = cloneref or function(obj)
-	return obj
+local isnetworkowner = identifyexecutor and table.find({'AWP', 'Nihon'}, ({identifyexecutor()})[1]) and isnetworkowner or function()
+	return true
 end
-local tweenService = cloneref(game:GetService('TweenService'))
-local inputService = cloneref(game:GetService('UserInputService'))
-local textService = cloneref(game:GetService('TextService'))
-local guiService = cloneref(game:GetService('GuiService'))
-local runService = cloneref(game:GetService('RunService'))
-local httpService = cloneref(game:GetService('HttpService'))
-
-local fontsize = Instance.new('GetTextBoundsParams')
-fontsize.Width = math.huge
-local notifications
+local gameCamera = workspace.CurrentCamera or workspace:FindFirstChildWhichIsA('Camera')
+local lplr = playersService.LocalPlayer
 local assetfunction = getcustomasset
-local getcustomasset
-local clickgui
-local scaledgui
-local toolblur
-local tooltip
-local scale
-local gui
 
-local color = {}
-local tween = {
-	tweens = {},
-	tweenstwo = {}
-}
-local uipallet = {
-	Main = Color3.fromRGB(26, 25, 26),
-	Text = Color3.fromRGB(200, 200, 200),
-	Font = Font.fromEnum(Enum.Font.Arial),
-	FontSemiBold = Font.fromEnum(Enum.Font.Arial, Enum.FontWeight.SemiBold),
-	Tween = TweenInfo.new(0.16, Enum.EasingStyle.Linear)
-}
+local vape = shared.vape
+local tween = vape.Libraries.tween
+local targetinfo = vape.Libraries.targetinfo
+local getfontsize = vape.Libraries.getfontsize
+local getcustomasset = vape.Libraries.getcustomasset
 
-local getcustomassets = {
-	['newvape/assets/new/add.png'] = 'rbxassetid://14368300605',
-	['newvape/assets/new/alert.png'] = 'rbxassetid://14368301329',
-	['newvape/assets/new/allowedicon.png'] = 'rbxassetid://14368302000',
-	['newvape/assets/new/allowedtab.png'] = 'rbxassetid://14368302875',
-	['newvape/assets/new/arrowmodule.png'] = 'rbxassetid://14473354880',
-	['newvape/assets/new/back.png'] = 'rbxassetid://14368303894',
-	['newvape/assets/new/bind.png'] = 'rbxassetid://14368304734',
-	['newvape/assets/new/bindbkg.png'] = 'rbxassetid://14368305655',
-	['newvape/assets/new/blatanticon.png'] = 'rbxassetid://14368306745',
-	['newvape/assets/new/blockedicon.png'] = 'rbxassetid://14385669108',
-	['newvape/assets/new/blockedtab.png'] = 'rbxassetid://14385672881',
-	['newvape/assets/new/blur.png'] = 'rbxassetid://14898786664',
-	['newvape/assets/new/blurnotif.png'] = 'rbxassetid://16738720137',
-	['newvape/assets/new/close.png'] = 'rbxassetid://14368309446',
-	['newvape/assets/new/closemini.png'] = 'rbxassetid://14368310467',
-	['newvape/assets/new/colorpreview.png'] = 'rbxassetid://14368311578',
-	['newvape/assets/new/combaticon.png'] = 'rbxassetid://14368312652',
-	['newvape/assets/new/customsettings.png'] = 'rbxassetid://14403726449',
-	['newvape/assets/new/discord.png'] = '',
-	['newvape/assets/new/dots.png'] = 'rbxassetid://14368314459',
-	['newvape/assets/new/edit.png'] = 'rbxassetid://14368315443',
-	['newvape/assets/new/expandicon.png'] = 'rbxassetid://14368353032',
-	['newvape/assets/new/expandright.png'] = 'rbxassetid://14368316544',
-	['newvape/assets/new/expandup.png'] = 'rbxassetid://14368317595',
-	['newvape/assets/new/friendstab.png'] = 'rbxassetid://14397462778',
-	['newvape/assets/new/guisettings.png'] = 'rbxassetid://14368318994',
-	['newvape/assets/new/guislider.png'] = 'rbxassetid://14368320020',
-	['newvape/assets/new/guisliderrain.png'] = 'rbxassetid://14368321228',
-	['newvape/assets/new/guiv4.png'] = 'rbxassetid://14368322199',
-	['newvape/assets/new/guivape.png'] = 'rbxassetid://14657521312',
-	['newvape/assets/new/info.png'] = 'rbxassetid://14368324807',
-	['newvape/assets/new/inventoryicon.png'] = 'rbxassetid://14928011633',
-	['newvape/assets/new/legit.png'] = 'rbxassetid://14425650534',
-	['newvape/assets/new/legittab.png'] = 'rbxassetid://14426740825',
-	['newvape/assets/new/miniicon.png'] = 'rbxassetid://14368326029',
-	['newvape/assets/new/notification.png'] = 'rbxassetid://16738721069',
-	['newvape/assets/new/overlaysicon.png'] = 'rbxassetid://14368339581',
-	['newvape/assets/new/overlaystab.png'] = 'rbxassetid://14397380433',
-	['newvape/assets/new/pin.png'] = 'rbxassetid://14368342301',
-	['newvape/assets/new/profilesicon.png'] = 'rbxassetid://14397465323',
-	['newvape/assets/new/radaricon.png'] = 'rbxassetid://14368343291',
-	['newvape/assets/new/rainbow_1.png'] = 'rbxassetid://14368344374',
-	['newvape/assets/new/rainbow_2.png'] = 'rbxassetid://14368345149',
-	['newvape/assets/new/rainbow_3.png'] = 'rbxassetid://14368345840',
-	['newvape/assets/new/rainbow_4.png'] = 'rbxassetid://14368346696',
-	['newvape/assets/new/range.png'] = 'rbxassetid://14368347435',
-	['newvape/assets/new/rangearrow.png'] = 'rbxassetid://14368348640',
-	['newvape/assets/new/rendericon.png'] = 'rbxassetid://14368350193',
-	['newvape/assets/new/rendertab.png'] = 'rbxassetid://14397373458',
-	['newvape/assets/new/search.png'] = 'rbxassetid://14425646684',
-	['newvape/assets/new/targetinfoicon.png'] = 'rbxassetid://14368354234',
-	['newvape/assets/new/targetnpc1.png'] = 'rbxassetid://14497400332',
-	['newvape/assets/new/targetnpc2.png'] = 'rbxassetid://14497402744',
-	['newvape/assets/new/targetplayers1.png'] = 'rbxassetid://14497396015',
-	['newvape/assets/new/targetplayers2.png'] = 'rbxassetid://14497397862',
-	['newvape/assets/new/targetstab.png'] = 'rbxassetid://14497393895',
-	['newvape/assets/new/textguiicon.png'] = 'rbxassetid://14368355456',
-	['newvape/assets/new/textv4.png'] = 'rbxassetid://14368357095',
-	['newvape/assets/new/textvape.png'] = 'rbxassetid://14368358200',
-	['newvape/assets/new/utilityicon.png'] = 'rbxassetid://14368359107',
-	['newvape/assets/new/vape.png'] = 'rbxassetid://14373395239',
-	['newvape/assets/new/warning.png'] = 'rbxassetid://14368361552',
-	['newvape/assets/new/worldicon.png'] = 'rbxassetid://14368362492'
-}
+local TargetStrafeVector, SpiderShift, WaypointFolder
+local Spider = {Enabled = false}
+local Phase = {Enabled = false}
 
-local isfile = isfile or function(file)
-	local suc, res = pcall(function()
-		return readfile(file)
-	end)
-	return suc and res ~= nil and res ~= ''
-end
-
-local getfontsize = function(text, size, font)
-	fontsize.Text = text
-	fontsize.Size = size
-	if typeof(font) == 'Font' then
-		fontsize.Font = font
-	end
-	return textService:GetTextBoundsAsync(fontsize)
-end
-
-local function addBlur(parent, notif)
+local function addBlur(parent)
 	local blur = Instance.new('ImageLabel')
 	blur.Name = 'Blur'
 	blur.Size = UDim2.new(1, 89, 1, 52)
 	blur.Position = UDim2.fromOffset(-48, -31)
 	blur.BackgroundTransparency = 1
-	blur.Image = getcustomasset('newvape/assets/new/'..(notif and 'blurnotif' or 'blur')..'.png')
+	blur.Image = getcustomasset('newvape/assets/new/blur.png')
 	blur.ScaleType = Enum.ScaleType.Slice
 	blur.SliceCenter = Rect.new(52, 31, 261, 502)
 	blur.Parent = parent
-
 	return blur
 end
 
-local function addCorner(parent, radius)
-	local corner = Instance.new('UICorner')
-	corner.CornerRadius = radius or UDim.new(0, 5)
-	corner.Parent = parent
-
-	return corner
+local function calculateMoveVector(vec)
+	local c, s
+	local _, _, _, R00, R01, R02, _, _, R12, _, _, R22 = gameCamera.CFrame:GetComponents()
+	if R12 < 1 and R12 > -1 then
+		c = R22
+		s = R02
+	else
+		c = R00
+		s = -R01 * math.sign(R12)
+	end
+	vec = Vector3.new((c * vec.X + s * vec.Z), 0, (c * vec.Z - s * vec.X)) / math.sqrt(c * c + s * s)
+	return vec.Unit == vec.Unit and vec.Unit or Vector3.zero
 end
 
-local function addCloseButton(parent, offset)
-	local close = Instance.new('ImageButton')
-	close.Name = 'Close'
-	close.Size = UDim2.fromOffset(24, 24)
-	close.Position = UDim2.new(1, -35, 0, offset or 9)
-	close.BackgroundColor3 = Color3.new(1, 1, 1)
-	close.BackgroundTransparency = 1
-	close.AutoButtonColor = false
-	close.Image = getcustomasset('newvape/assets/new/close.png')
-	close.ImageColor3 = color.Light(uipallet.Text, 0.2)
-	close.ImageTransparency = 0.5
-	close.Parent = parent
-	addCorner(close, UDim.new(1, 0))
-
-	close.MouseEnter:Connect(function()
-		close.ImageTransparency = 0.3
-		tween:Tween(close, uipallet.Tween, {
-			BackgroundTransparency = 0.6
-		})
-	end)
-	close.MouseLeave:Connect(function()
-		close.ImageTransparency = 0.5
-		tween:Tween(close, uipallet.Tween, {
-			BackgroundTransparency = 1
-		})
-	end)
-
-	return close
+local function isFriend(plr, recolor)
+	if vape.Categories.Friends.Options['Use friends'].Enabled then
+		local friend = table.find(vape.Categories.Friends.ListEnabled, plr.Name) and true
+		if recolor then
+			friend = friend and vape.Categories.Friends.Options['Recolor visuals'].Enabled
+		end
+		return friend
+	end
+	return nil
 end
 
-local function addMaid(object)
-	object.Connections = {}
-	function object:Clean(callback)
-		if typeof(callback) == 'Instance' then
-			table.insert(self.Connections, {
-				Disconnect = function()
-					callback:ClearAllChildren()
-					callback:Destroy()
-				end
-			})
-		elseif type(callback) == 'function' then
-			table.insert(self.Connections, {
-				Disconnect = callback
-			})
-		else
-			table.insert(self.Connections, callback)
+local function isTarget(plr)
+	return table.find(vape.Categories.Targets.ListEnabled, plr.Name) and true
+end
+
+local function canClick()
+	local mousepos = (inputService:GetMouseLocation() - guiService:GetGuiInset())
+	for _, v in lplr.PlayerGui:GetGuiObjectsAtPosition(mousepos.X, mousepos.Y) do
+		local obj = v:FindFirstAncestorOfClass('ScreenGui')
+		if v.Active and v.Visible and obj and obj.Enabled then
+			return false
 		end
 	end
-end
-
-local function addTooltip(gui, text)
-	if not text then return end
-
-	local function tooltipMoved(x, y)
-		local right = x + 16 + tooltip.Size.X.Offset > (scale.Scale * 1920)
-		tooltip.Position = UDim2.fromOffset(
-			(right and x - (tooltip.Size.X.Offset * scale.Scale) - 16 or x + 16) / scale.Scale,
-			((y + 11) - (tooltip.Size.Y.Offset / 2)) / scale.Scale
-		)
-		tooltip.Visible = toolblur.Visible
-	end
-
-	gui.MouseEnter:Connect(function(x, y)
-		local tooltipSize = getfontsize(text, tooltip.TextSize, uipallet.Font)
-		tooltip.Size = UDim2.fromOffset(tooltipSize.X + 10, tooltipSize.Y + 10)
-		tooltip.Text = text
-		tooltipMoved(x, y)
-	end)
-	gui.MouseMoved:Connect(tooltipMoved)
-	gui.MouseLeave:Connect(function()
-		tooltip.Visible = false
-	end)
-end
-
-local function checkKeybinds(compare, target, key)
-	if type(target) == 'table' then
-		if table.find(target, key) then
-			for i, v in target do
-				if not table.find(compare, v) then
-					return false
-				end
-			end
-			return true
+	for _, v in coreGui:GetGuiObjectsAtPosition(mousepos.X, mousepos.Y) do
+		local obj = v:FindFirstAncestorOfClass('ScreenGui')
+		if v.Active and v.Visible and obj and obj.Enabled then
+			return false
 		end
 	end
-
-	return false
-end
-
-local function createDownloader(text)
-	if mainapi.Loaded ~= true then
-		local downloader = mainapi.Downloader
-		if not downloader then
-			downloader = Instance.new('TextLabel')
-			downloader.Size = UDim2.new(1, 0, 0, 40)
-			downloader.BackgroundTransparency = 1
-			downloader.TextStrokeTransparency = 0
-			downloader.TextSize = 20
-			downloader.TextColor3 = Color3.new(1, 1, 1)
-			downloader.FontFace = uipallet.Font
-			downloader.Parent = mainapi.gui
-			mainapi.Downloader = downloader
-		end
-		downloader.Text = 'Downloading '..text
-	end
-end
-
-local function createMobileButton(buttonapi, position)
-	local heldbutton = false
-	local button = Instance.new('TextButton')
-	button.Size = UDim2.fromOffset(40, 40)
-	button.Position = UDim2.fromOffset(position.X, position.Y)
-	button.AnchorPoint = Vector2.new(0.5, 0.5)
-	button.BackgroundColor3 = buttonapi.Enabled and Color3.new(0, 0.7, 0) or Color3.new()
-	button.BackgroundTransparency = 0.5
-	button.Text = buttonapi.Name
-	button.TextColor3 = Color3.new(1, 1, 1)
-	button.TextScaled = true
-	button.Font = Enum.Font.Gotham
-	button.Parent = mainapi.gui
-	local buttonconstraint = Instance.new('UITextSizeConstraint')
-	buttonconstraint.MaxTextSize = 16
-	buttonconstraint.Parent = button
-	addCorner(button, UDim.new(1, 0))
-
-	button.MouseButton1Down:Connect(function()
-		heldbutton = true
-		local holdtime, holdpos = tick(), inputService:GetMouseLocation()
-		repeat
-			heldbutton = (inputService:GetMouseLocation() - holdpos).Magnitude < 6
-			task.wait()
-		until (tick() - holdtime) > 1 or not heldbutton
-		if heldbutton then
-			buttonapi.Bind = {}
-			button:Destroy()
-		end
-	end)
-	button.MouseButton1Up:Connect(function()
-		heldbutton = false
-	end)
-	button.MouseButton1Click:Connect(function()
-		buttonapi:Toggle()
-		button.BackgroundColor3 = buttonapi.Enabled and Color3.new(0, 0.7, 0) or Color3.new()
-	end)
-
-	buttonapi.Bind = {Button = button}
-end
-
-local function downloadFile(path, func)
-	if not isfile(path) then
-		createDownloader(path)
-		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
-		end)
-		if not suc or res == '404: Not Found' then
-			error(res)
-		end
-		if path:find('.lua') then
-			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
-		end
-		writefile(path, res)
-	end
-	return (func or readfile)(path)
-end
-
-getcustomasset = not inputService.TouchEnabled and assetfunction and function(path)
-	return downloadFile(path, assetfunction)
-end or function(path)
-	return getcustomassets[path] or ''
+	return (not vape.gui.ScaledGui.ClickGui.Visible) and (not inputService:GetFocusedTextBox())
 end
 
 local function getTableSize(tab)
@@ -392,8606 +131,7794 @@ local function getTableSize(tab)
 	return ind
 end
 
-local function loopClean(tab)
-	for i, v in tab do
-		if type(v) == 'table' then
-			loopClean(v)
-		end
-		tab[i] = nil
-	end
+local function getTool()
+	return lplr.Character and lplr.Character:FindFirstChildWhichIsA('Tool', true) or nil
 end
 
-local function loadJson(path)
-	local suc, res = pcall(function()
-		return httpService:JSONDecode(readfile(path))
-	end)
-	return suc and type(res) == 'table' and res or nil
-end
-
-local function makeDraggable(gui, window)
-	gui.InputBegan:Connect(function(inputObj)
-		if window and not window.Visible then return end
-		if
-			(inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch)
-			and (inputObj.Position.Y - gui.AbsolutePosition.Y < 40 or window)
-		then
-			local dragPosition = Vector2.new(
-				gui.AbsolutePosition.X - inputObj.Position.X,
-				gui.AbsolutePosition.Y - inputObj.Position.Y + guiService:GetGuiInset().Y
-			) / scale.Scale
-
-			local changed = inputService.InputChanged:Connect(function(input)
-				if input.UserInputType == (inputObj.UserInputType == Enum.UserInputType.MouseButton1 and Enum.UserInputType.MouseMovement or Enum.UserInputType.Touch) then
-					local position = input.Position
-					if inputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-						dragPosition = (dragPosition // 3) * 3
-						position = (position // 3) * 3
-					end
-					gui.Position = UDim2.fromOffset((position.X / scale.Scale) + dragPosition.X, (position.Y / scale.Scale) + dragPosition.Y)
-				end
-			end)
-
-			local ended
-			ended = inputObj.Changed:Connect(function()
-				if inputObj.UserInputState == Enum.UserInputState.End then
-					if changed then
-						changed:Disconnect()
-					end
-					if ended then
-						ended:Disconnect()
-					end
-				end
-			end)
-		end
-	end)
-end
-
-local function randomString()
-	local array = {}
-	for i = 1, math.random(10, 100) do
-		array[i] = string.char(math.random(32, 126))
-	end
-	return table.concat(array)
+local function notif(...)
+	return vape:CreateNotification(...)
 end
 
 local function removeTags(str)
 	str = str:gsub('<br%s*/>', '\n')
-	return str:gsub('<[^<>]->', '')
+	return (str:gsub('<[^<>]->', ''))
 end
 
-do
-	local res = isfile('newvape/profiles/color.txt') and loadJson('newvape/profiles/color.txt')
-	if res then
-		uipallet.Main = res.Main and Color3.fromRGB(unpack(res.Main)) or uipallet.Main
-		uipallet.Text = res.Text and Color3.fromRGB(unpack(res.Text)) or uipallet.Text
-		uipallet.Font = res.Font and Font.new(
-			res.Font:find('rbxasset') and res.Font
-				or string.format('rbxasset://fonts/families/%s.json', res.Font)
-		) or uipallet.Font
-		uipallet.FontSemiBold = Font.new(uipallet.Font.Family, Enum.FontWeight.SemiBold)
+local visited, attempted, tpSwitch = {}, {}, false
+local cacheExpire, cache = tick()
+local function serverHop(pointer, filter)
+	visited = shared.vapeserverhoplist and shared.vapeserverhoplist:split('/') or {}
+	if not table.find(visited, game.JobId) then
+		table.insert(visited, game.JobId)
 	end
-	fontsize.Font = uipallet.Font
-end
-
-do
-	function color.Dark(col, num)
-		local h, s, v = col:ToHSV()
-		return Color3.fromHSV(h, s, math.clamp(select(3, uipallet.Main:ToHSV()) > 0.5 and v + num or v - num, 0, 1))
+	if not pointer then
+		notif('Vape', 'Searching for an available server.', 2)
 	end
 
-	function color.Light(col, num)
-		local h, s, v = col:ToHSV()
-		return Color3.fromHSV(h, s, math.clamp(select(3, uipallet.Main:ToHSV()) > 0.5 and v - num or v + num, 0, 1))
-	end
-
-	function mainapi:Color(h)
-		local s = 0.75 + (0.15 * math.min(h / 0.03, 1))
-		if h > 0.57 then
-			s = 0.9 - (0.4 * math.min((h - 0.57) / 0.09, 1))
-		end
-		if h > 0.66 then
-			s = 0.5 + (0.4 * math.min((h - 0.66) / 0.16, 1))
-		end
-		if h > 0.87 then
-			s = 0.9 - (0.15 * math.min((h - 0.87) / 0.13, 1))
-		end
-		return h, s, 1
-	end
-
-	function mainapi:TextColor(h, s, v)
-		if v >= 0.7 and (s < 0.6 or h > 0.04 and h < 0.56) then
-			return Color3.new(0.19, 0.19, 0.19)
-		end
-		return Color3.new(1, 1, 1)
-	end
-end
-
-do
-	function tween:Tween(obj, tweeninfo, goal, tab)
-		tab = tab or self.tweens
-		if tab[obj] then
-			tab[obj]:Cancel()
-			tab[obj] = nil
-		end
-
-		if obj.Parent and obj.Visible then
-			tab[obj] = tweenService:Create(obj, tweeninfo, goal)
-			tab[obj].Completed:Once(function()
-				if tab then
-					tab[obj] = nil
-					tab = nil
-				end
-			end)
-			tab[obj]:Play()
-		else
-			for i, v in goal do
-				obj[i] = v
-			end
-		end
-	end
-
-	function tween:Cancel(obj)
-		if self.tweens[obj] then
-			self.tweens[obj]:Cancel()
-			self.tweens[obj] = nil
-		end
-	end
-end
-
-mainapi.Libraries = {
-	color = color,
-	getcustomasset = getcustomasset,
-	getfontsize = getfontsize,
-	tween = tween,
-	uipallet = uipallet,
-}
-
-local components
-components = {
-	Button = function(optionsettings, children, api)
-		local button = Instance.new('TextButton')
-		button.Name = optionsettings.Name..'Button'
-		button.Size = UDim2.new(1, 0, 0, 31)
-		button.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
-		button.BorderSizePixel = 0
-		button.AutoButtonColor = false
-		button.Visible = optionsettings.Visible == nil or optionsettings.Visible
-		button.Text = ''
-		button.Parent = children
-		addTooltip(button, optionsettings.Tooltip)
-		local bkg = Instance.new('Frame')
-		bkg.Size = UDim2.fromOffset(200, 27)
-		bkg.Position = UDim2.fromOffset(10, 2)
-		bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.05)
-		bkg.Parent = button
-		addCorner(bkg)
-		local label = Instance.new('TextLabel')
-		label.Size = UDim2.new(1, -4, 1, -4)
-		label.Position = UDim2.fromOffset(2, 2)
-		label.BackgroundColor3 = uipallet.Main
-		label.Text = optionsettings.Name
-		label.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		label.TextSize = 14
-		label.FontFace = uipallet.Font
-		label.Parent = bkg
-		addCorner(label, UDim.new(0, 4))
-		optionsettings.Function = optionsettings.Function or function() end
-
-		button.MouseEnter:Connect(function()
-			tween:Tween(bkg, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.0875)
-			})
-		end)
-		button.MouseLeave:Connect(function()
-			tween:Tween(bkg, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.05)
-			})
-		end)
-		button.MouseButton1Click:Connect(optionsettings.Function)
-	end,
-	ColorSlider = function(optionsettings, children, api)
-		local optionapi = {
-			Type = 'ColorSlider',
-			Hue = optionsettings.DefaultHue or 0.44,
-			Sat = optionsettings.DefaultSat or 1,
-			Value = optionsettings.DefaultValue or 1,
-			Opacity = optionsettings.DefaultOpacity or 1,
-			Rainbow = false,
-			Index = 0
-		}
-
-		local function createSlider(name, gradientColor)
-			local slider = Instance.new('TextButton')
-			slider.Name = optionsettings.Name..'Slider'..name
-			slider.Size = UDim2.new(1, 0, 0, 50)
-			slider.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
-			slider.BorderSizePixel = 0
-			slider.AutoButtonColor = false
-			slider.Visible = false
-			slider.Text = ''
-			slider.Parent = children
-			local title = Instance.new('TextLabel')
-			title.Name = 'Title'
-			title.Size = UDim2.fromOffset(60, 30)
-			title.Position = UDim2.fromOffset(10, 2)
-			title.BackgroundTransparency = 1
-			title.Text = name
-			title.TextXAlignment = Enum.TextXAlignment.Left
-			title.TextColor3 = color.Dark(uipallet.Text, 0.16)
-			title.TextSize = 11
-			title.FontFace = uipallet.Font
-			title.Parent = slider
-			local bkg = Instance.new('Frame')
-			bkg.Name = 'Slider'
-			bkg.Size = UDim2.new(1, -20, 0, 2)
-			bkg.Position = UDim2.fromOffset(10, 37)
-			bkg.BackgroundColor3 = Color3.new(1, 1, 1)
-			bkg.BorderSizePixel = 0
-			bkg.Parent = slider
-			local gradient = Instance.new('UIGradient')
-			gradient.Color = gradientColor
-			gradient.Parent = bkg
-			local fill = bkg:Clone()
-			fill.Name = 'Fill'
-			fill.Size = UDim2.fromScale(math.clamp(name == 'Saturation' and optionapi.Sat or name == 'Vibrance' and optionapi.Value or optionapi.Opacity, 0.04, 0.96), 1)
-			fill.Position = UDim2.new()
-			fill.BackgroundTransparency = 1
-			fill.Parent = bkg
-			local knobholder = Instance.new('Frame')
-			knobholder.Name = 'Knob'
-			knobholder.Size = UDim2.fromOffset(24, 4)
-			knobholder.Position = UDim2.fromScale(1, 0.5)
-			knobholder.AnchorPoint = Vector2.new(0.5, 0.5)
-			knobholder.BackgroundColor3 = slider.BackgroundColor3
-			knobholder.BorderSizePixel = 0
-			knobholder.Parent = fill
-			local knob = Instance.new('Frame')
-			knob.Name = 'Knob'
-			knob.Size = UDim2.fromOffset(14, 14)
-			knob.Position = UDim2.fromScale(0.5, 0.5)
-			knob.AnchorPoint = Vector2.new(0.5, 0.5)
-			knob.BackgroundColor3 = uipallet.Text
-			knob.Parent = knobholder
-			addCorner(knob, UDim.new(1, 0))
-
-			slider.InputBegan:Connect(function(inputObj)
-				if
-					(inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch)
-					and (inputObj.Position.Y - slider.AbsolutePosition.Y) > (20 * scale.Scale)
-				then
-					local changed = inputService.InputChanged:Connect(function(input)
-						if input.UserInputType == (inputObj.UserInputType == Enum.UserInputType.MouseButton1 and Enum.UserInputType.MouseMovement or Enum.UserInputType.Touch) then
-							optionapi:SetValue(nil, name == 'Saturation' and math.clamp((input.Position.X - bkg.AbsolutePosition.X) / bkg.AbsoluteSize.X, 0, 1) or nil, name == 'Vibrance' and math.clamp((input.Position.X - bkg.AbsolutePosition.X) / bkg.AbsoluteSize.X, 0, 1) or nil, name == 'Opacity' and math.clamp((input.Position.X - bkg.AbsolutePosition.X) / bkg.AbsoluteSize.X, 0, 1) or nil)
-						end
-					end)
-
-					local ended
-					ended = inputObj.Changed:Connect(function()
-						if inputObj.UserInputState == Enum.UserInputState.End then
-							if changed then changed:Disconnect() end
-							if ended then ended:Disconnect() end
-						end
-					end)
-				end
-			end)
-			slider.MouseEnter:Connect(function()
-				tween:Tween(knob, uipallet.Tween, {
-					Size = UDim2.fromOffset(16, 16)
-				})
-			end)
-			slider.MouseLeave:Connect(function()
-				tween:Tween(knob, uipallet.Tween, {
-					Size = UDim2.fromOffset(14, 14)
-				})
-			end)
-
-			return slider
-		end
-
-		local slider = Instance.new('TextButton')
-		slider.Name = optionsettings.Name..'Slider'
-		slider.Size = UDim2.new(1, 0, 0, 50)
-		slider.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
-		slider.BorderSizePixel = 0
-		slider.AutoButtonColor = false
-		slider.Visible = optionsettings.Visible == nil or optionsettings.Visible
-		slider.Text = ''
-		slider.Parent = children
-		addTooltip(slider, optionsettings.Tooltip)
-		local title = Instance.new('TextLabel')
-		title.Name = 'Title'
-		title.Size = UDim2.fromOffset(60, 30)
-		title.Position = UDim2.fromOffset(10, 2)
-		title.BackgroundTransparency = 1
-		title.Text = optionsettings.Name
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		title.TextSize = 11
-		title.FontFace = uipallet.Font
-		title.Parent = slider
-		local valuebox = Instance.new('TextBox')
-		valuebox.Name = 'Box'
-		valuebox.Size = UDim2.fromOffset(60, 15)
-		valuebox.Position = UDim2.new(1, -69, 0, 9)
-		valuebox.BackgroundTransparency = 1
-		valuebox.Visible = false
-		valuebox.Text = ''
-		valuebox.TextXAlignment = Enum.TextXAlignment.Right
-		valuebox.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		valuebox.TextSize = 11
-		valuebox.FontFace = uipallet.Font
-		valuebox.ClearTextOnFocus = true
-		valuebox.Parent = slider
-		local bkg = Instance.new('Frame')
-		bkg.Name = 'Slider'
-		bkg.Size = UDim2.new(1, -20, 0, 2)
-		bkg.Position = UDim2.fromOffset(10, 39)
-		bkg.BackgroundColor3 = Color3.new(1, 1, 1)
-		bkg.BorderSizePixel = 0
-		bkg.Parent = slider
-		local rainbowTable = {}
-		for i = 0, 1, 0.1 do
-			table.insert(rainbowTable, ColorSequenceKeypoint.new(i, Color3.fromHSV(i, 1, 1)))
-		end
-		local gradient = Instance.new('UIGradient')
-		gradient.Color = ColorSequence.new(rainbowTable)
-		gradient.Parent = bkg
-		local fill = bkg:Clone()
-		fill.Name = 'Fill'
-		fill.Size = UDim2.fromScale(math.clamp(optionapi.Hue, 0.04, 0.96), 1)
-		fill.Position = UDim2.new()
-		fill.BackgroundTransparency = 1
-		fill.Parent = bkg
-		local preview = Instance.new('ImageButton')
-		preview.Name = 'Preview'
-		preview.Size = UDim2.fromOffset(12, 12)
-		preview.Position = UDim2.new(1, -22, 0, 10)
-		preview.BackgroundTransparency = 1
-		preview.Image = getcustomasset('newvape/assets/new/colorpreview.png')
-		preview.ImageColor3 = Color3.fromHSV(optionapi.Hue, optionapi.Sat, optionapi.Value)
-		preview.ImageTransparency = 1 - optionapi.Opacity
-		preview.Parent = slider
-		local expandbutton = Instance.new('TextButton')
-		expandbutton.Name = 'Expand'
-		expandbutton.Size = UDim2.fromOffset(17, 13)
-		expandbutton.Position = UDim2.new(0, textService:GetTextSize(title.Text, title.TextSize, title.Font, Vector2.new(1000, 1000)).X + 11, 0, 7)
-		expandbutton.BackgroundTransparency = 1
-		expandbutton.Text = ''
-		expandbutton.Parent = slider
-		local expand = Instance.new('ImageLabel')
-		expand.Name = 'Expand'
-		expand.Size = UDim2.fromOffset(9, 5)
-		expand.Position = UDim2.fromOffset(4, 4)
-		expand.BackgroundTransparency = 1
-		expand.Image = getcustomasset('newvape/assets/new/expandicon.png')
-		expand.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-		expand.Parent = expandbutton
-		local rainbow = Instance.new('TextButton')
-		rainbow.Name = 'Rainbow'
-		rainbow.Size = UDim2.fromOffset(12, 12)
-		rainbow.Position = UDim2.new(1, -42, 0, 10)
-		rainbow.BackgroundTransparency = 1
-		rainbow.Text = ''
-		rainbow.Parent = slider
-		local rainbow1 = Instance.new('ImageLabel')
-		rainbow1.Size = UDim2.fromOffset(12, 12)
-		rainbow1.BackgroundTransparency = 1
-		rainbow1.Image = getcustomasset('newvape/assets/new/rainbow_1.png')
-		rainbow1.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		rainbow1.Parent = rainbow
-		local rainbow2 = rainbow1:Clone()
-		rainbow2.Image = getcustomasset('newvape/assets/new/rainbow_2.png')
-		rainbow2.Parent = rainbow
-		local rainbow3 = rainbow1:Clone()
-		rainbow3.Image = getcustomasset('newvape/assets/new/rainbow_3.png')
-		rainbow3.Parent = rainbow
-		local rainbow4 = rainbow1:Clone()
-		rainbow4.Image = getcustomasset('newvape/assets/new/rainbow_4.png')
-		rainbow4.Parent = rainbow
-		local knobholder = Instance.new('Frame')
-		knobholder.Name = 'Knob'
-		knobholder.Size = UDim2.fromOffset(24, 4)
-		knobholder.Position = UDim2.fromScale(1, 0.5)
-		knobholder.AnchorPoint = Vector2.new(0.5, 0.5)
-		knobholder.BackgroundColor3 = slider.BackgroundColor3
-		knobholder.BorderSizePixel = 0
-		knobholder.Parent = fill
-		local knob = Instance.new('Frame')
-		knob.Name = 'Knob'
-		knob.Size = UDim2.fromOffset(14, 14)
-		knob.Position = UDim2.fromScale(0.5, 0.5)
-		knob.AnchorPoint = Vector2.new(0.5, 0.5)
-		knob.BackgroundColor3 = uipallet.Text
-		knob.Parent = knobholder
-		addCorner(knob, UDim.new(1, 0))
-		optionsettings.Function = optionsettings.Function or function() end
-		local satSlider = createSlider('Saturation', ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 0, optionapi.Value)),
-			ColorSequenceKeypoint.new(1, Color3.fromHSV(optionapi.Hue, 1, optionapi.Value))
-		}))
-		local vibSlider = createSlider('Vibrance', ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 0, 0)),
-			ColorSequenceKeypoint.new(1, Color3.fromHSV(optionapi.Hue, optionapi.Sat, 1))
-		}))
-		local opSlider = createSlider('Opacity', ColorSequence.new({
-			ColorSequenceKeypoint.new(0, color.Dark(uipallet.Main, 0.02)),
-			ColorSequenceKeypoint.new(1, Color3.fromHSV(optionapi.Hue, optionapi.Sat, optionapi.Value))
-		}))
-
-		function optionapi:Save(tab)
-			tab[optionsettings.Name] = {
-				Hue = self.Hue,
-				Sat = self.Sat,
-				Value = self.Value,
-				Opacity = self.Opacity,
-				Rainbow = self.Rainbow
-			}
-		end
-
-		function optionapi:Load(tab)
-			if tab.Rainbow ~= self.Rainbow then
-				self:Toggle()
-			end
-			if self.Hue ~= tab.Hue or self.Sat ~= tab.Sat or self.Value ~= tab.Value or self.Opacity ~= tab.Opacity then
-				self:SetValue(tab.Hue, tab.Sat, tab.Value, tab.Opacity)
-			end
-		end
-
-		function optionapi:SetValue(h, s, v, o)
-			self.Hue = h or self.Hue
-			self.Sat = s or self.Sat
-			self.Value = v or self.Value
-			self.Opacity = o or self.Opacity
-			preview.ImageColor3 = Color3.fromHSV(self.Hue, self.Sat, self.Value)
-			preview.ImageTransparency = 1 - self.Opacity
-			satSlider.Slider.UIGradient.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 0, self.Value)),
-				ColorSequenceKeypoint.new(1, Color3.fromHSV(self.Hue, 1, self.Value))
-			})
-			vibSlider.Slider.UIGradient.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 0, 0)),
-				ColorSequenceKeypoint.new(1, Color3.fromHSV(self.Hue, self.Sat, 1))
-			})
-			opSlider.Slider.UIGradient.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, color.Dark(uipallet.Main, 0.02)),
-				ColorSequenceKeypoint.new(1, Color3.fromHSV(self.Hue, self.Sat, self.Value))
-			})
-
-			if self.Rainbow then
-				fill.Size = UDim2.fromScale(math.clamp(self.Hue, 0.04, 0.96), 1)
-			else
-				tween:Tween(fill, uipallet.Tween, {
-					Size = UDim2.fromScale(math.clamp(self.Hue, 0.04, 0.96), 1)
-				})
-			end
-
-			if s then
-				tween:Tween(satSlider.Slider.Fill, uipallet.Tween, {
-					Size = UDim2.fromScale(math.clamp(self.Sat, 0.04, 0.96), 1)
-				})
-			end
-			if v then
-				tween:Tween(vibSlider.Slider.Fill, uipallet.Tween, {
-					Size = UDim2.fromScale(math.clamp(self.Value, 0.04, 0.96), 1)
-				})
-			end
-			if o then
-				tween:Tween(opSlider.Slider.Fill, uipallet.Tween, {
-					Size = UDim2.fromScale(math.clamp(self.Opacity, 0.04, 0.96), 1)
-				})
-			end
-
-			optionsettings.Function(self.Hue, self.Sat, self.Value, self.Opacity)
-		end
-
-		function optionapi:Toggle()
-			self.Rainbow = not self.Rainbow
-			if self.Rainbow then
-				table.insert(mainapi.RainbowTable, self)
-				rainbow1.ImageColor3 = Color3.fromRGB(5, 127, 100)
-				task.delay(0.1, function()
-					if not self.Rainbow then return end
-					rainbow2.ImageColor3 = Color3.fromRGB(228, 125, 43)
-					task.delay(0.1, function()
-						if not self.Rainbow then return end
-						rainbow3.ImageColor3 = Color3.fromRGB(225, 46, 52)
-					end)
-				end)
-			else
-				local ind = table.find(mainapi.RainbowTable, self)
-				if ind then
-					table.remove(mainapi.RainbowTable, ind)
-				end
-				rainbow3.ImageColor3 = color.Light(uipallet.Main, 0.37)
-				task.delay(0.1, function()
-					if self.Rainbow then return end
-					rainbow2.ImageColor3 = color.Light(uipallet.Main, 0.37)
-					task.delay(0.1, function()
-						if self.Rainbow then return end
-						rainbow1.ImageColor3 = color.Light(uipallet.Main, 0.37)
-					end)
-				end)
-			end
-		end
-
-		local doubleClick = tick()
-		preview.MouseButton1Click:Connect(function()
-			preview.Visible = false
-			valuebox.Visible = true
-			valuebox:CaptureFocus()
-			local text = Color3.fromHSV(optionapi.Hue, optionapi.Sat, optionapi.Value)
-			valuebox.Text = math.round(text.R * 255)..', '..math.round(text.G * 255)..', '..math.round(text.B * 255)
-		end)
-		slider.InputBegan:Connect(function(inputObj)
-			if
-				(inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch)
-				and (inputObj.Position.Y - slider.AbsolutePosition.Y) > (20 * scale.Scale)
-			then
-				if doubleClick > tick() then
-					optionapi:Toggle()
-				end
-				doubleClick = tick() + 0.3
-				local changed = inputService.InputChanged:Connect(function(input)
-					if input.UserInputType == (inputObj.UserInputType == Enum.UserInputType.MouseButton1 and Enum.UserInputType.MouseMovement or Enum.UserInputType.Touch) then
-						optionapi:SetValue(math.clamp((input.Position.X - bkg.AbsolutePosition.X) / bkg.AbsoluteSize.X, 0, 1))
-					end
-				end)
-
-				local ended
-				ended = inputObj.Changed:Connect(function()
-					if inputObj.UserInputState == Enum.UserInputState.End then
-						if changed then
-							changed:Disconnect()
-						end
-						if ended then
-							ended:Disconnect()
-						end
-					end
-				end)
-			end
-		end)
-		slider.MouseEnter:Connect(function()
-			tween:Tween(knob, uipallet.Tween, {
-				Size = UDim2.fromOffset(16, 16)
-			})
-		end)
-		slider.MouseLeave:Connect(function()
-			tween:Tween(knob, uipallet.Tween, {
-				Size = UDim2.fromOffset(14, 14)
-			})
-		end)
-		slider:GetPropertyChangedSignal('Visible'):Connect(function()
-			satSlider.Visible = expand.Rotation == 180 and slider.Visible
-			vibSlider.Visible = satSlider.Visible
-			opSlider.Visible = satSlider.Visible
-		end)
-		expandbutton.MouseEnter:Connect(function()
-			expand.ImageColor3 = color.Dark(uipallet.Text, 0.16)
-		end)
-		expandbutton.MouseLeave:Connect(function()
-			expand.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-		end)
-		expandbutton.MouseButton1Click:Connect(function()
-			satSlider.Visible = not satSlider.Visible
-			vibSlider.Visible = satSlider.Visible
-			opSlider.Visible = satSlider.Visible
-			expand.Rotation = satSlider.Visible and 180 or 0
-		end)
-		rainbow.MouseButton1Click:Connect(function()
-			optionapi:Toggle()
-		end)
-		valuebox.FocusLost:Connect(function(enter)
-			preview.Visible = true
-			valuebox.Visible = false
-			if enter then
-				local commas = valuebox.Text:split(',')
-				local suc, res = pcall(function()
-					return tonumber(commas[1]) and Color3.fromRGB(tonumber(commas[1]), tonumber(commas[2]), tonumber(commas[3])) or Color3.fromHex(valuebox.Text)
-				end)
-				if suc then
-					if optionapi.Rainbow then
-						optionapi:Toggle()
-					end
-					optionapi:SetValue(res:ToHSV())
-				end
-			end
-		end)
-
-		optionapi.Object = slider
-		api.Options[optionsettings.Name] = optionapi
-
-		return optionapi
-	end,
-	Dropdown = function(optionsettings, children, api)
-		local optionapi = {
-			Type = 'Dropdown',
-			Value = optionsettings.List[1] or 'None',
-			Index = 0
-		}
-
-		local dropdown = Instance.new('TextButton')
-		dropdown.Name = optionsettings.Name..'Dropdown'
-		dropdown.Size = UDim2.new(1, 0, 0, 40)
-		dropdown.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
-		dropdown.BorderSizePixel = 0
-		dropdown.AutoButtonColor = false
-		dropdown.Visible = optionsettings.Visible == nil or optionsettings.Visible
-		dropdown.Text = ''
-		dropdown.Parent = children
-		addTooltip(dropdown, optionsettings.Tooltip or optionsettings.Name)
-		local bkg = Instance.new('Frame')
-		bkg.Name = 'BKG'
-		bkg.Size = UDim2.new(1, -20, 1, -9)
-		bkg.Position = UDim2.fromOffset(10, 4)
-		bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.034)
-		bkg.Parent = dropdown
-		addCorner(bkg, UDim.new(0, 6))
-		local button = Instance.new('TextButton')
-		button.Name = 'Dropdown'
-		button.Size = UDim2.new(1, -2, 1, -2)
-		button.Position = UDim2.fromOffset(1, 1)
-		button.BackgroundColor3 = uipallet.Main
-		button.AutoButtonColor = false
-		button.Text = ''
-		button.Parent = bkg
-		local title = Instance.new('TextLabel')
-		title.Name = 'Title'
-		title.Size = UDim2.new(1, 0, 0, 29)
-		title.BackgroundTransparency = 1
-		title.Text = '         '..optionsettings.Name..' - '..optionapi.Value
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		title.TextSize = 13
-		title.TextTruncate = Enum.TextTruncate.AtEnd
-		title.FontFace = uipallet.Font
-		title.Parent = button
-		addCorner(button, UDim.new(0, 6))
-		local arrow = Instance.new('ImageLabel')
-		arrow.Name = 'Arrow'
-		arrow.Size = UDim2.fromOffset(4, 8)
-		arrow.Position = UDim2.new(1, -17, 0, 11)
-		arrow.BackgroundTransparency = 1
-		arrow.Image = getcustomasset('newvape/assets/new/expandright.png')
-		arrow.ImageColor3 = Color3.fromRGB(140, 140, 140)
-		arrow.Rotation = 90
-		arrow.Parent = button
-		optionsettings.Function = optionsettings.Function or function() end
-		local dropdownchildren
-
-		function optionapi:Save(tab)
-			tab[optionsettings.Name] = {Value = self.Value}
-		end
-
-		function optionapi:Load(tab)
-			if self.Value ~= tab.Value then
-				self:SetValue(tab.Value)
-			end
-		end
-
-		function optionapi:Change(list)
-			optionsettings.List = list or {}
-			if not table.find(optionsettings.List, self.Value) then
-				self:SetValue(self.Value)
-			end
-		end
-
-		function optionapi:SetValue(val, mouse)
-			self.Value = table.find(optionsettings.List, val) and val or optionsettings.List[1] or 'None'
-			title.Text = '         '..optionsettings.Name..' - '..self.Value
-			if dropdownchildren then
-				arrow.Rotation = 90
-				dropdownchildren:Destroy()
-				dropdownchildren = nil
-				dropdown.Size = UDim2.new(1, 0, 0, 40)
-			end
-			optionsettings.Function(self.Value, mouse)
-		end
-
-		button.MouseButton1Click:Connect(function()
-			if not dropdownchildren then
-				arrow.Rotation = 270
-				dropdown.Size = UDim2.new(1, 0, 0, 40 + (#optionsettings.List - 1) * 26)
-				dropdownchildren = Instance.new('Frame')
-				dropdownchildren.Name = 'Children'
-				dropdownchildren.Size = UDim2.new(1, 0, 0, (#optionsettings.List - 1) * 26)
-				dropdownchildren.Position = UDim2.fromOffset(0, 27)
-				dropdownchildren.BackgroundTransparency = 1
-				dropdownchildren.Parent = button
-				local ind = 0
-				for _, v in optionsettings.List do
-					if v == optionapi.Value then continue end
-					local dropdownoption = Instance.new('TextButton')
-					dropdownoption.Name = v..'Option'
-					dropdownoption.Size = UDim2.new(1, 0, 0, 26)
-					dropdownoption.Position = UDim2.fromOffset(0, ind * 26)
-					dropdownoption.BackgroundColor3 = uipallet.Main
-					dropdownoption.BorderSizePixel = 0
-					dropdownoption.AutoButtonColor = false
-					dropdownoption.Text = '         '..v
-					dropdownoption.TextXAlignment = Enum.TextXAlignment.Left
-					dropdownoption.TextColor3 = color.Dark(uipallet.Text, 0.16)
-					dropdownoption.TextSize = 13
-					dropdownoption.TextTruncate = Enum.TextTruncate.AtEnd
-					dropdownoption.FontFace = uipallet.Font
-					dropdownoption.Parent = dropdownchildren
-					dropdownoption.MouseEnter:Connect(function()
-						tween:Tween(dropdownoption, uipallet.Tween, {
-							BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-						})
-					end)
-					dropdownoption.MouseLeave:Connect(function()
-						tween:Tween(dropdownoption, uipallet.Tween, {
-							BackgroundColor3 = uipallet.Main
-						})
-					end)
-					dropdownoption.MouseButton1Click:Connect(function()
-						optionapi:SetValue(v, true)
-					end)
-					ind += 1
-				end
-			else
-				optionapi:SetValue(optionapi.Value, true)
-			end
-		end)
-		dropdown.MouseEnter:Connect(function()
-			tween:Tween(bkg, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.0875)
-			})
-		end)
-		dropdown.MouseLeave:Connect(function()
-			tween:Tween(bkg, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.034)
-			})
-		end)
-
-		optionapi.Object = dropdown
-		api.Options[optionsettings.Name] = optionapi
-
-		return optionapi
-	end,
-	Font = function(optionsettings, children, api)
-		local fonts = {
-			optionsettings.Blacklist,
-			'Custom'
-		}
-		for _, v in Enum.Font:GetEnumItems() do
-			if not table.find(fonts, v.Name) then
-				table.insert(fonts, v.Name)
-			end
-		end
-
-		local optionapi = {Value = Font.fromEnum(Enum.Font[fonts[1]])}
-		local fontdropdown
-		local fontbox
-		optionsettings.Function = optionsettings.Function or function() end
-
-		fontdropdown = components.Dropdown({
-			Name = optionsettings.Name,
-			List = fonts,
-			Function = function(val)
-				fontbox.Object.Visible = val == 'Custom' and fontdropdown.Object.Visible
-				if val ~= 'Custom' then
-					optionapi.Value = Font.fromEnum(Enum.Font[val])
-					optionsettings.Function(optionapi.Value)
-				else
-					pcall(function()
-						optionapi.Value = Font.fromId(tonumber(fontbox.Value))
-					end)
-					optionsettings.Function(optionapi.Value)
-				end
-			end,
-			Darker = optionsettings.Darker,
-			Visible = optionsettings.Visible
-		}, children, api)
-		optionapi.Object = fontdropdown.Object
-		fontbox = components.TextBox({
-			Name = optionsettings.Name..' Asset',
-			Placeholder = 'font (rbxasset)',
-			Function = function()
-				if fontdropdown.Value == 'Custom' then
-					pcall(function()
-						optionapi.Value = Font.fromId(tonumber(fontbox.Value))
-					end)
-					optionsettings.Function(optionapi.Value)
-				end
-			end,
-			Visible = false,
-			Darker = true
-		}, children, api)
-
-		fontdropdown.Object:GetPropertyChangedSignal('Visible'):Connect(function()
-			fontbox.Object.Visible = fontdropdown.Object.Visible and fontdropdown.Value == 'Custom'
-		end)
-
-		return optionapi
-	end,
-	Slider = function(optionsettings, children, api)
-		local optionapi = {
-			Type = 'Slider',
-			Value = optionsettings.Default or optionsettings.Min,
-			Max = optionsettings.Max,
-			Index = getTableSize(api.Options)
-		}
-
-		local slider = Instance.new('TextButton')
-		slider.Name = optionsettings.Name..'Slider'
-		slider.Size = UDim2.new(1, 0, 0, 50)
-		slider.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
-		slider.BorderSizePixel = 0
-		slider.AutoButtonColor = false
-		slider.Visible = optionsettings.Visible == nil or optionsettings.Visible
-		slider.Text = ''
-		slider.Parent = children
-		addTooltip(slider, optionsettings.Tooltip)
-		local title = Instance.new('TextLabel')
-		title.Name = 'Title'
-		title.Size = UDim2.fromOffset(60, 30)
-		title.Position = UDim2.fromOffset(10, 2)
-		title.BackgroundTransparency = 1
-		title.Text = optionsettings.Name
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		title.TextSize = 11
-		title.FontFace = uipallet.Font
-		title.Parent = slider
-		local valuebutton = Instance.new('TextButton')
-		valuebutton.Name = 'Value'
-		valuebutton.Size = UDim2.fromOffset(60, 15)
-		valuebutton.Position = UDim2.new(1, -69, 0, 9)
-		valuebutton.BackgroundTransparency = 1
-		valuebutton.Text = optionapi.Value..(optionsettings.Suffix and ' '..(type(optionsettings.Suffix) == 'function' and optionsettings.Suffix(optionapi.Value) or optionsettings.Suffix) or '')
-		valuebutton.TextXAlignment = Enum.TextXAlignment.Right
-		valuebutton.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		valuebutton.TextSize = 11
-		valuebutton.FontFace = uipallet.Font
-		valuebutton.Parent = slider
-		local valuebox = Instance.new('TextBox')
-		valuebox.Name = 'Box'
-		valuebox.Size = valuebutton.Size
-		valuebox.Position = valuebutton.Position
-		valuebox.BackgroundTransparency = 1
-		valuebox.Visible = false
-		valuebox.Text = optionapi.Value
-		valuebox.TextXAlignment = Enum.TextXAlignment.Right
-		valuebox.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		valuebox.TextSize = 11
-		valuebox.FontFace = uipallet.Font
-		valuebox.ClearTextOnFocus = false
-		valuebox.Parent = slider
-		local bkg = Instance.new('Frame')
-		bkg.Name = 'Slider'
-		bkg.Size = UDim2.new(1, -20, 0, 2)
-		bkg.Position = UDim2.fromOffset(10, 37)
-		bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.034)
-		bkg.BorderSizePixel = 0
-		bkg.Parent = slider
-		local fill = bkg:Clone()
-		fill.Name = 'Fill'
-		fill.Size = UDim2.fromScale(math.clamp((optionapi.Value - optionsettings.Min) / optionsettings.Max, 0.04, 0.96), 1)
-		fill.Position = UDim2.new()
-		fill.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-		fill.Parent = bkg
-		local knobholder = Instance.new('Frame')
-		knobholder.Name = 'Knob'
-		knobholder.Size = UDim2.fromOffset(24, 4)
-		knobholder.Position = UDim2.fromScale(1, 0.5)
-		knobholder.AnchorPoint = Vector2.new(0.5, 0.5)
-		knobholder.BackgroundColor3 = slider.BackgroundColor3
-		knobholder.BorderSizePixel = 0
-		knobholder.Parent = fill
-		local knob = Instance.new('Frame')
-		knob.Name = 'Knob'
-		knob.Size = UDim2.fromOffset(14, 14)
-		knob.Position = UDim2.fromScale(0.5, 0.5)
-		knob.AnchorPoint = Vector2.new(0.5, 0.5)
-		knob.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-		knob.Parent = knobholder
-		addCorner(knob, UDim.new(1, 0))
-		optionsettings.Function = optionsettings.Function or function() end
-		optionsettings.Decimal = optionsettings.Decimal or 1
-
-		function optionapi:Save(tab)
-			tab[optionsettings.Name] = {
-				Value = self.Value,
-				Max = self.Max
-			}
-		end
-
-		function optionapi:Load(tab)
-			local newval = tab.Value == tab.Max and tab.Max ~= self.Max and self.Max or tab.Value
-			if self.Value ~= newval then
-				self:SetValue(newval, nil, true)
-			end
-		end
-
-		function optionapi:Color(hue, sat, val, rainbowcheck)
-			fill.BackgroundColor3 = rainbowcheck and Color3.fromHSV(mainapi:Color((hue - (self.Index * 0.075)) % 1)) or Color3.fromHSV(hue, sat, val)
-			knob.BackgroundColor3 = fill.BackgroundColor3
-		end
-
-		function optionapi:SetValue(value, pos, final)
-			if tonumber(value) == math.huge or value ~= value then return end
-			local check = self.Value ~= value
-			self.Value = value
-			tween:Tween(fill, uipallet.Tween, {
-				Size = UDim2.fromScale(math.clamp(pos or math.clamp(value / optionsettings.Max, 0, 1), 0.04, 0.96), 1)
-			})
-			valuebutton.Text = self.Value..(optionsettings.Suffix and ' '..(type(optionsettings.Suffix) == 'function' and optionsettings.Suffix(self.Value) or optionsettings.Suffix) or '')
-			if check or final then
-				optionsettings.Function(value, final)
-			end
-		end
-
-		slider.InputBegan:Connect(function(inputObj)
-			if
-				(inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch)
-				and (inputObj.Position.Y - slider.AbsolutePosition.Y) > (20 * scale.Scale)
-			then
-				local newPosition = math.clamp((inputObj.Position.X - bkg.AbsolutePosition.X) / bkg.AbsoluteSize.X, 0, 1)
-				optionapi:SetValue(math.floor((optionsettings.Min + (optionsettings.Max - optionsettings.Min) * newPosition) * optionsettings.Decimal) / optionsettings.Decimal, newPosition)
-				local lastValue = optionapi.Value
-				local lastPosition = newPosition
-
-				local changed = inputService.InputChanged:Connect(function(input)
-					if input.UserInputType == (inputObj.UserInputType == Enum.UserInputType.MouseButton1 and Enum.UserInputType.MouseMovement or Enum.UserInputType.Touch) then
-						local newPosition = math.clamp((input.Position.X - bkg.AbsolutePosition.X) / bkg.AbsoluteSize.X, 0, 1)
-						optionapi:SetValue(math.floor((optionsettings.Min + (optionsettings.Max - optionsettings.Min) * newPosition) * optionsettings.Decimal) / optionsettings.Decimal, newPosition)
-						lastValue = optionapi.Value
-						lastPosition = newPosition
-					end
-				end)
-
-				local ended
-				ended = inputObj.Changed:Connect(function()
-					if inputObj.UserInputState == Enum.UserInputState.End then
-						if changed then
-							changed:Disconnect()
-						end
-						if ended then
-							ended:Disconnect()
-						end
-						optionapi:SetValue(lastValue, lastPosition, true)
-					end
-				end)
-
-			end
-		end)
-		slider.MouseEnter:Connect(function()
-			tween:Tween(knob, uipallet.Tween, {
-				Size = UDim2.fromOffset(16, 16)
-			})
-		end)
-		slider.MouseLeave:Connect(function()
-			tween:Tween(knob, uipallet.Tween, {
-				Size = UDim2.fromOffset(14, 14)
-			})
-		end)
-		valuebutton.MouseButton1Click:Connect(function()
-			valuebutton.Visible = false
-			valuebox.Visible = true
-			valuebox.Text = optionapi.Value
-			valuebox:CaptureFocus()
-		end)
-		valuebox.FocusLost:Connect(function(enter)
-			valuebutton.Visible = true
-			valuebox.Visible = false
-			if enter and tonumber(valuebox.Text) then
-				optionapi:SetValue(tonumber(valuebox.Text), nil, true)
-			end
-		end)
-
-		optionapi.Object = slider
-		api.Options[optionsettings.Name] = optionapi
-
-		return optionapi
-	end,
-	Targets = function(optionsettings, children, api)
-		local optionapi = {
-			Type = 'Targets',
-			Index = getTableSize(api.Options)
-		}
-
-		local textlist = Instance.new('TextButton')
-		textlist.Name = 'Targets'
-		textlist.Size = UDim2.new(1, 0, 0, 50)
-		textlist.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
-		textlist.BorderSizePixel = 0
-		textlist.AutoButtonColor = false
-		textlist.Visible = optionsettings.Visible == nil or optionsettings.Visible
-		textlist.Text = ''
-		textlist.Parent = children
-		addTooltip(textlist, optionsettings.Tooltip)
-		local bkg = Instance.new('Frame')
-		bkg.Name = 'BKG'
-		bkg.Size = UDim2.new(1, -20, 1, -9)
-		bkg.Position = UDim2.fromOffset(10, 4)
-		bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.034)
-		bkg.Parent = textlist
-		addCorner(bkg, UDim.new(0, 4))
-		local button = Instance.new('TextButton')
-		button.Name = 'TextList'
-		button.Size = UDim2.new(1, -2, 1, -2)
-		button.Position = UDim2.fromOffset(1, 1)
-		button.BackgroundColor3 = uipallet.Main
-		button.AutoButtonColor = false
-		button.Text = ''
-		button.Parent = bkg
-		local buttontitle = Instance.new('TextLabel')
-		buttontitle.Name = 'Title'
-		buttontitle.Size = UDim2.new(1, -5, 0, 15)
-		buttontitle.Position = UDim2.fromOffset(5, 6)
-		buttontitle.BackgroundTransparency = 1
-		buttontitle.Text = 'Target:'
-		buttontitle.TextXAlignment = Enum.TextXAlignment.Left
-		buttontitle.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		buttontitle.TextSize = 15
-		buttontitle.TextTruncate = Enum.TextTruncate.AtEnd
-		buttontitle.FontFace = uipallet.Font
-		buttontitle.Parent = button
-		local items = buttontitle:Clone()
-		items.Name = 'Items'
-		items.Position = UDim2.fromOffset(5, 21)
-		items.Text = 'Ignore none'
-		items.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		items.TextSize = 11
-		items.Parent = button
-		addCorner(button, UDim.new(0, 4))
-		local tool = Instance.new('Frame')
-		tool.Size = UDim2.fromOffset(65, 12)
-		tool.Position = UDim2.fromOffset(52, 8)
-		tool.BackgroundTransparency = 1
-		tool.Parent = button
-		local toollist = Instance.new('UIListLayout')
-		toollist.FillDirection = Enum.FillDirection.Horizontal
-		toollist.Padding = UDim.new(0, 6)
-		toollist.Parent = tool
-		local window = Instance.new('TextButton')
-		window.Name = 'TargetsTextWindow'
-		window.Size = UDim2.fromOffset(220, 145)
-		window.BackgroundColor3 = uipallet.Main
-		window.BorderSizePixel = 0
-		window.AutoButtonColor = false
-		window.Visible = false
-		window.Text = ''
-		window.Parent = clickgui
-		optionapi.Window = window
-		addBlur(window)
-		addCorner(window)
-		local icon = Instance.new('ImageLabel')
-		icon.Name = 'Icon'
-		icon.Size = UDim2.fromOffset(18, 12)
-		icon.Position = UDim2.fromOffset(10, 15)
-		icon.BackgroundTransparency = 1
-		icon.Image = getcustomasset('newvape/assets/new/targetstab.png')
-		icon.Parent = window
-		local title = Instance.new('TextLabel')
-		title.Name = 'Title'
-		title.Size = UDim2.new(1, -36, 0, 20)
-		title.Position = UDim2.fromOffset(math.abs(title.Size.X.Offset), 11)
-		title.BackgroundTransparency = 1
-		title.Text = 'Target settings'
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = uipallet.Text
-		title.TextSize = 13
-		title.FontFace = uipallet.Font
-		title.Parent = window
-		local close = addCloseButton(window)
-		optionsettings.Function = optionsettings.Function or function() end
-
-		function optionapi:Save(tab)
-			tab.Targets = {
-				Players = self.Players.Enabled,
-				NPCs = self.NPCs.Enabled,
-				Invisible = self.Invisible.Enabled,
-				Walls = self.Walls.Enabled
-			}
-		end
-
-		function optionapi:Load(tab)
-			if self.Players.Enabled ~= tab.Players then
-				self.Players:Toggle()
-			end
-			if self.NPCs.Enabled ~= tab.NPCs then
-				self.NPCs:Toggle()
-			end
-			if self.Invisible.Enabled ~= tab.Invisible then
-				self.Invisible:Toggle()
-			end
-			if self.Walls.Enabled ~= tab.Walls then
-				self.Walls:Toggle()
-			end
-		end
-
-		function optionapi:Color(hue, sat, val, rainbowcheck)
-			bkg.BackgroundColor3 = rainbowcheck and Color3.fromHSV(mainapi:Color((hue - (self.Index * 0.075)) % 1)) or Color3.fromHSV(hue, sat, val)
-			if self.Players.Enabled then
-				tween:Cancel(self.Players.Object.Frame)
-				self.Players.Object.Frame.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
-			end
-			if self.NPCs.Enabled then
-				tween:Cancel(self.NPCs.Object.Frame)
-				self.NPCs.Object.Frame.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
-			end
-			if self.Invisible.Enabled then
-				tween:Cancel(self.Invisible.Object.Knob)
-				self.Invisible.Object.Knob.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
-			end
-			if self.Walls.Enabled then
-				tween:Cancel(self.Walls.Object.Knob)
-				self.Walls.Object.Knob.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
-			end
-		end
-
-		optionapi.Players = components.TargetsButton({
-			Position = UDim2.fromOffset(11, 45),
-			Icon = getcustomasset('newvape/assets/new/targetplayers1.png'),
-			IconSize = UDim2.fromOffset(15, 16),
-			IconParent = tool,
-			ToolIcon = getcustomasset('newvape/assets/new/targetplayers2.png'),
-			ToolSize = UDim2.fromOffset(11, 12),
-			Tooltip = 'Players',
-			Function = optionsettings.Function
-		}, window, tool)
-		optionapi.NPCs = components.TargetsButton({
-			Position = UDim2.fromOffset(112, 45),
-			Icon = getcustomasset('newvape/assets/new/targetnpc1.png'),
-			IconSize = UDim2.fromOffset(12, 16),
-			IconParent = tool,
-			ToolIcon = getcustomasset('newvape/assets/new/targetnpc2.png'),
-			ToolSize = UDim2.fromOffset(9, 12),
-			Tooltip = 'NPCs',
-			Function = optionsettings.Function
-		}, window, tool)
-		optionapi.Invisible = components.Toggle({
-			Name = 'Ignore invisible',
-			Function = function()
-				local text = 'none'
-				if optionapi.Invisible.Enabled then
-					text = 'invisible'
-				end
-				if optionapi.Walls.Enabled then
-					text = text == 'none' and 'behind walls' or text..', behind walls'
-				end
-				items.Text = 'Ignore '..text
-				optionsettings.Function()
-			end
-		}, window, {Options = {}})
-		optionapi.Invisible.Object.Position = UDim2.fromOffset(0, 81)
-		optionapi.Walls = components.Toggle({
-			Name = 'Ignore behind walls',
-			Function = function()
-				local text = 'none'
-				if optionapi.Invisible.Enabled then
-					text = 'invisible'
-				end
-				if optionapi.Walls.Enabled then
-					text = text == 'none' and 'behind walls' or text..', behind walls'
-				end
-				items.Text = 'Ignore '..text
-				optionsettings.Function()
-			end
-		}, window, {Options = {}})
-		optionapi.Walls.Object.Position = UDim2.fromOffset(0, 111)
-		if optionsettings.Players then
-			optionapi.Players:Toggle()
-		end
-		if optionsettings.NPCs then
-			optionapi.NPCs:Toggle()
-		end
-		if optionsettings.Invisible then
-			optionapi.Invisible:Toggle()
-		end
-		if optionsettings.Walls then
-			optionapi.Walls:Toggle()
-		end
-
-		close.MouseButton1Click:Connect(function()
-			window.Visible = false
-		end)
-		button.MouseButton1Click:Connect(function()
-			window.Visible = not window.Visible
-			tween:Cancel(bkg)
-			bkg.BackgroundColor3 = window.Visible and Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value) or color.Light(uipallet.Main, 0.37)
-		end)
-		textlist.MouseEnter:Connect(function()
-			if not optionapi.Window.Visible then
-				tween:Tween(bkg, uipallet.Tween, {
-					BackgroundColor3 = color.Light(uipallet.Main, 0.37)
-				})
-			end
-		end)
-		textlist.MouseLeave:Connect(function()
-			if not optionapi.Window.Visible then
-				tween:Tween(bkg, uipallet.Tween, {
-					BackgroundColor3 = color.Light(uipallet.Main, 0.034)
-				})
-			end
-		end)
-		textlist:GetPropertyChangedSignal('AbsolutePosition'):Connect(function()
-			if mainapi.ThreadFix then
-				setthreadidentity(8)
-			end
-			local actualPosition = (textlist.AbsolutePosition + Vector2.new(0, 60)) / scale.Scale
-			window.Position = UDim2.fromOffset(actualPosition.X + 220, actualPosition.Y)
-		end)
-
-		optionapi.Object = textlist
-		api.Options.Targets = optionapi
-
-		return optionapi
-	end,
-	TargetsButton = function(optionsettings, children, api)
-		local optionapi = {Enabled = false}
-
-		local targetbutton = Instance.new('TextButton')
-		targetbutton.Size = UDim2.fromOffset(98, 31)
-		targetbutton.Position = optionsettings.Position
-		targetbutton.BackgroundColor3 = color.Light(uipallet.Main, 0.05)
-		targetbutton.AutoButtonColor = false
-		targetbutton.Visible = optionsettings.Visible == nil or optionsettings.Visible
-		targetbutton.Text = ''
-		targetbutton.Parent = children
-		addCorner(targetbutton)
-		addTooltip(targetbutton, optionsettings.Tooltip)
-		local bkg = Instance.new('Frame')
-		bkg.Size = UDim2.new(1, -2, 1, -2)
-		bkg.Position = UDim2.fromOffset(1, 1)
-		bkg.BackgroundColor3 = uipallet.Main
-		bkg.Parent = targetbutton
-		addCorner(bkg)
-		local icon = Instance.new('ImageLabel')
-		icon.Size = optionsettings.IconSize
-		icon.Position = UDim2.fromScale(0.5, 0.5)
-		icon.AnchorPoint = Vector2.new(0.5, 0.5)
-		icon.BackgroundTransparency = 1
-		icon.Image = optionsettings.Icon
-		icon.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		icon.Parent = bkg
-		optionsettings.Function = optionsettings.Function or function() end
-		local tooltipicon
-
-		function optionapi:Toggle()
-			self.Enabled = not self.Enabled
-			tween:Tween(bkg, uipallet.Tween, {
-				BackgroundColor3 = self.Enabled and Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value) or uipallet.Main
-			})
-			tween:Tween(icon, uipallet.Tween, {
-				ImageColor3 = self.Enabled and Color3.new(1, 1, 1) or color.Light(uipallet.Main, 0.37)
-			})
-			if tooltipicon then
-				tooltipicon:Destroy()
-			end
-			if self.Enabled then
-				tooltipicon = Instance.new('ImageLabel')
-				tooltipicon.Size = optionsettings.ToolSize
-				tooltipicon.BackgroundTransparency = 1
-				tooltipicon.Image = optionsettings.ToolIcon
-				tooltipicon.ImageColor3 = uipallet.Text
-				tooltipicon.Parent = optionsettings.IconParent
-			end
-			optionsettings.Function(self.Enabled)
-		end
-
-		targetbutton.MouseEnter:Connect(function()
-			if not optionapi.Enabled then
-				tween:Tween(bkg, uipallet.Tween, {
-					BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value - 0.25)
-				})
-				tween:Tween(icon, uipallet.Tween, {
-					ImageColor3 = Color3.new(1, 1, 1)
-				})
-			end
-		end)
-		targetbutton.MouseLeave:Connect(function()
-			if not optionapi.Enabled then
-				tween:Tween(bkg, uipallet.Tween, {
-					BackgroundColor3 = uipallet.Main
-				})
-				tween:Tween(icon, uipallet.Tween, {
-					ImageColor3 = color.Light(uipallet.Main, 0.37)
-				})
-			end
-		end)
-		targetbutton.MouseButton1Click:Connect(function()
-			optionapi:Toggle()
-		end)
-
-		optionapi.Object = targetbutton
-
-		return optionapi
-	end,
-	TextBox = function(optionsettings, children, api)
-		local optionapi = {
-			Type = 'TextBox',
-			Value = optionsettings.Default or '',
-			Index = 0
-		}
-
-		local textbox = Instance.new('TextButton')
-		textbox.Name = optionsettings.Name..'TextBox'
-		textbox.Size = UDim2.new(1, 0, 0, 58)
-		textbox.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
-		textbox.BorderSizePixel = 0
-		textbox.AutoButtonColor = false
-		textbox.Visible = optionsettings.Visible == nil or optionsettings.Visible
-		textbox.Text = ''
-		textbox.Parent = children
-		addTooltip(textbox, optionsettings.Tooltip)
-		local title = Instance.new('TextLabel')
-		title.Size = UDim2.new(1, -10, 0, 20)
-		title.Position = UDim2.fromOffset(10, 3)
-		title.BackgroundTransparency = 1
-		title.Text = optionsettings.Name
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = uipallet.Text
-		title.TextSize = 12
-		title.FontFace = uipallet.Font
-		title.Parent = textbox
-		local bkg = Instance.new('Frame')
-		bkg.Name = 'BKG'
-		bkg.Size = UDim2.new(1, -20, 0, 29)
-		bkg.Position = UDim2.fromOffset(10, 23)
-		bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		bkg.Parent = textbox
-		addCorner(bkg, UDim.new(0, 4))
-		local box = Instance.new('TextBox')
-		box.Size = UDim2.new(1, -8, 1, 0)
-		box.Position = UDim2.fromOffset(8, 0)
-		box.BackgroundTransparency = 1
-		box.Text = optionsettings.Default or ''
-		box.PlaceholderText = optionsettings.Placeholder or 'Click to set'
-		box.TextXAlignment = Enum.TextXAlignment.Left
-		box.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		box.PlaceholderColor3 = color.Dark(uipallet.Text, 0.31)
-		box.TextSize = 12
-		box.FontFace = uipallet.Font
-		box.ClearTextOnFocus = false
-		box.Parent = bkg
-		optionsettings.Function = optionsettings.Function or function() end
-
-		function optionapi:Save(tab)
-			tab[optionsettings.Name] = {Value = self.Value}
-		end
-
-		function optionapi:Load(tab)
-			if self.Value ~= tab.Value then
-				self:SetValue(tab.Value)
-			end
-		end
-
-		function optionapi:SetValue(val, enter)
-			self.Value = val
-			box.Text = val
-			optionsettings.Function(enter)
-		end
-
-		textbox.MouseButton1Click:Connect(function()
-			box:CaptureFocus()
-		end)
-		box.FocusLost:Connect(function(enter)
-			optionapi:SetValue(box.Text, enter)
-		end)
-		box:GetPropertyChangedSignal('Text'):Connect(function()
-			optionapi:SetValue(box.Text)
-		end)
-
-		optionapi.Object = textbox
-		api.Options[optionsettings.Name] = optionapi
-
-		return optionapi
-	end,
-	TextList = function(optionsettings, children, api)
-		local optionapi = {
-			Type = 'TextList',
-			List = optionsettings.Default or {},
-			ListEnabled = optionsettings.Default or {},
-			Objects = {},
-			Window = {Visible = false},
-			Index = getTableSize(api.Options)
-		}
-		optionsettings.Color = optionsettings.Color or Color3.fromRGB(5, 134, 105)
-
-		local textlist = Instance.new('TextButton')
-		textlist.Name = optionsettings.Name..'TextList'
-		textlist.Size = UDim2.new(1, 0, 0, 50)
-		textlist.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
-		textlist.BorderSizePixel = 0
-		textlist.AutoButtonColor = false
-		textlist.Visible = optionsettings.Visible == nil or optionsettings.Visible
-		textlist.Text = ''
-		textlist.Parent = children
-		addTooltip(textlist, optionsettings.Tooltip)
-		local bkg = Instance.new('Frame')
-		bkg.Name = 'BKG'
-		bkg.Size = UDim2.new(1, -20, 1, -9)
-		bkg.Position = UDim2.fromOffset(10, 4)
-		bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.034)
-		bkg.Parent = textlist
-		addCorner(bkg, UDim.new(0, 4))
-		local button = Instance.new('TextButton')
-		button.Name = 'TextList'
-		button.Size = UDim2.new(1, -2, 1, -2)
-		button.Position = UDim2.fromOffset(1, 1)
-		button.BackgroundColor3 = uipallet.Main
-		button.AutoButtonColor = false
-		button.Text = ''
-		button.Parent = bkg
-		local buttonicon = Instance.new('ImageLabel')
-		buttonicon.Name = 'Icon'
-		buttonicon.Size = UDim2.fromOffset(14, 12)
-		buttonicon.Position = UDim2.fromOffset(10, 14)
-		buttonicon.BackgroundTransparency = 1
-		buttonicon.Image = optionsettings.Icon or getcustomasset('newvape/assets/new/allowedicon.png')
-		buttonicon.Parent = button
-		local buttontitle = Instance.new('TextLabel')
-		buttontitle.Name = 'Title'
-		buttontitle.Size = UDim2.new(1, -35, 0, 15)
-		buttontitle.Position = UDim2.fromOffset(35, 6)
-		buttontitle.BackgroundTransparency = 1
-		buttontitle.Text = optionsettings.Name
-		buttontitle.TextXAlignment = Enum.TextXAlignment.Left
-		buttontitle.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		buttontitle.TextSize = 15
-		buttontitle.TextTruncate = Enum.TextTruncate.AtEnd
-		buttontitle.FontFace = uipallet.Font
-		buttontitle.Parent = button
-		local amount = buttontitle:Clone()
-		amount.Name = 'Amount'
-		amount.Size = UDim2.new(1, -13, 0, 15)
-		amount.Position = UDim2.fromOffset(0, 6)
-		amount.Text = '0'
-		amount.TextXAlignment = Enum.TextXAlignment.Right
-		amount.Parent = button
-		local items = buttontitle:Clone()
-		items.Name = 'Items'
-		items.Position = UDim2.fromOffset(35, 21)
-		items.Text = 'None'
-		items.TextColor3 = color.Dark(uipallet.Text, 0.43)
-		items.TextSize = 11
-		items.Parent = button
-		addCorner(button, UDim.new(0, 4))
-		local window = Instance.new('TextButton')
-		window.Name = optionsettings.Name..'TextWindow'
-		window.Size = UDim2.fromOffset(220, 85)
-		window.BackgroundColor3 = uipallet.Main
-		window.BorderSizePixel = 0
-		window.AutoButtonColor = false
-		window.Visible = false
-		window.Text = ''
-		window.Parent = api.Legit and mainapi.Legit.Window or clickgui
-		optionapi.Window = window
-		addBlur(window)
-		addCorner(window)
-		local icon = Instance.new('ImageLabel')
-		icon.Name = 'Icon'
-		icon.Size = optionsettings.TabSize or UDim2.fromOffset(19, 16)
-		icon.Position = UDim2.fromOffset(10, 13)
-		icon.BackgroundTransparency = 1
-		icon.Image = optionsettings.Tab or getcustomasset('newvape/assets/new/allowedtab.png')
-		icon.Parent = window
-		local title = Instance.new('TextLabel')
-		title.Name = 'Title'
-		title.Size = UDim2.new(1, -36, 0, 20)
-		title.Position = UDim2.fromOffset(math.abs(title.Size.X.Offset), 11)
-		title.BackgroundTransparency = 1
-		title.Text = optionsettings.Name
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = uipallet.Text
-		title.TextSize = 13
-		title.FontFace = uipallet.Font
-		title.Parent = window
-		local close = addCloseButton(window)
-		local addbkg = Instance.new('Frame')
-		addbkg.Name = 'Add'
-		addbkg.Size = UDim2.fromOffset(200, 31)
-		addbkg.Position = UDim2.fromOffset(10, 45)
-		addbkg.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		addbkg.Parent = window
-		addCorner(addbkg)
-		local addbox = addbkg:Clone()
-		addbox.Size = UDim2.new(1, -2, 1, -2)
-		addbox.Position = UDim2.fromOffset(1, 1)
-		addbox.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-		addbox.Parent = addbkg
-		local addvalue = Instance.new('TextBox')
-		addvalue.Size = UDim2.new(1, -35, 1, 0)
-		addvalue.Position = UDim2.fromOffset(10, 0)
-		addvalue.BackgroundTransparency = 1
-		addvalue.Text = ''
-		addvalue.PlaceholderText = optionsettings.Placeholder or 'Add entry...'
-		addvalue.TextXAlignment = Enum.TextXAlignment.Left
-		addvalue.TextColor3 = Color3.new(1, 1, 1)
-		addvalue.TextSize = 15
-		addvalue.FontFace = uipallet.Font
-		addvalue.ClearTextOnFocus = false
-		addvalue.Parent = addbkg
-		local addbutton = Instance.new('ImageButton')
-		addbutton.Name = 'AddButton'
-		addbutton.Size = UDim2.fromOffset(16, 16)
-		addbutton.Position = UDim2.new(1, -26, 0, 8)
-		addbutton.BackgroundTransparency = 1
-		addbutton.Image = getcustomasset('newvape/assets/new/add.png')
-		addbutton.ImageColor3 = optionsettings.Color
-		addbutton.ImageTransparency = 0.3
-		addbutton.Parent = addbkg
-		optionsettings.Function = optionsettings.Function or function() end
-
-		function optionapi:Save(tab)
-			tab[optionsettings.Name] = {
-				List = self.List,
-				ListEnabled = self.ListEnabled
-			}
-		end
-
-		function optionapi:Load(tab)
-			self.List = tab.List or {}
-			self.ListEnabled = tab.ListEnabled or {}
-			self:ChangeValue()
-		end
-
-		function optionapi:Color(hue, sat, val, rainbowcheck)
-			if window.Visible then
-				bkg.BackgroundColor3 = rainbowcheck and Color3.fromHSV(mainapi:Color((hue - (self.Index * 0.075)) % 1)) or Color3.fromHSV(hue, sat, val)
-			end
-		end
-
-		function optionapi:ChangeValue(val)
-			if val then
-				local ind = table.find(self.List, val)
-				if ind then
-					table.remove(self.List, ind)
-					ind = table.find(self.ListEnabled, val)
-					if ind then
-						table.remove(self.ListEnabled, ind)
-					end
-				else
-					table.insert(self.List, val)
-					table.insert(self.ListEnabled, val)
-				end
-			end
-
-			optionsettings.Function(self.List)
-			for _, v in self.Objects do
-				v:Destroy()
-			end
-			table.clear(self.Objects)
-			window.Size = UDim2.fromOffset(220, 85 + (#self.List * 35))
-			amount.Text = #self.List
-
-			local enabledtext = 'None'
-			for i, v in self.ListEnabled do
-				if i == 1 then enabledtext = '' end
-				enabledtext = enabledtext..(i == 1 and v or ', '..v)
-			end
-			items.Text = enabledtext
-
-			for i, v in self.List do
-				local enabled = table.find(self.ListEnabled, v)
-				local object = Instance.new('TextButton')
-				object.Name = v
-				object.Size = UDim2.fromOffset(200, 32)
-				object.Position = UDim2.fromOffset(10, 47 + (i * 35))
-				object.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-				object.AutoButtonColor = false
-				object.Text = ''
-				object.Parent = window
-				addCorner(object)
-				local objectbkg = Instance.new('Frame')
-				objectbkg.Name = 'BKG'
-				objectbkg.Size = UDim2.new(1, -2, 1, -2)
-				objectbkg.Position = UDim2.fromOffset(1, 1)
-				objectbkg.BackgroundColor3 = uipallet.Main
-				objectbkg.Visible = false
-				objectbkg.Parent = object
-				addCorner(objectbkg)
-				local objectdot = Instance.new('Frame')
-				objectdot.Name = 'Dot'
-				objectdot.Size = UDim2.fromOffset(10, 11)
-				objectdot.Position = UDim2.fromOffset(10, 12)
-				objectdot.BackgroundColor3 = enabled and optionsettings.Color or color.Light(uipallet.Main, 0.37)
-				objectdot.Parent = object
-				addCorner(objectdot, UDim.new(1, 0))
-				local objectdotin = objectdot:Clone()
-				objectdotin.Size = UDim2.fromOffset(8, 9)
-				objectdotin.Position = UDim2.fromOffset(1, 1)
-				objectdotin.BackgroundColor3 = enabled and optionsettings.Color or color.Light(uipallet.Main, 0.02)
-				objectdotin.Parent = objectdot
-				local objecttitle = Instance.new('TextLabel')
-				objecttitle.Name = 'Title'
-				objecttitle.Size = UDim2.new(1, -30, 1, 0)
-				objecttitle.Position = UDim2.fromOffset(30, 0)
-				objecttitle.BackgroundTransparency = 1
-				objecttitle.Text = v
-				objecttitle.TextXAlignment = Enum.TextXAlignment.Left
-				objecttitle.TextColor3 = color.Dark(uipallet.Text, 0.16)
-				objecttitle.TextSize = 15
-				objecttitle.FontFace = uipallet.Font
-				objecttitle.Parent = object
-				local close = Instance.new('ImageButton')
-				close.Name = 'Close'
-				close.Size = UDim2.fromOffset(16, 16)
-				close.Position = UDim2.new(1, -26, 0, 8)
-				close.BackgroundColor3 = Color3.new(1, 1, 1)
-				close.BackgroundTransparency = 1
-				close.AutoButtonColor = false
-				close.Image = getcustomasset('newvape/assets/new/closemini.png')
-				close.ImageColor3 = color.Light(uipallet.Text, 0.2)
-				close.ImageTransparency = 0.5
-				close.Parent = object
-				addCorner(close, UDim.new(1, 0))
-
-				close.MouseEnter:Connect(function()
-					close.ImageTransparency = 0.3
-					tween:Tween(close, uipallet.Tween, {
-						BackgroundTransparency = 0.6
-					})
-				end)
-				close.MouseLeave:Connect(function()
-					close.ImageTransparency = 0.5
-					tween:Tween(close, uipallet.Tween, {
-						BackgroundTransparency = 1
-					})
-				end)
-				close.MouseButton1Click:Connect(function()
-					self:ChangeValue(v)
-				end)
-				object.MouseEnter:Connect(function()
-					objectbkg.Visible = true
-				end)
-				object.MouseLeave:Connect(function()
-					objectbkg.Visible = false
-				end)
-				object.MouseButton1Click:Connect(function()
-					local ind = table.find(self.ListEnabled, v)
-					if ind then
-						table.remove(self.ListEnabled, ind)
-						objectdot.BackgroundColor3 = color.Light(uipallet.Main, 0.37)
-						objectdotin.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-					else
-						table.insert(self.ListEnabled, v)
-						objectdot.BackgroundColor3 = optionsettings.Color
-						objectdotin.BackgroundColor3 = optionsettings.Color
-					end
-
-					local enabledtext = 'None'
-					for i, v in self.ListEnabled do
-						if i == 1 then enabledtext = '' end
-						enabledtext = enabledtext..(i == 1 and v or ', '..v)
-					end
-
-					items.Text = enabledtext
-					optionsettings.Function()
-				end)
-
-				table.insert(self.Objects, object)
-			end
-		end
-
-		addbutton.MouseEnter:Connect(function()
-			addbutton.ImageTransparency = 0
-		end)
-		addbutton.MouseLeave:Connect(function()
-			addbutton.ImageTransparency = 0.3
-		end)
-		addbutton.MouseButton1Click:Connect(function()
-			if not table.find(optionapi.List, addvalue.Text) then
-				optionapi:ChangeValue(addvalue.Text)
-				addvalue.Text = ''
-			end
-		end)
-		addvalue.FocusLost:Connect(function(enter)
-			if enter and not table.find(optionapi.List, addvalue.Text) then
-				optionapi:ChangeValue(addvalue.Text)
-				addvalue.Text = ''
-			end
-		end)
-		addvalue.MouseEnter:Connect(function()
-			tween:Tween(addbkg, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.14)
-			})
-		end)
-		addvalue.MouseLeave:Connect(function()
-			tween:Tween(addbkg, uipallet.Tween, {
-				BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-			})
-		end)
-		close.MouseButton1Click:Connect(function()
-			window.Visible = false
-		end)
-		button.MouseButton1Click:Connect(function()
-			window.Visible = not window.Visible
-			tween:Cancel(bkg)
-			bkg.BackgroundColor3 = window.Visible and Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value) or color.Light(uipallet.Main, 0.37)
-		end)
-		textlist.MouseEnter:Connect(function()
-			if not optionapi.Window.Visible then
-				tween:Tween(bkg, uipallet.Tween, {
-					BackgroundColor3 = color.Light(uipallet.Main, 0.37)
-				})
-			end
-		end)
-		textlist.MouseLeave:Connect(function()
-			if not optionapi.Window.Visible then
-				tween:Tween(bkg, uipallet.Tween, {
-					BackgroundColor3 = color.Light(uipallet.Main, 0.034)
-				})
-			end
-		end)
-		textlist:GetPropertyChangedSignal('AbsolutePosition'):Connect(function()
-			if mainapi.ThreadFix then
-				setthreadidentity(8)
-			end
-			local actualPosition = (textlist.AbsolutePosition - (api.Legit and mainapi.Legit.Window.AbsolutePosition or -guiService:GetGuiInset())) / scale.Scale
-			window.Position = UDim2.fromOffset(actualPosition.X + 220, actualPosition.Y)
-		end)
-
-		if optionsettings.Default then
-			optionapi:ChangeValue()
-		end
-		optionapi.Object = textlist
-		api.Options[optionsettings.Name] = optionapi
-
-		return optionapi
-	end,
-	Toggle = function(optionsettings, children, api)
-		local optionapi = {
-			Type = 'Toggle',
-			Enabled = false,
-			Index = getTableSize(api.Options)
-		}
-
-		local hovered = false
-		local toggle = Instance.new('TextButton')
-		toggle.Name = optionsettings.Name..'Toggle'
-		toggle.Size = UDim2.new(1, 0, 0, 30)
-		toggle.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
-		toggle.BorderSizePixel = 0
-		toggle.AutoButtonColor = false
-		toggle.Visible = optionsettings.Visible == nil or optionsettings.Visible
-		toggle.Text = '          '..optionsettings.Name
-		toggle.TextXAlignment = Enum.TextXAlignment.Left
-		toggle.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		toggle.TextSize = 14
-		toggle.FontFace = uipallet.Font
-		toggle.Parent = children
-		addTooltip(toggle, optionsettings.Tooltip)
-		local knobholder = Instance.new('Frame')
-		knobholder.Name = 'Knob'
-		knobholder.Size = UDim2.fromOffset(22, 12)
-		knobholder.Position = UDim2.new(1, -30, 0, 9)
-		knobholder.BackgroundColor3 = color.Light(uipallet.Main, 0.14)
-		knobholder.Parent = toggle
-		addCorner(knobholder, UDim.new(1, 0))
-		local knob = knobholder:Clone()
-		knob.Size = UDim2.fromOffset(8, 8)
-		knob.Position = UDim2.fromOffset(2, 2)
-		knob.BackgroundColor3 = uipallet.Main
-		knob.Parent = knobholder
-		optionsettings.Function = optionsettings.Function or function() end
-
-		function optionapi:Save(tab)
-			tab[optionsettings.Name] = {Enabled = self.Enabled}
-		end
-
-		function optionapi:Load(tab)
-			if self.Enabled ~= tab.Enabled then
-				self:Toggle()
-			end
-		end
-
-		function optionapi:Color(hue, sat, val, rainbowcheck)
-			if self.Enabled then
-				tween:Cancel(knobholder)
-				knobholder.BackgroundColor3 = rainbowcheck and Color3.fromHSV(mainapi:Color((hue - (self.Index * 0.075)) % 1)) or Color3.fromHSV(hue, sat, val)
-			end
-		end
-
-		function optionapi:Toggle()
-			self.Enabled = not self.Enabled
-			local rainbowcheck = mainapi.GUIColor.Rainbow and mainapi.RainbowMode.Value ~= 'Retro'
-			tween:Tween(knobholder, uipallet.Tween, {
-				BackgroundColor3 = self.Enabled and (rainbowcheck and Color3.fromHSV(mainapi:Color((mainapi.GUIColor.Hue - (self.Index * 0.075)) % 1)) or Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)) or (hovered and color.Light(uipallet.Main, 0.37) or color.Light(uipallet.Main, 0.14))
-			})
-			tween:Tween(knob, uipallet.Tween, {
-				Position = UDim2.fromOffset(self.Enabled and 12 or 2, 2)
-			})
-			optionsettings.Function(self.Enabled)
-		end
-
-		toggle.MouseEnter:Connect(function()
-			hovered = true
-			if not optionapi.Enabled then
-				tween:Tween(knobholder, uipallet.Tween, {
-					BackgroundColor3 = color.Light(uipallet.Main, 0.37)
-				})
-			end
-		end)
-		toggle.MouseLeave:Connect(function()
-			hovered = false
-			if not optionapi.Enabled then
-				tween:Tween(knobholder, uipallet.Tween, {
-					BackgroundColor3 = color.Light(uipallet.Main, 0.14)
-				})
-			end
-		end)
-		toggle.MouseButton1Click:Connect(function()
-			optionapi:Toggle()
-		end)
-
-		if optionsettings.Default then
-			optionapi:Toggle()
-		end
-		optionapi.Object = toggle
-		api.Options[optionsettings.Name] = optionapi
-
-		return optionapi
-	end,
-	TwoSlider = function(optionsettings, children, api)
-		local optionapi = {
-			Type = 'TwoSlider',
-			ValueMin = optionsettings.DefaultMin or optionsettings.Min,
-			ValueMax = optionsettings.DefaultMax or 10,
-			Max = optionsettings.Max,
-			Index = getTableSize(api.Options)
-		}
-
-		local slider = Instance.new('TextButton')
-		slider.Name = optionsettings.Name..'Slider'
-		slider.Size = UDim2.new(1, 0, 0, 50)
-		slider.BackgroundColor3 = color.Dark(children.BackgroundColor3, optionsettings.Darker and 0.02 or 0)
-		slider.BorderSizePixel = 0
-		slider.AutoButtonColor = false
-		slider.Visible = optionsettings.Visible == nil or optionsettings.Visible
-		slider.Text = ''
-		slider.Parent = children
-		addTooltip(slider, optionsettings.Tooltip)
-		local title = Instance.new('TextLabel')
-		title.Name = 'Title'
-		title.Size = UDim2.fromOffset(60, 30)
-		title.Position = UDim2.fromOffset(10, 2)
-		title.BackgroundTransparency = 1
-		title.Text = optionsettings.Name
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		title.TextSize = 11
-		title.FontFace = uipallet.Font
-		title.Parent = slider
-		local valuebutton = Instance.new('TextButton')
-		valuebutton.Name = 'Value'
-		valuebutton.Size = UDim2.fromOffset(60, 15)
-		valuebutton.Position = UDim2.new(1, -69, 0, 9)
-		valuebutton.BackgroundTransparency = 1
-		valuebutton.Text = optionapi.ValueMax
-		valuebutton.TextXAlignment = Enum.TextXAlignment.Right
-		valuebutton.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		valuebutton.TextSize = 11
-		valuebutton.FontFace = uipallet.Font
-		valuebutton.Parent = slider
-		local valuebutton2 = valuebutton:Clone()
-		valuebutton2.Position = UDim2.new(1, -125, 0, 9)
-		valuebutton2.Text = optionapi.ValueMin
-		valuebutton2.Parent = slider
-		local valuebox = Instance.new('TextBox')
-		valuebox.Name = 'Box'
-		valuebox.Size = valuebutton.Size
-		valuebox.Position = valuebutton.Position
-		valuebox.BackgroundTransparency = 1
-		valuebox.Visible = false
-		valuebox.Text = optionapi.ValueMin
-		valuebox.TextXAlignment = Enum.TextXAlignment.Right
-		valuebox.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		valuebox.TextSize = 11
-		valuebox.FontFace = uipallet.Font
-		valuebox.ClearTextOnFocus = false
-		valuebox.Parent = slider
-		local valuebox2 = valuebox:Clone()
-		valuebox2.Position = valuebutton2.Position
-		valuebox2.Parent = slider
-		local bkg = Instance.new('Frame')
-		bkg.Name = 'Slider'
-		bkg.Size = UDim2.new(1, -20, 0, 2)
-		bkg.Position = UDim2.fromOffset(10, 37)
-		bkg.BackgroundColor3 = color.Light(uipallet.Main, 0.034)
-		bkg.BorderSizePixel = 0
-		bkg.Parent = slider
-		local fill = bkg:Clone()
-		fill.Name = 'Fill'
-		fill.Position = UDim2.fromScale(math.clamp(optionapi.ValueMin / optionsettings.Max, 0.04, 0.96), 0)
-		fill.Size = UDim2.fromScale(math.clamp(math.clamp(optionapi.ValueMax / optionsettings.Max, 0, 1), 0.04, 0.96) - fill.Position.X.Scale, 1)
-		fill.BackgroundColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-		fill.Parent = bkg
-		local knobholder = Instance.new('Frame')
-		knobholder.Name = 'Knob'
-		knobholder.Size = UDim2.fromOffset(16, 4)
-		knobholder.Position = UDim2.fromScale(0, 0.5)
-		knobholder.AnchorPoint = Vector2.new(0.5, 0.5)
-		knobholder.BackgroundColor3 = slider.BackgroundColor3
-		knobholder.BorderSizePixel = 0
-		knobholder.Parent = fill
-		local knob = Instance.new('ImageLabel')
-		knob.Name = 'Knob'
-		knob.Size = UDim2.fromOffset(9, 16)
-		knob.Position = UDim2.fromScale(0.5, 0.5)
-		knob.AnchorPoint = Vector2.new(0.5, 0.5)
-		knob.BackgroundTransparency = 1
-		knob.Image = getcustomasset('newvape/assets/new/range.png')
-		knob.ImageColor3 = Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-		knob.Parent = knobholder
-		local knobholdermax = knobholder:Clone()
-		knobholdermax.Name = 'KnobMax'
-		knobholdermax.Position = UDim2.fromScale(1, 0.5)
-		knobholdermax.Parent = fill
-		knobholdermax.Knob.Rotation = 180
-		local arrow = Instance.new('ImageLabel')
-		arrow.Name = 'Arrow'
-		arrow.Size = UDim2.fromOffset(12, 6)
-		arrow.Position = UDim2.new(1, -56, 0, 10)
-		arrow.BackgroundTransparency = 1
-		arrow.Image = getcustomasset('newvape/assets/new/rangearrow.png')
-		arrow.ImageColor3 = color.Light(uipallet.Main, 0.14)
-		arrow.Parent = slider
-		optionsettings.Function = optionsettings.Function or function() end
-		optionsettings.Decimal = optionsettings.Decimal or 1
-		local random = Random.new()
-
-		function optionapi:Save(tab)
-			tab[optionsettings.Name] = {ValueMin = self.ValueMin, ValueMax = self.ValueMax}
-		end
-
-		function optionapi:Load(tab)
-			if self.ValueMin ~= tab.ValueMin then
-				self:SetValue(false, tab.ValueMin)
-			end
-			if self.ValueMax ~= tab.ValueMax then
-				self:SetValue(true, tab.ValueMax)
-			end
-		end
-
-		function optionapi:Color(hue, sat, val, rainbowcheck)
-			fill.BackgroundColor3 = rainbowcheck and Color3.fromHSV(mainapi:Color((hue - (self.Index * 0.075)) % 1)) or Color3.fromHSV(hue, sat, val)
-			knob.ImageColor3 = fill.BackgroundColor3
-			knobholdermax.Knob.ImageColor3 = fill.BackgroundColor3
-		end
-
-		function optionapi:GetRandomValue()
-			return random:NextNumber(optionapi.ValueMin, optionapi.ValueMax)
-		end
-
-		function optionapi:SetValue(max, value)
-			if tonumber(value) == math.huge or value ~= value then return end
-			self[max and 'ValueMax' or 'ValueMin'] = value
-			valuebutton.Text = self.ValueMax
-			valuebutton2.Text = self.ValueMin
-			local size = math.clamp(math.clamp(self.ValueMin / optionsettings.Max, 0, 1), 0.04, 0.96)
-			tween:Tween(fill, TweenInfo.new(0.1), {
-				Position = UDim2.fromScale(size, 0),
-				Size = UDim2.fromScale(math.clamp(math.clamp(math.clamp(self.ValueMax / optionsettings.Max, 0.04, 0.96), 0.04, 0.96) - size, 0, 1), 1)
-			})
-		end
-
-		knobholder.MouseEnter:Connect(function()
-			tween:Tween(knob, uipallet.Tween, {
-				Size = UDim2.fromOffset(11, 18)
-			})
-		end)
-		knobholder.MouseLeave:Connect(function()
-			tween:Tween(knob, uipallet.Tween, {
-				Size = UDim2.fromOffset(9, 16)
-			})
-		end)
-		knobholdermax.MouseEnter:Connect(function()
-			tween:Tween(knobholdermax.Knob, uipallet.Tween, {
-				Size = UDim2.fromOffset(11, 18)
-			})
-		end)
-		knobholdermax.MouseLeave:Connect(function()
-			tween:Tween(knobholdermax.Knob, uipallet.Tween, {
-				Size = UDim2.fromOffset(9, 16)
-			})
-		end)
-		slider.InputBegan:Connect(function(inputObj)
-			if
-				(inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch)
-				and (inputObj.Position.Y - slider.AbsolutePosition.Y) > (20 * scale.Scale)
-			then
-				local maxCheck = (inputObj.Position.X - knobholdermax.AbsolutePosition.X) > -10
-				local newPosition = math.clamp((inputObj.Position.X - bkg.AbsolutePosition.X) / bkg.AbsoluteSize.X, 0, 1)
-				optionapi:SetValue(maxCheck, math.floor((optionsettings.Min + (optionsettings.Max - optionsettings.Min) * newPosition) * optionsettings.Decimal) / optionsettings.Decimal, newPosition)
-
-				local changed = inputService.InputChanged:Connect(function(input)
-					if input.UserInputType == (inputObj.UserInputType == Enum.UserInputType.MouseButton1 and Enum.UserInputType.MouseMovement or Enum.UserInputType.Touch) then
-						local newPosition = math.clamp((input.Position.X - bkg.AbsolutePosition.X) / bkg.AbsoluteSize.X, 0, 1)
-						optionapi:SetValue(maxCheck, math.floor((optionsettings.Min + (optionsettings.Max - optionsettings.Min) * newPosition) * optionsettings.Decimal) / optionsettings.Decimal, newPosition)
-					end
-				end)
-
-				local ended
-				ended = inputObj.Changed:Connect(function()
-					if inputObj.UserInputState == Enum.UserInputState.End then
-						if changed then
-							changed:Disconnect()
-						end
-						if ended then
-							ended:Disconnect()
-						end
-					end
-				end)
-			end
-		end)
-		valuebutton.MouseButton1Click:Connect(function()
-			valuebutton.Visible = false
-			valuebox.Visible = true
-			valuebox.Text = optionapi.ValueMax
-			valuebox:CaptureFocus()
-		end)
-		valuebutton2.MouseButton1Click:Connect(function()
-			valuebutton2.Visible = false
-			valuebox2.Visible = true
-			valuebox2.Text = optionapi.ValueMin
-			valuebox2:CaptureFocus()
-		end)
-		valuebox.FocusLost:Connect(function(enter)
-			valuebutton.Visible = true
-			valuebox.Visible = false
-			if enter and tonumber(valuebox.Text) then
-				optionapi:SetValue(true, tonumber(valuebox.Text))
-			end
-		end)
-		valuebox2.FocusLost:Connect(function(enter)
-			valuebutton2.Visible = true
-			valuebox2.Visible = false
-			if enter and tonumber(valuebox2.Text) then
-				optionapi:SetValue(false, tonumber(valuebox2.Text))
-			end
-		end)
-
-		optionapi.Object = slider
-		api.Options[optionsettings.Name] = optionapi
-
-		return optionapi
-	end,
-	Divider = function(children, text)
-		local divider = Instance.new('Frame')
-		divider.Name = 'Divider'
-		divider.Size = UDim2.new(1, 0, 0, 1)
-		divider.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		divider.BorderSizePixel = 0
-		divider.Parent = children
-		if text then
-			local label = Instance.new('TextLabel')
-			label.Name = 'DividerLabel'
-			label.Size = UDim2.fromOffset(218, 27)
-			label.BackgroundTransparency = 1
-			label.Text = '          '..text:upper()
-			label.TextXAlignment = Enum.TextXAlignment.Left
-			label.TextColor3 = color.Dark(uipallet.Text, 0.43)
-			label.TextSize = 9
-			label.FontFace = uipallet.Font
-			label.Parent = children
-			divider.Position = UDim2.fromOffset(0, 26)
-			divider.Parent = label
-		end
-	end
-}
-
-mainapi.Components = setmetatable(components, {
-	__newindex = function(self, ind, func)
-		for _, v in mainapi.Modules do
-			rawset(v, 'Create'..ind, function(_, settings)
-				return func(settings, v.Children, v)
-			end)
-		end
-
-		if mainapi.Legit then
-			for _, v in mainapi.Legit.Modules do
-				rawset(v, 'Create'..ind, function(_, settings)
-					return func(settings, v.Children, v)
-				end)
-			end
-		end
-
-		rawset(self, ind, func)
-	end
-})
-
-task.spawn(function()
-	repeat
-		local hue = tick() * (0.2 * mainapi.RainbowSpeed.Value) % 1
-		for _, v in mainapi.RainbowTable do
-			if v.Type == 'GUISlider' then
-				v:SetValue(mainapi:Color(hue))
-			else
-				v:SetValue(hue)
-			end
-		end
-		task.wait(1 / mainapi.RainbowUpdateSpeed.Value)
-	until mainapi.Loaded == nil
-end)
-
-function mainapi:BlurCheck()
-	if self.ThreadFix then
-		setthreadidentity(8)
-		runService:SetRobloxGuiFocused((clickgui.Visible or guiService:GetErrorType() ~= Enum.ConnectionError.OK) and self.Blur.Enabled)
-	end
-end
-
-addMaid(mainapi)
-
-function mainapi:CreateGUI()
-	local categoryapi = {
-		Type = 'MainWindow',
-		Buttons = {},
-		Options = {}
-	}
-
-	local window = Instance.new('TextButton')
-	window.Name = 'GUICategory'
-	window.Position = UDim2.fromOffset(6, 60)
-	window.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-	window.AutoButtonColor = false
-	window.Text = ''
-	window.Parent = clickgui
-	addBlur(window)
-	addCorner(window)
-	makeDraggable(window)
-	local logo = Instance.new('ImageLabel')
-	logo.Name = 'VapeLogo'
-	logo.Size = UDim2.fromOffset(62, 18)
-	logo.Position = UDim2.fromOffset(11, 10)
-	logo.BackgroundTransparency = 1
-	logo.Image = getcustomasset('newvape/assets/new/guivape.png')
-	logo.ImageColor3 = select(3, uipallet.Main:ToHSV()) > 0.5 and uipallet.Text or Color3.new(1, 1, 1)
-	logo.Parent = window
-	local logov4 = Instance.new('ImageLabel')
-	logov4.Name = 'V4Logo'
-	logov4.Size = UDim2.fromOffset(28, 16)
-	logov4.Position = UDim2.new(1, 1, 0, 1)
-	logov4.BackgroundTransparency = 1
-	logov4.Image = getcustomasset('newvape/assets/new/guiv4.png')
-	logov4.Parent = logo
-	local children = Instance.new('Frame')
-	children.Name = 'Children'
-	children.Size = UDim2.new(1, 0, 1, -33)
-	children.Position = UDim2.fromOffset(0, 37)
-	children.BackgroundTransparency = 1
-	children.Parent = window
-	local windowlist = Instance.new('UIListLayout')
-	windowlist.SortOrder = Enum.SortOrder.LayoutOrder
-	windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	windowlist.Parent = children
-	local settingsbutton = Instance.new('TextButton')
-	settingsbutton.Name = 'Settings'
-	settingsbutton.Size = UDim2.fromOffset(40, 40)
-	settingsbutton.Position = UDim2.new(1, -40, 0, 0)
-	settingsbutton.BackgroundTransparency = 1
-	settingsbutton.Text = ''
-	settingsbutton.Parent = window
-	addTooltip(settingsbutton, 'Open settings')
-	local settingsicon = Instance.new('ImageLabel')
-	settingsicon.Size = UDim2.fromOffset(14, 14)
-	settingsicon.Position = UDim2.fromOffset(15, 12)
-	settingsicon.BackgroundTransparency = 1
-	settingsicon.Image = getcustomasset('newvape/assets/new/guisettings.png')
-	settingsicon.ImageColor3 = color.Light(uipallet.Main, 0.37)
-	settingsicon.Parent = settingsbutton
-	local discordbutton = Instance.new('ImageButton')
-	discordbutton.Size = UDim2.fromOffset(16, 16)
-	discordbutton.Position = UDim2.new(1, -56, 0, 11)
-	discordbutton.BackgroundTransparency = 1
-	discordbutton.Image = getcustomasset('newvape/assets/new/discord.png')
-	discordbutton.Parent = window
-	addTooltip(discordbutton, 'Join discord')
-	local settingspane = Instance.new('TextButton')
-	settingspane.Size = UDim2.fromScale(1, 1)
-	settingspane.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-	settingspane.AutoButtonColor = false
-	settingspane.Visible = false
-	settingspane.Text = ''
-	settingspane.Parent = window
-	local title = Instance.new('TextLabel')
-	title.Name = 'Title'
-	title.Size = UDim2.new(1, -36, 0, 20)
-	title.Position = UDim2.fromOffset(math.abs(title.Size.X.Offset), 11)
-	title.BackgroundTransparency = 1
-	title.Text = 'Settings'
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.TextColor3 = uipallet.Text
-	title.TextSize = 13
-	title.FontFace = uipallet.Font
-	title.Parent = settingspane
-	local close = addCloseButton(settingspane)
-	local back = Instance.new('ImageButton')
-	back.Name = 'Back'
-	back.Size = UDim2.fromOffset(16, 16)
-	back.Position = UDim2.fromOffset(11, 13)
-	back.BackgroundTransparency = 1
-	back.Image = getcustomasset('newvape/assets/new/back.png')
-	back.ImageColor3 = color.Light(uipallet.Main, 0.37)
-	back.Parent = settingspane
-	local settingsversion = Instance.new('TextLabel')
-	settingsversion.Name = 'Version'
-	settingsversion.Size = UDim2.new(1, 0, 0, 16)
-	settingsversion.Position = UDim2.new(0, 0, 1, -16)
-	settingsversion.BackgroundTransparency = 1
-	settingsversion.Text = 'Vape '..mainapi.Version..' '..(
-		isfile('newvape/profiles/commit.txt') and readfile('newvape/profiles/commit.txt'):sub(1, 6) or ''
-	)..' '
-	settingsversion.TextColor3 = color.Dark(uipallet.Text, 0.43)
-	settingsversion.TextXAlignment = Enum.TextXAlignment.Right
-	settingsversion.TextSize = 10
-	settingsversion.FontFace = uipallet.Font
-	settingsversion.Parent = settingspane
-	addCorner(settingspane)
-	local settingschildren = Instance.new('Frame')
-	settingschildren.Name = 'Children'
-	settingschildren.Size = UDim2.new(1, 0, 1, -57)
-	settingschildren.Position = UDim2.fromOffset(0, 41)
-	settingschildren.BackgroundColor3 = uipallet.Main
-	settingschildren.BorderSizePixel = 0
-	settingschildren.Parent = settingspane
-	local settingswindowlist = Instance.new('UIListLayout')
-	settingswindowlist.SortOrder = Enum.SortOrder.LayoutOrder
-	settingswindowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	settingswindowlist.Parent = settingschildren
-	categoryapi.Object = window
-
-	function categoryapi:CreateBind()
-		local optionapi = {Bind = {'RightShift'}}
-
-		local button = Instance.new('TextButton')
-		button.Size = UDim2.fromOffset(220, 40)
-		button.BackgroundColor3 = uipallet.Main
-		button.BorderSizePixel = 0
-		button.AutoButtonColor = false
-		button.Text = '          Rebind GUI'
-		button.TextXAlignment = Enum.TextXAlignment.Left
-		button.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		button.TextSize = 14
-		button.FontFace = uipallet.Font
-		button.Parent = settingschildren
-		addTooltip(button, 'Change the bind of the GUI')
-		local bind = Instance.new('TextButton')
-		bind.Name = 'Bind'
-		bind.Size = UDim2.fromOffset(20, 21)
-		bind.Position = UDim2.new(1, -10, 0, 9)
-		bind.AnchorPoint = Vector2.new(1, 0)
-		bind.BackgroundColor3 = Color3.new(1, 1, 1)
-		bind.BackgroundTransparency = 0.92
-		bind.BorderSizePixel = 0
-		bind.AutoButtonColor = false
-		bind.Text = ''
-		bind.Parent = button
-		addTooltip(bind, 'Click to bind')
-		addCorner(bind, UDim.new(0, 4))
-		local icon = Instance.new('ImageLabel')
-		icon.Name = 'Icon'
-		icon.Size = UDim2.fromOffset(12, 12)
-		icon.Position = UDim2.new(0.5, -6, 0, 5)
-		icon.BackgroundTransparency = 1
-		icon.Image = getcustomasset('newvape/assets/new/bind.png')
-		icon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-		icon.Parent = bind
-		local label = Instance.new('TextLabel')
-		label.Name = 'Text'
-		label.Size = UDim2.fromScale(1, 1)
-		label.Position = UDim2.fromOffset(0, 1)
-		label.BackgroundTransparency = 1
-		label.Visible = false
-		label.Text = ''
-		label.TextColor3 = color.Dark(uipallet.Text, 0.43)
-		label.TextSize = 12
-		label.FontFace = uipallet.Font
-		label.Parent = bind
-
-		function optionapi:SetBind(tab)
-			mainapi.Keybind = #tab <= 0 and mainapi.Keybind or table.clone(tab)
-			self.Bind = mainapi.Keybind
-			if mainapi.VapeButton then
-				mainapi.VapeButton:Destroy()
-				mainapi.VapeButton = nil
-			end
-
-			bind.Visible = true
-			label.Visible = true
-			icon.Visible = false
-			label.Text = table.concat(mainapi.Keybind, ' + '):upper()
-			bind.Size = UDim2.fromOffset(math.max(getfontsize(label.Text, label.TextSize, label.Font).X + 10, 20), 21)
-		end
-
-		bind.MouseEnter:Connect(function()
-			label.Visible = false
-			icon.Visible = not label.Visible
-			icon.Image = getcustomasset('newvape/assets/new/edit.png')
-			icon.ImageColor3 = color.Dark(uipallet.Text, 0.16)
-		end)
-		bind.MouseLeave:Connect(function()
-			label.Visible = true
-			icon.Visible = not label.Visible
-			icon.Image = getcustomasset('newvape/assets/new/bind.png')
-			icon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-		end)
-		bind.MouseButton1Click:Connect(function()
-			mainapi.Binding = optionapi
-		end)
-
-		categoryapi.Options.Bind = optionapi
-
-		return optionapi
-	end
-
-	function categoryapi:CreateButton(categorysettings)
-		local optionapi = {
-			Enabled = false,
-			Index = getTableSize(categoryapi.Buttons)
-		}
-
-		local button = Instance.new('TextButton')
-		button.Name = categorysettings.Name
-		button.Size = UDim2.fromOffset(220, 40)
-		button.BackgroundColor3 = uipallet.Main
-		button.BorderSizePixel = 0
-		button.AutoButtonColor = false
-		button.Text = (categorysettings.Icon and '                                 ' or '             ')..categorysettings.Name
-		button.TextXAlignment = Enum.TextXAlignment.Left
-		button.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		button.TextSize = 14
-		button.FontFace = uipallet.Font
-		button.Parent = children
-		local icon
-		if categorysettings.Icon then
-			icon = Instance.new('ImageLabel')
-			icon.Name = 'Icon'
-			icon.Size = categorysettings.Size
-			icon.Position = UDim2.fromOffset(13, 13)
-			icon.BackgroundTransparency = 1
-			icon.Image = categorysettings.Icon
-			icon.ImageColor3 = color.Dark(uipallet.Text, 0.16)
-			icon.Parent = button
-		end
-		if categorysettings.Name == 'Profiles' then
-			local label = Instance.new('TextLabel')
-			label.Name = 'ProfileLabel'
-			label.Size = UDim2.fromOffset(53, 24)
-			label.Position = UDim2.new(1, -36, 0, 8)
-			label.AnchorPoint = Vector2.new(1, 0)
-			label.BackgroundColor3 = color.Light(uipallet.Main, 0.04)
-			label.Text = 'default'
-			label.TextColor3 = color.Dark(uipallet.Text, 0.29)
-			label.TextSize = 12
-			label.FontFace = uipallet.Font
-			label.Parent = button
-			addCorner(label)
-			mainapi.ProfileLabel = label
-		end
-		local arrow = Instance.new('ImageLabel')
-		arrow.Name = 'Arrow'
-		arrow.Size = UDim2.fromOffset(4, 8)
-		arrow.Position = UDim2.new(1, -20, 0, 16)
-		arrow.BackgroundTransparency = 1
-		arrow.Image = getcustomasset('newvape/assets/new/expandright.png')
-		arrow.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		arrow.Parent = button
-		optionapi.Name = categorysettings.Name
-		optionapi.Icon = icon
-		optionapi.Object = button
-
-		function optionapi:Toggle()
-			self.Enabled = not self.Enabled
-			tween:Tween(arrow, uipallet.Tween, {
-				Position = UDim2.new(1, self.Enabled and -14 or -20, 0, 16)
-			})
-			button.TextColor3 = self.Enabled and Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value) or uipallet.Text
-			if icon then
-				icon.ImageColor3 = button.TextColor3
-			end
-			button.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-			categorysettings.Window.Visible = self.Enabled
-		end
-
-		button.MouseEnter:Connect(function()
-			if not optionapi.Enabled then
-				button.TextColor3 = uipallet.Text
-				if buttonicon then buttonicon.ImageColor3 = uipallet.Text end
-				button.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-			end
-		end)
-		button.MouseLeave:Connect(function()
-			if not optionapi.Enabled then
-				button.TextColor3 = color.Dark(uipallet.Text, 0.16)
-				if buttonicon then buttonicon.ImageColor3 = color.Dark(uipallet.Text, 0.16) end
-				button.BackgroundColor3 = uipallet.Main
-			end
-		end)
-		button.MouseButton1Click:Connect(function()
-			optionapi:Toggle()
-		end)
-
-		categoryapi.Buttons[categorysettings.Name] = optionapi
-
-		return optionapi
-	end
-
-	function categoryapi:CreateDivider(text)
-		return components.Divider(children, text)
-	end
-
-	function categoryapi:CreateOverlayBar()
-		local optionapi = {Toggles = {}}
-
-		local bar = Instance.new('Frame')
-		bar.Name = 'Overlays'
-		bar.Size = UDim2.fromOffset(220, 36)
-		bar.BackgroundColor3 = uipallet.Main
-		bar.BorderSizePixel = 0
-		bar.Parent = children
-		components.Divider(bar)
-		local button = Instance.new('ImageButton')
-		button.Size = UDim2.fromOffset(24, 24)
-		button.Position = UDim2.new(1, -29, 0, 7)
-		button.BackgroundTransparency = 1
-		button.AutoButtonColor = false
-		button.Image = getcustomasset('newvape/assets/new/overlaysicon.png')
-		button.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		button.Parent = bar
-		addCorner(button, UDim.new(1, 0))
-		addTooltip(button, 'Open overlays menu')
-		local shadow = Instance.new('TextButton')
-		shadow.Name = 'Shadow'
-		shadow.Size = UDim2.new(1, 0, 1, -5)
-		shadow.BackgroundColor3 = Color3.new()
-		shadow.BackgroundTransparency = 1
-		shadow.AutoButtonColor = false
-		shadow.ClipsDescendants = true
-		shadow.Visible = false
-		shadow.Text = ''
-		shadow.Parent = window
-		addCorner(shadow)
-		local window = Instance.new('Frame')
-		window.Size = UDim2.fromOffset(220, 42)
-		window.Position = UDim2.fromScale(0, 1)
-		window.BackgroundColor3 = uipallet.Main
-		window.Parent = shadow
-		addCorner(window)
-		local icon = Instance.new('ImageLabel')
-		icon.Name = 'Icon'
-		icon.Size = UDim2.fromOffset(14, 12)
-		icon.Position = UDim2.fromOffset(10, 13)
-		icon.BackgroundTransparency = 1
-		icon.Image = getcustomasset('newvape/assets/new/overlaystab.png')
-		icon.ImageColor3 = uipallet.Text
-		icon.Parent = window
-		local title = Instance.new('TextLabel')
-		title.Name = 'Title'
-		title.Size = UDim2.new(1, -36, 0, 38)
-		title.Position = UDim2.fromOffset(36, 0)
-		title.BackgroundTransparency = 1
-		title.Text = 'Overlays'
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = uipallet.Text
-		title.TextSize = 15
-		title.FontFace = uipallet.Font
-		title.Parent = window
-		local close = addCloseButton(window, 7)
-		local divider = Instance.new('Frame')
-		divider.Name = 'Divider'
-		divider.Size = UDim2.new(1, 0, 0, 1)
-		divider.Position = UDim2.fromOffset(0, 37)
-		divider.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		divider.BorderSizePixel = 0
-		divider.Parent = window
-		local childrentoggle = Instance.new('Frame')
-		childrentoggle.Position = UDim2.fromOffset(0, 38)
-		childrentoggle.BackgroundTransparency = 1
-		childrentoggle.Parent = window
-		local windowlist = Instance.new('UIListLayout')
-		windowlist.SortOrder = Enum.SortOrder.LayoutOrder
-		windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-		windowlist.Parent = childrentoggle
-
-		function optionapi:CreateToggle(togglesettings)
-			local toggleapi = {
-				Enabled = false,
-				Index = getTableSize(optionapi.Toggles)
-			}
-
-			local hovered = false
-			local toggle = Instance.new('TextButton')
-			toggle.Name = togglesettings.Name..'Toggle'
-			toggle.Size = UDim2.new(1, 0, 0, 40)
-			toggle.BackgroundTransparency = 1
-			toggle.AutoButtonColor = false
-			toggle.Text = string.rep(' ', 33 * scale.Scale)..togglesettings.Name
-			toggle.TextXAlignment = Enum.TextXAlignment.Left
-			toggle.TextColor3 = color.Dark(uipallet.Text, 0.16)
-			toggle.TextSize = 14
-			toggle.FontFace = uipallet.Font
-			toggle.Parent = childrentoggle
-			local icon = Instance.new('ImageLabel')
-			icon.Name = 'Icon'
-			icon.Size = togglesettings.Size
-			icon.Position = togglesettings.Position
-			icon.BackgroundTransparency = 1
-			icon.Image = togglesettings.Icon
-			icon.ImageColor3 = uipallet.Text
-			icon.Parent = toggle
-			local knob = Instance.new('Frame')
-			knob.Name = 'Knob'
-			knob.Size = UDim2.fromOffset(22, 12)
-			knob.Position = UDim2.new(1, -30, 0, 14)
-			knob.BackgroundColor3 = color.Light(uipallet.Main, 0.14)
-			knob.Parent = toggle
-			addCorner(knob, UDim.new(1, 0))
-			local knobmain = knob:Clone()
-			knobmain.Size = UDim2.fromOffset(8, 8)
-			knobmain.Position = UDim2.fromOffset(2, 2)
-			knobmain.BackgroundColor3 = uipallet.Main
-			knobmain.Parent = knob
-			toggleapi.Object = toggle
-
-			function toggleapi:Toggle()
-				self.Enabled = not self.Enabled
-				tween:Tween(knob, uipallet.Tween, {
-					BackgroundColor3 = self.Enabled and Color3.fromHSV(
-						mainapi.GUIColor.Hue,
-						mainapi.GUIColor.Sat,
-						mainapi.GUIColor.Value
-					) or (hovered and color.Light(uipallet.Main, 0.37) or color.Light(uipallet.Main, 0.14))
-				})
-				tween:Tween(knobmain, uipallet.Tween, {
-					Position = UDim2.fromOffset(self.Enabled and 12 or 2, 2)
-				})
-				togglesettings.Function(self.Enabled)
-			end
-
-			scale:GetPropertyChangedSignal('Scale'):Connect(function()
-				toggle.Text = string.rep(' ', 33 * scale.Scale)..togglesettings.Name
-			end)
-			toggle.MouseEnter:Connect(function()
-				hovered = true
-				if not toggleapi.Enabled then
-					tween:Tween(knob, uipallet.Tween, {
-						BackgroundColor3 = color.Light(uipallet.Main, 0.37)
-					})
-				end
-			end)
-			toggle.MouseLeave:Connect(function()
-				hovered = false
-				if not toggleapi.Enabled then
-					tween:Tween(knob, uipallet.Tween, {
-						BackgroundColor3 = color.Light(uipallet.Main, 0.14)
-					})
-				end
-			end)
-			toggle.MouseButton1Click:Connect(function()
-				toggleapi:Toggle()
-			end)
-
-			table.insert(optionapi.Toggles, toggleapi)
-
-			return toggleapi
-		end
-
-		button.MouseEnter:Connect(function()
-			button.ImageColor3 = uipallet.Text
-			tween:Tween(button, uipallet.Tween, {
-				BackgroundTransparency = 0.9
-			})
-		end)
-		button.MouseLeave:Connect(function()
-			button.ImageColor3 = color.Light(uipallet.Main, 0.37)
-			tween:Tween(button, uipallet.Tween, {
-				BackgroundTransparency = 1
-			})
-		end)
-		button.MouseButton1Click:Connect(function()
-			shadow.Visible = true
-			tween:Tween(shadow, uipallet.Tween, {
-				BackgroundTransparency = 0.5
-			})
-			tween:Tween(window, uipallet.Tween, {
-				Position = UDim2.new(0, 0, 1, -(window.Size.Y.Offset))
-			})
-		end)
-		close.MouseButton1Click:Connect(function()
-			tween:Tween(shadow, uipallet.Tween, {
-				BackgroundTransparency = 1
-			})
-			tween:Tween(window, uipallet.Tween, {
-				Position = UDim2.fromScale(0, 1)
-			})
-			task.wait(0.2)
-			shadow.Visible = false
-		end)
-		shadow.MouseButton1Click:Connect(function()
-			tween:Tween(shadow, uipallet.Tween, {
-				BackgroundTransparency = 1
-			})
-			tween:Tween(window, uipallet.Tween, {
-				Position = UDim2.fromScale(0, 1)
-			})
-			task.wait(0.2)
-			shadow.Visible = false
-		end)
-		windowlist:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-			if mainapi.ThreadFix then
-				setthreadidentity(8)
-			end
-			window.Size = UDim2.fromOffset(220, math.min(37 + windowlist.AbsoluteContentSize.Y / scale.Scale, 605))
-			childrentoggle.Size = UDim2.fromOffset(220, window.Size.Y.Offset - 5)
-		end)
-
-		mainapi.Overlays = optionapi
-
-		return optionapi
-	end
-
-	function categoryapi:CreateSettingsDivider()
-		components.Divider(settingschildren)
-	end
-
-	function categoryapi:CreateSettingsPane(categorysettings)
-		local optionapi = {}
-
-		local button = Instance.new('TextButton')
-		button.Name = categorysettings.Name
-		button.Size = UDim2.fromOffset(220, 40)
-		button.BackgroundColor3 = uipallet.Main
-		button.BorderSizePixel = 0
-		button.AutoButtonColor = false
-		button.Text = '          '..categorysettings.Name
-		button.TextXAlignment = Enum.TextXAlignment.Left
-		button.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		button.TextSize = 14
-		button.FontFace = uipallet.Font
-		button.Parent = settingschildren
-		local arrow = Instance.new('ImageLabel')
-		arrow.Name = 'Arrow'
-		arrow.Size = UDim2.fromOffset(4, 8)
-		arrow.Position = UDim2.new(1, -20, 0, 16)
-		arrow.BackgroundTransparency = 1
-		arrow.Image = getcustomasset('newvape/assets/new/expandright.png')
-		arrow.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		arrow.Parent = button
-		local settingspane = Instance.new('TextButton')
-		settingspane.Size = UDim2.fromScale(1, 1)
-		settingspane.BackgroundColor3 = uipallet.Main
-		settingspane.AutoButtonColor = false
-		settingspane.Visible = false
-		settingspane.Text = ''
-		settingspane.Parent = window
-		local title = Instance.new('TextLabel')
-		title.Name = 'Title'
-		title.Size = UDim2.new(1, -36, 0, 20)
-		title.Position = UDim2.fromOffset(math.abs(title.Size.X.Offset), 11)
-		title.BackgroundTransparency = 1
-		title.Text = categorysettings.Name
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = uipallet.Text
-		title.TextSize = 13
-		title.FontFace = uipallet.Font
-		title.Parent = settingspane
-		local close = addCloseButton(settingspane)
-		local back = Instance.new('ImageButton')
-		back.Name = 'Back'
-		back.Size = UDim2.fromOffset(16, 16)
-		back.Position = UDim2.fromOffset(11, 13)
-		back.BackgroundTransparency = 1
-		back.Image = getcustomasset('newvape/assets/new/back.png')
-		back.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		back.Parent = settingspane
-		addCorner(settingspane)
-		local settingschildren = Instance.new('Frame')
-		settingschildren.Name = 'Children'
-		settingschildren.Size = UDim2.new(1, 0, 1, -57)
-		settingschildren.Position = UDim2.fromOffset(0, 41)
-		settingschildren.BackgroundColor3 = uipallet.Main
-		settingschildren.BorderSizePixel = 0
-		settingschildren.Parent = settingspane
-		local divider = Instance.new('Frame')
-		divider.Name = 'Divider'
-		divider.Size = UDim2.new(1, 0, 0, 1)
-		divider.BackgroundColor3 = Color3.new(1, 1, 1)
-		divider.BackgroundTransparency = 0.928
-		divider.BorderSizePixel = 0
-		divider.Parent = settingschildren
-		local settingswindowlist = Instance.new('UIListLayout')
-		settingswindowlist.SortOrder = Enum.SortOrder.LayoutOrder
-		settingswindowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-		settingswindowlist.Parent = settingschildren
-
-		for i, v in components do
-			optionapi['Create'..i] = function(_, settings)
-				return v(settings, settingschildren, categoryapi)
-			end
-		end
-
-		back.MouseEnter:Connect(function()
-			back.ImageColor3 = uipallet.Text
-		end)
-		back.MouseLeave:Connect(function()
-			back.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		end)
-		back.MouseButton1Click:Connect(function()
-			settingspane.Visible = false
-		end)
-		button.MouseEnter:Connect(function()
-			button.TextColor3 = uipallet.Text
-			button.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		end)
-		button.MouseLeave:Connect(function()
-			button.TextColor3 = color.Dark(uipallet.Text, 0.16)
-			button.BackgroundColor3 = uipallet.Main
-		end)
-		button.MouseButton1Click:Connect(function()
-			settingspane.Visible = true
-		end)
-		close.MouseButton1Click:Connect(function()
-			settingspane.Visible = false
-		end)
-		windowlist:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-			if mainapi.ThreadFix then
-				setthreadidentity(8)
-			end
-			window.Size = UDim2.fromOffset(220, 45 + windowlist.AbsoluteContentSize.Y / scale.Scale)
-			for _, v in categoryapi.Buttons do
-				if v.Icon then
-					v.Object.Text = string.rep(' ', 33 * scale.Scale)..v.Name
-				end
-			end
-		end)
-
-		return optionapi
-	end
-
-	function categoryapi:CreateGUISlider(optionsettings)
-		local optionapi = {
-			Type = 'GUISlider',
-			Notch = 4,
-			Hue = 0.46,
-			Sat = 0.96,
-			Value = 0.52,
-			Rainbow = false,
-			CustomColor = false
-		}
-		local slidercolors = {
-			Color3.fromRGB(250, 50, 56),
-			Color3.fromRGB(242, 99, 33),
-			Color3.fromRGB(252, 179, 22),
-			Color3.fromRGB(5, 133, 104),
-			Color3.fromRGB(47, 122, 229),
-			Color3.fromRGB(126, 84, 217),
-			Color3.fromRGB(232, 96, 152)
-		}
-		local slidercolorpos = {
-			4,
-			33,
-			62,
-			90,
-			119,
-			148,
-			177
-		}
-
-		local function createSlider(name, gradientColor)
-			local slider = Instance.new('TextButton')
-			slider.Name = optionsettings.Name..'Slider'..name
-			slider.Size = UDim2.fromOffset(220, 50)
-			slider.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-			slider.BorderSizePixel = 0
-			slider.AutoButtonColor = false
-			slider.Visible = false
-			slider.Text = ''
-			slider.Parent = settingschildren
-			local title = Instance.new('TextLabel')
-			title.Name = 'Title'
-			title.Size = UDim2.fromOffset(60, 30)
-			title.Position = UDim2.fromOffset(10, 2)
-			title.BackgroundTransparency = 1
-			title.Text = name
-			title.TextXAlignment = Enum.TextXAlignment.Left
-			title.TextColor3 = color.Dark(uipallet.Text, 0.16)
-			title.TextSize = 11
-			title.FontFace = uipallet.Font
-			title.Parent = slider
-			local holder = Instance.new('Frame')
-			holder.Name = 'Slider'
-			holder.Size = UDim2.fromOffset(200, 2)
-			holder.Position = UDim2.fromOffset(10, 37)
-			holder.BackgroundColor3 = Color3.new(1, 1, 1)
-			holder.BorderSizePixel = 0
-			holder.Parent = slider
-			local uigradient = Instance.new('UIGradient')
-			uigradient.Color = gradientColor
-			uigradient.Parent = holder
-			local fill = holder:Clone()
-			fill.Name = 'Fill'
-			fill.Size = UDim2.fromScale(math.clamp(1, 0.04, 0.96), 1)
-			fill.Position = UDim2.new()
-			fill.BackgroundTransparency = 1
-			fill.Parent = holder
-			local knobframe = Instance.new('Frame')
-			knobframe.Name = 'Knob'
-			knobframe.Size = UDim2.fromOffset(24, 4)
-			knobframe.Position = UDim2.fromScale(1, 0.5)
-			knobframe.AnchorPoint = Vector2.new(0.5, 0.5)
-			knobframe.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-			knobframe.BorderSizePixel = 0
-			knobframe.Parent = fill
-			local knob = Instance.new('Frame')
-			knob.Name = 'Knob'
-			knob.Size = UDim2.fromOffset(14, 14)
-			knob.Position = UDim2.fromScale(0.5, 0.5)
-			knob.AnchorPoint = Vector2.new(0.5, 0.5)
-			knob.BackgroundColor3 = uipallet.Text
-			knob.Parent = knobframe
-			addCorner(knob, UDim.new(1, 0))
-			if name == 'Custom color' then
-				local reset = Instance.new('TextButton')
-				reset.Size = UDim2.fromOffset(45, 20)
-				reset.Position = UDim2.new(1, -52, 0, 5)
-				reset.BackgroundTransparency = 1
-				reset.Text = 'RESET'
-				reset.TextColor3 = color.Dark(uipallet.Text, 0.16)
-				reset.TextSize = 11
-				reset.FontFace = uipallet.Font
-				reset.Parent = slider
-				reset.MouseButton1Click:Connect(function()
-					optionapi:SetValue(nil, nil, nil, 4)
-				end)
-			end
-
-			slider.InputBegan:Connect(function(inputObj)
-				if
-					(inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch)
-					and (inputObj.Position.Y - slider.AbsolutePosition.Y) > (20 * scale.Scale)
-				then
-					local changed = inputService.InputChanged:Connect(function(input)
-						if input.UserInputType == (inputObj.UserInputType == Enum.UserInputType.MouseButton1 and Enum.UserInputType.MouseMovement or Enum.UserInputType.Touch) then
-							local value = math.clamp((input.Position.X - holder.AbsolutePosition.X) / holder.AbsoluteSize.X, 0, 1)
-							optionapi:SetValue(
-								name == 'Custom color' and value or nil,
-								name == 'Saturation' and value or nil,
-								name == 'Vibrance' and value or nil,
-								name == 'Opacity' and value or nil
-							)
-						end
-					end)
-
-					local ended
-					ended = inputObj.Changed:Connect(function()
-						if inputObj.UserInputState == Enum.UserInputState.End then
-							if changed then
-								changed:Disconnect()
-							end
-							if ended then
-								ended:Disconnect()
-							end
-						end
-					end)
-				end
-			end)
-			slider.MouseEnter:Connect(function()
-				tween:Tween(knob, uipallet.Tween, {
-					Size = UDim2.fromOffset(16, 16)
-				})
-			end)
-			slider.MouseLeave:Connect(function()
-				tween:Tween(knob, uipallet.Tween, {
-					Size = UDim2.fromOffset(14, 14)
-				})
-			end)
-
-			return slider
-		end
-
-		local slider = Instance.new('TextButton')
-		slider.Name = optionsettings.Name..'Slider'
-		slider.Size = UDim2.fromOffset(220, 50)
-		slider.BackgroundTransparency = 1
-		slider.AutoButtonColor = false
-		slider.Text = ''
-		slider.Parent = settingschildren
-		local title = Instance.new('TextLabel')
-		title.Name = 'Title'
-		title.Size = UDim2.fromOffset(60, 30)
-		title.Position = UDim2.fromOffset(10, 2)
-		title.BackgroundTransparency = 1
-		title.Text = optionsettings.Name
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		title.TextSize = 11
-		title.FontFace = uipallet.Font
-		title.Parent = slider
-		local holder = Instance.new('Frame')
-		holder.Name = 'Slider'
-		holder.Size = UDim2.fromOffset(200, 2)
-		holder.Position = UDim2.fromOffset(10, 37)
-		holder.BackgroundTransparency = 1
-		holder.BorderSizePixel = 0
-		holder.Parent = slider
-		local colornum = 0
-		for i, color in slidercolors do
-			local colorframe = Instance.new('Frame')
-			colorframe.Size = UDim2.fromOffset(27 + (((i + 1) % 2) == 0 and 1 or 0), 2)
-			colorframe.Position = UDim2.fromOffset(colornum, 0)
-			colorframe.BackgroundColor3 = color
-			colorframe.BorderSizePixel = 0
-			colorframe.Parent = holder
-			colornum += (colorframe.Size.X.Offset + 1)
-		end
-		local preview = Instance.new('ImageButton')
-		preview.Name = 'Preview'
-		preview.Size = UDim2.fromOffset(12, 12)
-		preview.Position = UDim2.new(1, -22, 0, 10)
-		preview.BackgroundTransparency = 1
-		preview.Image = getcustomasset('newvape/assets/new/colorpreview.png')
-		preview.ImageColor3 = Color3.fromHSV(optionapi.Hue, 1, 1)
-		preview.Parent = slider
-		local valuebox = Instance.new('TextBox')
-		valuebox.Name = 'Box'
-		valuebox.Size = UDim2.fromOffset(60, 15)
-		valuebox.Position = UDim2.new(1, -69, 0, 9)
-		valuebox.BackgroundTransparency = 1
-		valuebox.Visible = false
-		valuebox.Text = ''
-		valuebox.TextXAlignment = Enum.TextXAlignment.Right
-		valuebox.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		valuebox.TextSize = 11
-		valuebox.FontFace = uipallet.Font
-		valuebox.ClearTextOnFocus = true
-		valuebox.Parent = slider
-		local expandbutton = Instance.new('TextButton')
-		expandbutton.Name = 'Expand'
-		expandbutton.Size = UDim2.fromOffset(17, 13)
-		expandbutton.Position = UDim2.new(0, getfontsize(title.Text, title.TextSize, title.Font).X + 11, 0, 7)
-		expandbutton.BackgroundTransparency = 1
-		expandbutton.Text = ''
-		expandbutton.Parent = slider
-		local expandicon = Instance.new('ImageLabel')
-		expandicon.Name = 'Expand'
-		expandicon.Size = UDim2.fromOffset(9, 5)
-		expandicon.Position = UDim2.fromOffset(4, 4)
-		expandicon.BackgroundTransparency = 1
-		expandicon.Image = getcustomasset('newvape/assets/new/expandicon.png')
-		expandicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-		expandicon.Parent = expandbutton
-		local rainbow = Instance.new('TextButton')
-		rainbow.Name = 'Rainbow'
-		rainbow.Size = UDim2.fromOffset(12, 12)
-		rainbow.Position = UDim2.new(1, -42, 0, 10)
-		rainbow.BackgroundTransparency = 1
-		rainbow.Text = ''
-		rainbow.Parent = slider
-		local rainbow1 = Instance.new('ImageLabel')
-		rainbow1.Size = UDim2.fromOffset(12, 12)
-		rainbow1.BackgroundTransparency = 1
-		rainbow1.Image = getcustomasset('newvape/assets/new/rainbow_1.png')
-		rainbow1.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		rainbow1.Parent = rainbow
-		local rainbow2 = rainbow1:Clone()
-		rainbow2.Image = getcustomasset('newvape/assets/new/rainbow_2.png')
-		rainbow2.Parent = rainbow
-		local rainbow3 = rainbow1:Clone()
-		rainbow3.Image = getcustomasset('newvape/assets/new/rainbow_3.png')
-		rainbow3.Parent = rainbow
-		local rainbow4 = rainbow1:Clone()
-		rainbow4.Image = getcustomasset('newvape/assets/new/rainbow_4.png')
-		rainbow4.Parent = rainbow
-		local knob = Instance.new('ImageLabel')
-		knob.Name = 'Knob'
-		knob.Size = UDim2.fromOffset(26, 12)
-		knob.Position = UDim2.fromOffset(slidercolorpos[4] - 3, -5)
-		knob.BackgroundTransparency = 1
-		knob.Image = getcustomasset('newvape/assets/new/guislider.png')
-		knob.ImageColor3 = slidercolors[4]
-		knob.Parent = holder
-		optionsettings.Function = optionsettings.Function or function() end
-		local rainbowTable = {}
-		for i = 0, 1, 0.1 do
-			table.insert(rainbowTable, ColorSequenceKeypoint.new(i, Color3.fromHSV(i, 1, 1)))
-		end
-		local colorSlider = createSlider('Custom color', ColorSequence.new(rainbowTable))
-		local satSlider = createSlider('Saturation', ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 0, optionapi.Value)),
-			ColorSequenceKeypoint.new(1, Color3.fromHSV(optionapi.Hue, 1, optionapi.Value))
-		}))
-		local vibSlider = createSlider('Vibrance', ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 0, 0)),
-			ColorSequenceKeypoint.new(1, Color3.fromHSV(optionapi.Hue, optionapi.Sat, 1))
-		}))
-		local normalknob = getcustomasset('newvape/assets/new/guislider.png')
-		local rainbowknob = getcustomasset('newvape/assets/new/guisliderrain.png')
-		local rainbowthread
-
-		function optionapi:Save(tab)
-			tab[optionsettings.Name] = {
-				Hue = self.Hue,
-				Sat = self.Sat,
-				Value = self.Value,
-				Notch = self.Notch,
-				CustomColor = self.CustomColor,
-				Rainbow = self.Rainbow
-			}
-		end
-
-		function optionapi:Load(tab)
-			if tab.Rainbow then
-				self:Toggle()
-			end
-			if self.Rainbow or tab.CustomColor then
-				self:SetValue(tab.Hue, tab.Sat, tab.Value)
-			else
-				self:SetValue(nil, nil, nil, tab.Notch)
-			end
-		end
-
-		function optionapi:SetValue(h, s, v, n)
-			if n then
-				if self.Rainbow then
-					self:Toggle()
-				end
-				self.CustomColor = false
-				h, s, v = slidercolors[n]:ToHSV()
-			else
-				self.CustomColor = true
-			end
-
-			self.Hue = h or self.Hue
-			self.Sat = s or self.Sat
-			self.Value = v or self.Value
-			self.Notch = n
-			preview.ImageColor3 = Color3.fromHSV(self.Hue, self.Sat, self.Value)
-			satSlider.Slider.UIGradient.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 0, self.Value)),
-				ColorSequenceKeypoint.new(1, Color3.fromHSV(self.Hue, 1, self.Value))
-			})
-			vibSlider.Slider.UIGradient.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromHSV(0, 0, 0)),
-				ColorSequenceKeypoint.new(1, Color3.fromHSV(self.Hue, self.Sat, 1))
-			})
-
-			if self.Rainbow or self.CustomColor then
-				knob.Image = rainbowknob
-				knob.ImageColor3 = Color3.new(1, 1, 1)
-				tween:Tween(knob, uipallet.Tween, {
-					Position = UDim2.fromOffset(slidercolorpos[4] - 3, -5)
-				})
-			else
-				knob.Image = normalknob
-				knob.ImageColor3 = Color3.fromHSV(self.Hue, self.Sat, self.Value)
-				tween:Tween(knob, uipallet.Tween, {
-					Position = UDim2.fromOffset(slidercolorpos[n or 4] - 3, -5)
-				})
-			end
-
-			if self.Rainbow then
-				if h then
-					colorSlider.Slider.Fill.Size = UDim2.fromScale(math.clamp(self.Hue, 0.04, 0.96), 1)
-				end
-				if s then
-					satSlider.Slider.Fill.Size = UDim2.fromScale(math.clamp(self.Sat, 0.04, 0.96), 1)
-				end
-				if v then
-					vibSlider.Slider.Fill.Size = UDim2.fromScale(math.clamp(self.Value, 0.04, 0.96), 1)
-				end
-			else
-				if h then
-					tween:Tween(colorSlider.Slider.Fill, uipallet.Tween, {
-						Size = UDim2.fromScale(math.clamp(self.Hue, 0.04, 0.96), 1)
-					})
-				end
-				if s then
-					tween:Tween(satSlider.Slider.Fill, uipallet.Tween, {
-						Size = UDim2.fromScale(math.clamp(self.Sat, 0.04, 0.96), 1)
-					})
-				end
-				if v then
-					tween:Tween(vibSlider.Slider.Fill, uipallet.Tween, {
-						Size = UDim2.fromScale(math.clamp(self.Value, 0.04, 0.96), 1)
-					})
-				end
-			end
-			optionsettings.Function(self.Hue, self.Sat, self.Value)
-		end
-
-		function optionapi:Toggle()
-			self.Rainbow = not self.Rainbow
-			if rainbowthread then
-				task.cancel(rainbowthread)
-			end
-
-			if self.Rainbow then
-				knob.Image = rainbowknob
-				table.insert(mainapi.RainbowTable, self)
-
-				rainbow1.ImageColor3 = Color3.fromRGB(5, 127, 100)
-				rainbowthread = task.delay(0.1, function()
-					rainbow2.ImageColor3 = Color3.fromRGB(228, 125, 43)
-					rainbowthread = task.delay(0.1, function()
-						rainbow3.ImageColor3 = Color3.fromRGB(225, 46, 52)
-						rainbowthread = nil
-					end)
-				end)
-			else
-				self:SetValue(nil, nil, nil, 4)
-				knob.Image = normalknob
-				local ind = table.find(mainapi.RainbowTable, self)
-				if ind then
-					table.remove(mainapi.RainbowTable, ind)
-				end
-
-				rainbow3.ImageColor3 = color.Light(uipallet.Main, 0.37)
-				rainbowthread = task.delay(0.1, function()
-					rainbow2.ImageColor3 = color.Light(uipallet.Main, 0.37)
-					rainbowthread = task.delay(0.1, function()
-						rainbow1.ImageColor3 = color.Light(uipallet.Main, 0.37)
-					end)
-				end)
-			end
-		end
-
-		expandbutton.MouseEnter:Connect(function()
-			expandicon.ImageColor3 = color.Dark(uipallet.Text, 0.16)
-		end)
-		expandbutton.MouseLeave:Connect(function()
-			expandicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-		end)
-		expandbutton.MouseButton1Click:Connect(function()
-			colorSlider.Visible = not colorSlider.Visible
-			satSlider.Visible = colorSlider.Visible
-			vibSlider.Visible = satSlider.Visible
-			expandicon.Rotation = satSlider.Visible and 180 or 0
-		end)
-		preview.MouseButton1Click:Connect(function()
-			preview.Visible = false
-			valuebox.Visible = true
-			valuebox:CaptureFocus()
-			local text = Color3.fromHSV(optionapi.Hue, optionapi.Sat, optionapi.Value)
-			valuebox.Text = math.round(text.R * 255)..', '..math.round(text.G * 255)..', '..math.round(text.B * 255)
-		end)
-		slider.InputBegan:Connect(function(inputObj)
-			if
-				(inputObj.UserInputType == Enum.UserInputType.MouseButton1 or inputObj.UserInputType == Enum.UserInputType.Touch)
-				and (inputObj.Position.Y - slider.AbsolutePosition.Y) > (20 * scale.Scale)
-			then
-				local changed = inputService.InputChanged:Connect(function(input)
-					if input.UserInputType == (inputObj.UserInputType == Enum.UserInputType.MouseButton1 and Enum.UserInputType.MouseMovement or Enum.UserInputType.Touch) then
-						optionapi:SetValue(nil, nil, nil, math.clamp(math.round((input.Position.X - holder.AbsolutePosition.X) / scale.Scale / 27), 1, 7))
-					end
-				end)
-
-				local ended
-				ended = inputObj.Changed:Connect(function()
-					if inputObj.UserInputState == Enum.UserInputState.End then
-						if changed then
-							changed:Disconnect()
-						end
-						if ended then
-							ended:Disconnect()
-						end
-					end
-				end)
-				optionapi:SetValue(nil, nil, nil, math.clamp(math.round((inputObj.Position.X - holder.AbsolutePosition.X) / scale.Scale / 27), 1, 7))
-			end
-		end)
-		rainbow.MouseButton1Click:Connect(function()
-			optionapi:Toggle()
-		end)
-		valuebox.FocusLost:Connect(function(enter)
-			preview.Visible = true
-			valuebox.Visible = false
-			if enter then
-				local commas = valuebox.Text:split(',')
-				local suc, res = pcall(function()
-					return tonumber(commas[1]) and Color3.fromRGB(
-						tonumber(commas[1]),
-						tonumber(commas[2]),
-						tonumber(commas[3])
-					) or Color3.fromHex(valuebox.Text)
-				end)
-
-				if suc then
-					if optionapi.Rainbow then
-						optionapi:Toggle()
-					end
-					optionapi:SetValue(res:ToHSV())
-				end
-			end
-		end)
-
-		optionapi.Object = slider
-		categoryapi.Options[optionsettings.Name] = optionapi
-
-		return optionapi
-	end
-
-	back.MouseEnter:Connect(function()
-		back.ImageColor3 = uipallet.Text
+	local suc, httpdata = pcall(function()
+		return cacheExpire < tick() and game:HttpGet('https://games.roblox.com/v1/games/'..game.PlaceId..'/servers/Public?sortOrder='..(filter == 'Ascending' and 1 or 2)..'&excludeFullGames=true&limit=100'..(pointer and '&cursor='..pointer or '')) or cache
 	end)
-	back.MouseLeave:Connect(function()
-		back.ImageColor3 = color.Light(uipallet.Main, 0.37)
-	end)
-	back.MouseButton1Click:Connect(function()
-		settingspane.Visible = false
-	end)
-	close.MouseButton1Click:Connect(function()
-		settingspane.Visible = false
-	end)
-	discordbutton.MouseButton1Click:Connect(function()
-		task.spawn(function()
-			local body = httpService:JSONEncode({
-				nonce = httpService:GenerateGUID(false),
-				args = {
-					invite = {code = '5gJqhQmrdS'},
-					code = '5gJqhQmrdS'
-				},
-				cmd = 'INVITE_BROWSER'
-			})
+	local data = suc and httpService:JSONDecode(httpdata) or nil
+	if data and data.data then
+		for _, v in data.data do
+			if tonumber(v.playing) < playersService.MaxPlayers and not table.find(visited, v.id) and not table.find(attempted, v.id) then
+				cacheExpire, cache = tick() + 60, httpdata
+				table.insert(attempted, v.id)
 
-			for i = 1, 14 do
-				task.spawn(function()
-					request({
-						Method = 'POST',
-						Url = 'http://127.0.0.1:64'..(53 + i)..'/rpc?v=1',
-						Headers = {
-							['Content-Type'] = 'application/json',
-							Origin = 'https://discord.com'
-						},
-						Body = body
-					})
-				end)
-			end
-		end)
-
-		task.spawn(function()
-			tooltip.Text = 'Copied!'
-			setclipboard('https://discord.gg/5gJqhQmrdS')
-		end)
-	end)
-	settingsbutton.MouseEnter:Connect(function()
-		settingsicon.ImageColor3 = uipallet.Text
-	end)
-	settingsbutton.MouseLeave:Connect(function()
-		settingsicon.ImageColor3 = color.Light(uipallet.Main, 0.37)
-	end)
-	settingsbutton.MouseButton1Click:Connect(function()
-		settingspane.Visible = true
-	end)
-	windowlist:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		if self.ThreadFix then
-			setthreadidentity(8)
-		end
-		window.Size = UDim2.fromOffset(220, 42 + windowlist.AbsoluteContentSize.Y / scale.Scale)
-		for _, v in categoryapi.Buttons do
-			if v.Icon then
-				v.Object.Text = string.rep(' ', 36 * scale.Scale)..v.Name
-			end
-		end
-	end)
-
-	self.Categories.Main = categoryapi
-
-	return categoryapi
-end
-
-function mainapi:CreateCategory(categorysettings)
-	local categoryapi = {
-		Type = 'Category',
-		Expanded = false
-	}
-
-	local window = Instance.new('TextButton')
-	window.Name = categorysettings.Name..'Category'
-	window.Size = UDim2.fromOffset(220, 41)
-	window.Position = UDim2.fromOffset(236, 60)
-	window.BackgroundColor3 = uipallet.Main
-	window.AutoButtonColor = false
-	window.Visible = false
-	window.Text = ''
-	window.Parent = clickgui
-	addBlur(window)
-	addCorner(window)
-	makeDraggable(window)
-	local icon = Instance.new('ImageLabel')
-	icon.Name = 'Icon'
-	icon.Size = categorysettings.Size
-	icon.Position = UDim2.fromOffset(12, (icon.Size.X.Offset > 20 and 14 or 13))
-	icon.BackgroundTransparency = 1
-	icon.Image = categorysettings.Icon
-	icon.ImageColor3 = uipallet.Text
-	icon.Parent = window
-	local title = Instance.new('TextLabel')
-	title.Name = 'Title'
-	title.Size = UDim2.new(1, -(categorysettings.Size.X.Offset > 18 and 40 or 33), 0, 41)
-	title.Position = UDim2.fromOffset(math.abs(title.Size.X.Offset), 0)
-	title.BackgroundTransparency = 1
-	title.Text = categorysettings.Name
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.TextColor3 = uipallet.Text
-	title.TextSize = 13
-	title.FontFace = uipallet.Font
-	title.Parent = window
-	local arrowbutton = Instance.new('TextButton')
-	arrowbutton.Name = 'Arrow'
-	arrowbutton.Size = UDim2.fromOffset(40, 40)
-	arrowbutton.Position = UDim2.new(1, -40, 0, 0)
-	arrowbutton.BackgroundTransparency = 1
-	arrowbutton.Text = ''
-	arrowbutton.Parent = window
-	local arrow = Instance.new('ImageLabel')
-	arrow.Name = 'Arrow'
-	arrow.Size = UDim2.fromOffset(9, 4)
-	arrow.Position = UDim2.fromOffset(20, 18)
-	arrow.BackgroundTransparency = 1
-	arrow.Image = getcustomasset('newvape/assets/new/expandup.png')
-	arrow.ImageColor3 = Color3.fromRGB(140, 140, 140)
-	arrow.Rotation = 180
-	arrow.Parent = arrowbutton
-	local children = Instance.new('ScrollingFrame')
-	children.Name = 'Children'
-	children.Size = UDim2.new(1, 0, 1, -41)
-	children.Position = UDim2.fromOffset(0, 37)
-	children.BackgroundTransparency = 1
-	children.BorderSizePixel = 0
-	children.Visible = false
-	children.ScrollBarThickness = 2
-	children.ScrollBarImageTransparency = 0.75
-	children.CanvasSize = UDim2.new()
-	children.Parent = window
-	local divider = Instance.new('Frame')
-	divider.Name = 'Divider'
-	divider.Size = UDim2.new(1, 0, 0, 1)
-	divider.Position = UDim2.fromOffset(0, 37)
-	divider.BackgroundColor3 = Color3.new(1, 1, 1)
-	divider.BackgroundTransparency = 0.928
-	divider.BorderSizePixel = 0
-	divider.Visible = false
-	divider.Parent = window
-	local windowlist = Instance.new('UIListLayout')
-	windowlist.SortOrder = Enum.SortOrder.LayoutOrder
-	windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	windowlist.Parent = children
-
-	function categoryapi:CreateModule(modulesettings)
-		mainapi:Remove(modulesettings.Name)
-		local moduleapi = {
-			Enabled = false,
-			Options = {},
-			Bind = {},
-			Index = getTableSize(mainapi.Modules),
-			ExtraText = modulesettings.ExtraText,
-			Name = modulesettings.Name,
-			Category = categorysettings.Name
-		}
-
-		local hovered = false
-		local modulebutton = Instance.new('TextButton')
-		modulebutton.Name = modulesettings.Name
-		modulebutton.Size = UDim2.fromOffset(220, 40)
-		modulebutton.BackgroundColor3 = uipallet.Main
-		modulebutton.BorderSizePixel = 0
-		modulebutton.AutoButtonColor = false
-		modulebutton.Text = '            '..modulesettings.Name
-		modulebutton.TextXAlignment = Enum.TextXAlignment.Left
-		modulebutton.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		modulebutton.TextSize = 14
-		modulebutton.FontFace = uipallet.Font
-		modulebutton.Parent = children
-		local gradient = Instance.new('UIGradient')
-		gradient.Rotation = 90
-		gradient.Enabled = false
-		gradient.Parent = modulebutton
-		local modulechildren = Instance.new('Frame')
-		local bind = Instance.new('TextButton')
-		addTooltip(modulebutton, modulesettings.Tooltip)
-		addTooltip(bind, 'Click to bind')
-		bind.Name = 'Bind'
-		bind.Size = UDim2.fromOffset(20, 21)
-		bind.Position = UDim2.new(1, -36, 0, 9)
-		bind.AnchorPoint = Vector2.new(1, 0)
-		bind.BackgroundColor3 = Color3.new(1, 1, 1)
-		bind.BackgroundTransparency = 0.92
-		bind.BorderSizePixel = 0
-		bind.AutoButtonColor = false
-		bind.Visible = false
-		bind.Text = ''
-		addCorner(bind, UDim.new(0, 4))
-		local bindicon = Instance.new('ImageLabel')
-		bindicon.Name = 'Icon'
-		bindicon.Size = UDim2.fromOffset(12, 12)
-		bindicon.Position = UDim2.new(0.5, -6, 0, 5)
-		bindicon.BackgroundTransparency = 1
-		bindicon.Image = getcustomasset('newvape/assets/new/bind.png')
-		bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-		bindicon.Parent = bind
-		local bindtext = Instance.new('TextLabel')
-		bindtext.Size = UDim2.fromScale(1, 1)
-		bindtext.Position = UDim2.fromOffset(0, 1)
-		bindtext.BackgroundTransparency = 1
-		bindtext.Visible = false
-		bindtext.Text = ''
-		bindtext.TextColor3 = color.Dark(uipallet.Text, 0.43)
-		bindtext.TextSize = 12
-		bindtext.FontFace = uipallet.Font
-		bindtext.Parent = bind
-		local bindcover = Instance.new('ImageLabel')
-		bindcover.Name = 'Cover'
-		bindcover.Size = UDim2.fromOffset(154, 40)
-		bindcover.BackgroundTransparency = 1
-		bindcover.Visible = false
-		bindcover.Image = getcustomasset('newvape/assets/new/bindbkg.png')
-		bindcover.ScaleType = Enum.ScaleType.Slice
-		bindcover.SliceCenter = Rect.new(0, 0, 141, 40)
-		bindcover.Parent = modulebutton
-		local bindcovertext = Instance.new('TextLabel')
-		bindcovertext.Name = 'Text'
-		bindcovertext.Size = UDim2.new(1, -10, 1, -3)
-		bindcovertext.BackgroundTransparency = 1
-		bindcovertext.Text = 'PRESS A KEY TO BIND'
-		bindcovertext.TextColor3 = uipallet.Text
-		bindcovertext.TextSize = 11
-		bindcovertext.FontFace = uipallet.Font
-		bindcovertext.Parent = bindcover
-		bind.Parent = modulebutton
-		local dotsbutton = Instance.new('TextButton')
-		dotsbutton.Name = 'Dots'
-		dotsbutton.Size = UDim2.fromOffset(25, 40)
-		dotsbutton.Position = UDim2.new(1, -25, 0, 0)
-		dotsbutton.BackgroundTransparency = 1
-		dotsbutton.Text = ''
-		dotsbutton.Parent = modulebutton
-		local dots = Instance.new('ImageLabel')
-		dots.Name = 'Dots'
-		dots.Size = UDim2.fromOffset(3, 16)
-		dots.Position = UDim2.fromOffset(4, 12)
-		dots.BackgroundTransparency = 1
-		dots.Image = getcustomasset('newvape/assets/new/dots.png')
-		dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		dots.Parent = dotsbutton
-		modulechildren.Name = modulesettings.Name..'Children'
-		modulechildren.Size = UDim2.new(1, 0, 0, 0)
-		modulechildren.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-		modulechildren.BorderSizePixel = 0
-		modulechildren.Visible = false
-		modulechildren.Parent = children
-		moduleapi.Children = modulechildren
-		local windowlist = Instance.new('UIListLayout')
-		windowlist.SortOrder = Enum.SortOrder.LayoutOrder
-		windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-		windowlist.Parent = modulechildren
-		local divider = Instance.new('Frame')
-		divider.Name = 'Divider'
-		divider.Size = UDim2.new(1, 0, 0, 1)
-		divider.Position = UDim2.new(0, 0, 1, -1)
-		divider.BackgroundColor3 = Color3.new(0.19, 0.19, 0.19)
-		divider.BackgroundTransparency = 0.52
-		divider.BorderSizePixel = 0
-		divider.Visible = false
-		divider.Parent = modulebutton
-		modulesettings.Function = modulesettings.Function or function() end
-		addMaid(moduleapi)
-
-		function moduleapi:SetBind(tab, mouse)
-			if tab.Mobile then
-				createMobileButton(moduleapi, Vector2.new(tab.X, tab.Y))
+				notif('Vape', 'Found! Teleporting.', 5)
+				teleportService:TeleportToPlaceInstance(game.PlaceId, v.id)
 				return
 			end
-
-			self.Bind = table.clone(tab)
-			if mouse then
-				bindcovertext.Text = #tab <= 0 and 'BIND REMOVED' or 'BOUND TO'
-				bindcover.Size = UDim2.fromOffset(getfontsize(bindcovertext.Text, bindcovertext.TextSize).X + 20, 40)
-				task.delay(1, function()
-					bindcover.Visible = false
-				end)
-			end
-
-			if #tab <= 0 then
-				bindtext.Visible = false
-				bindicon.Visible = true
-				bind.Size = UDim2.fromOffset(20, 21)
-			else
-				bind.Visible = true
-				bindtext.Visible = true
-				bindicon.Visible = false
-				bindtext.Text = table.concat(tab, ' + '):upper()
-				bind.Size = UDim2.fromOffset(math.max(getfontsize(bindtext.Text, bindtext.TextSize, bindtext.Font).X + 10, 20), 21)
-			end
 		end
 
-		function moduleapi:Toggle(multiple)
-			if mainapi.ThreadFix then
-				setthreadidentity(8)
-			end
-			self.Enabled = not self.Enabled
-			divider.Visible = self.Enabled
-			gradient.Enabled = self.Enabled
-			modulebutton.TextColor3 = (hovered or modulechildren.Visible) and uipallet.Text or color.Dark(uipallet.Text, 0.16)
-			modulebutton.BackgroundColor3 = (hovered or modulechildren.Visible) and color.Light(uipallet.Main, 0.02) or uipallet.Main
-			dots.ImageColor3 = self.Enabled and Color3.fromRGB(50, 50, 50) or color.Light(uipallet.Main, 0.37)
-			bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-			bindtext.TextColor3 = color.Dark(uipallet.Text, 0.43)
-			if not self.Enabled then
-				for _, v in self.Connections do
-					v:Disconnect()
-				end
-				table.clear(self.Connections)
-			end
-			if not multiple then
-				mainapi:UpdateTextGUI()
-			end
-			task.spawn(modulesettings.Function, self.Enabled)
+		if data.nextPageCursor then
+			serverHop(data.nextPageCursor, filter)
+		else
+			notif('Vape', 'Failed to find an available server.', 5, 'warning')
 		end
-
-		for i, v in components do
-			moduleapi['Create'..i] = function(_, optionsettings)
-				return v(optionsettings, modulechildren, moduleapi)
-			end
-		end
-
-		bind.MouseEnter:Connect(function()
-			bindtext.Visible = false
-			bindicon.Visible = not bindtext.Visible
-			bindicon.Image = getcustomasset('newvape/assets/new/edit.png')
-			if not moduleapi.Enabled then bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.16) end
-		end)
-		bind.MouseLeave:Connect(function()
-			bindtext.Visible = #moduleapi.Bind > 0
-			bindicon.Visible = not bindtext.Visible
-			bindicon.Image = getcustomasset('newvape/assets/new/bind.png')
-			if not moduleapi.Enabled then
-				bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-			end
-		end)
-		bind.MouseButton1Click:Connect(function()
-			bindcovertext.Text = 'PRESS A KEY TO BIND'
-			bindcover.Size = UDim2.fromOffset(getfontsize(bindcovertext.Text, bindcovertext.TextSize).X + 20, 40)
-			bindcover.Visible = true
-			mainapi.Binding = moduleapi
-		end)
-		dotsbutton.MouseEnter:Connect(function()
-			if not moduleapi.Enabled then
-				dots.ImageColor3 = uipallet.Text
-			end
-		end)
-		dotsbutton.MouseLeave:Connect(function()
-			if not moduleapi.Enabled then
-				dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
-			end
-		end)
-		dotsbutton.MouseButton1Click:Connect(function()
-			modulechildren.Visible = not modulechildren.Visible
-		end)
-		dotsbutton.MouseButton2Click:Connect(function()
-			modulechildren.Visible = not modulechildren.Visible
-		end)
-		modulebutton.MouseEnter:Connect(function()
-			hovered = true
-			if not moduleapi.Enabled and not modulechildren.Visible then
-				modulebutton.TextColor3 = uipallet.Text
-				modulebutton.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-			end
-			bind.Visible = #moduleapi.Bind > 0 or hovered or modulechildren.Visible
-		end)
-		modulebutton.MouseLeave:Connect(function()
-			hovered = false
-			if not moduleapi.Enabled and not modulechildren.Visible then
-				modulebutton.TextColor3 = color.Dark(uipallet.Text, 0.16)
-				modulebutton.BackgroundColor3 = uipallet.Main
-			end
-			bind.Visible = #moduleapi.Bind > 0 or hovered or modulechildren.Visible
-		end)
-		modulebutton.MouseButton1Click:Connect(function()
-			moduleapi:Toggle()
-		end)
-		modulebutton.MouseButton2Click:Connect(function()
-			modulechildren.Visible = not modulechildren.Visible
-		end)
-		if inputService.TouchEnabled then
-			local heldbutton = false
-			modulebutton.MouseButton1Down:Connect(function()
-				heldbutton = true
-				local holdtime, holdpos = tick(), inputService:GetMouseLocation()
-				repeat
-					heldbutton = (inputService:GetMouseLocation() - holdpos).Magnitude < 3
-					task.wait()
-				until (tick() - holdtime) > 1 or not heldbutton or not clickgui.Visible
-				if heldbutton and clickgui.Visible then
-					if mainapi.ThreadFix then
-						setthreadidentity(8)
-					end
-					clickgui.Visible = false
-					tooltip.Visible = false
-					mainapi:BlurCheck()
-					for _, mobileButton in mainapi.Modules do
-						if mobileButton.Bind.Button then
-							mobileButton.Bind.Button.Visible = true
-						end
-					end
-
-					local touchconnection
-					touchconnection = inputService.InputBegan:Connect(function(inputType)
-						if inputType.UserInputType == Enum.UserInputType.Touch then
-							if mainapi.ThreadFix then
-								setthreadidentity(8)
-							end
-							createMobileButton(moduleapi, inputType.Position + Vector3.new(0, guiService:GetGuiInset().Y, 0))
-							clickgui.Visible = true
-							mainapi:BlurCheck()
-							for _, mobileButton in mainapi.Modules do
-								if mobileButton.Bind.Button then
-									mobileButton.Bind.Button.Visible = false
-								end
-							end
-							touchconnection:Disconnect()
-						end
-					end)
-				end
-			end)
-			modulebutton.MouseButton1Up:Connect(function()
-				heldbutton = false
-			end)
-		end
-		windowlist:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-			if mainapi.ThreadFix then
-				setthreadidentity(8)
-			end
-			modulechildren.Size = UDim2.new(1, 0, 0, windowlist.AbsoluteContentSize.Y / scale.Scale)
-		end)
-
-		moduleapi.Object = modulebutton
-		mainapi.Modules[modulesettings.Name] = moduleapi
-
-		local sorting = {}
-		for _, v in mainapi.Modules do
-			sorting[v.Category] = sorting[v.Category] or {}
-			table.insert(sorting[v.Category], v.Name)
-		end
-
-		for _, sort in sorting do
-			table.sort(sort)
-			for i, v in sort do
-				mainapi.Modules[v].Index = i
-				mainapi.Modules[v].Object.LayoutOrder = i
-				mainapi.Modules[v].Children.LayoutOrder = i
-			end
-		end
-
-		return moduleapi
+	else
+		notif('Vape', 'Failed to grab servers. ('..(data and data.errors[1].message or 'no data')..')', 5, 'warning')
 	end
-
-	function categoryapi:Expand()
-		self.Expanded = not self.Expanded
-		children.Visible = self.Expanded
-		arrow.Rotation = self.Expanded and 0 or 180
-		window.Size = UDim2.fromOffset(220, self.Expanded and math.min(41 + windowlist.AbsoluteContentSize.Y / scale.Scale, 601) or 41)
-		divider.Visible = children.CanvasPosition.Y > 10 and children.Visible
-	end
-
-	arrowbutton.MouseButton1Click:Connect(function()
-		categoryapi:Expand()
-	end)
-	arrowbutton.MouseButton2Click:Connect(function()
-		categoryapi:Expand()
-	end)
-	arrowbutton.MouseEnter:Connect(function()
-		arrow.ImageColor3 = Color3.fromRGB(220, 220, 220)
-	end)
-	arrowbutton.MouseLeave:Connect(function()
-		arrow.ImageColor3 = Color3.fromRGB(140, 140, 140)
-	end)
-	children:GetPropertyChangedSignal('CanvasPosition'):Connect(function()
-		if self.ThreadFix then
-			setthreadidentity(8)
-		end
-		divider.Visible = children.CanvasPosition.Y > 10 and children.Visible
-	end)
-	window.InputBegan:Connect(function(inputObj)
-		if inputObj.Position.Y < window.AbsolutePosition.Y + 41 and inputObj.UserInputType == Enum.UserInputType.MouseButton2 then
-			categoryapi:Expand()
-		end
-	end)
-	windowlist:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		if self.ThreadFix then
-			setthreadidentity(8)
-		end
-		children.CanvasSize = UDim2.fromOffset(0, windowlist.AbsoluteContentSize.Y / scale.Scale)
-		if categoryapi.Expanded then
-			window.Size = UDim2.fromOffset(220, math.min(41 + windowlist.AbsoluteContentSize.Y / scale.Scale, 601))
-		end
-	end)
-
-	categoryapi.Button = self.Categories.Main:CreateButton({
-		Name = categorysettings.Name,
-		Icon = categorysettings.Icon,
-		Size = categorysettings.Size,
-		Window = window
-	})
-
-	categoryapi.Object = window
-	self.Categories[categorysettings.Name] = categoryapi
-
-	return categoryapi
 end
 
-function mainapi:CreateOverlay(categorysettings)
-	local window
-	local categoryapi
-	categoryapi = {
-		Type = 'Overlay',
-		Expanded = false,
-		Button = self.Overlays:CreateToggle({
-			Name = categorysettings.Name,
-			Function = function(callback)
-				window.Visible = callback and (clickgui.Visible or categoryapi.Pinned)
-				if not callback then
-					for _, v in categoryapi.Connections do
-						v:Disconnect()
-					end
-					table.clear(categoryapi.Connections)
-				end
+vape:Clean(lplr.OnTeleport:Connect(function()
+	if not tpSwitch then
+		tpSwitch = true
+		queue_on_teleport("shared.vapeserverhoplist = '"..table.concat(visited, '/').."'\nshared.vapeserverhopprevious = '"..game.JobId.."'")
+	end
+end))
 
-				if categorysettings.Function then
-					task.spawn(categorysettings.Function, callback)
+local frictionTable, oldfrict, entitylib = {}, {}
+local function updateVelocity()
+	if getTableSize(frictionTable) > 0 then
+		if entitylib.isAlive then
+			for _, v in entitylib.character.Character:GetChildren() do
+				if v:IsA('BasePart') and v.Name ~= 'HumanoidRootPart' and not oldfrict[v] then
+					oldfrict[v] = v.CustomPhysicalProperties or 'none'
+					v.CustomPhysicalProperties = PhysicalProperties.new(0.0001, 0.2, 0.5, 1, 1)
 				end
-			end,
-			Icon = categorysettings.Icon,
-			Size = categorysettings.Size,
-			Position = categorysettings.Position
-		}),
-		Pinned = false,
-		Options = {}
+			end
+		end
+	else
+		for i, v in oldfrict do
+			i.CustomPhysicalProperties = v ~= 'none' and v or nil
+		end
+		table.clear(oldfrict)
+	end
+end
+
+local function motorMove(target, cf)
+	local part = Instance.new('Part')
+	part.Anchored = true
+	part.Parent = workspace
+	local motor = Instance.new('Motor6D')
+	motor.Part0 = target
+	motor.Part1 = part
+	motor.C1 = cf
+	motor.Parent = part
+	task.delay(0, part.Destroy, part)
+end
+
+local hash = loadstring(downloadFile('newvape/libraries/hash.lua'), 'hash')()
+local prediction = loadstring(downloadFile('newvape/libraries/prediction.lua'), 'prediction')()
+entitylib = loadstring(downloadFile('newvape/libraries/entity.lua'), 'entitylibrary')()
+local whitelist = {
+	alreadychecked = {},
+	customtags = {},
+	data = {WhitelistedUsers = {}},
+	hashes = setmetatable({}, {
+		__index = function(_, v)
+			return hash and hash.sha512(v..'SelfReport') or ''
+		end
+	}),
+	hooked = false,
+	loaded = false,
+	localprio = 0,
+	said = {}
+}
+vape.Libraries.entity = entitylib
+vape.Libraries.whitelist = whitelist
+vape.Libraries.prediction = prediction
+vape.Libraries.hash = hash
+vape.Libraries.auraanims = {
+	Normal = {
+		{CFrame = CFrame.new(-0.17, -0.14, -0.12) * CFrame.Angles(math.rad(-53), math.rad(50), math.rad(-64)), Time = 0.1},
+		{CFrame = CFrame.new(-0.55, -0.59, -0.1) * CFrame.Angles(math.rad(-161), math.rad(54), math.rad(-6)), Time = 0.08},
+		{CFrame = CFrame.new(-0.62, -0.68, -0.07) * CFrame.Angles(math.rad(-167), math.rad(47), math.rad(-1)), Time = 0.03},
+		{CFrame = CFrame.new(-0.56, -0.86, 0.23) * CFrame.Angles(math.rad(-167), math.rad(49), math.rad(-1)), Time = 0.03}
+	},
+	Random = {},
+	['Horizontal Spin'] = {
+		{CFrame = CFrame.Angles(math.rad(-10), math.rad(-90), math.rad(-80)), Time = 0.12},
+		{CFrame = CFrame.Angles(math.rad(-10), math.rad(180), math.rad(-80)), Time = 0.12},
+		{CFrame = CFrame.Angles(math.rad(-10), math.rad(90), math.rad(-80)), Time = 0.12},
+		{CFrame = CFrame.Angles(math.rad(-10), 0, math.rad(-80)), Time = 0.12}
+	},
+	['Vertical Spin'] = {
+		{CFrame = CFrame.Angles(math.rad(-90), 0, math.rad(15)), Time = 0.12},
+		{CFrame = CFrame.Angles(math.rad(180), 0, math.rad(15)), Time = 0.12},
+		{CFrame = CFrame.Angles(math.rad(90), 0, math.rad(15)), Time = 0.12},
+		{CFrame = CFrame.Angles(0, 0, math.rad(15)), Time = 0.12}
+	},
+	Exhibition = {
+		{CFrame = CFrame.new(0.69, -0.7, 0.6) * CFrame.Angles(math.rad(-30), math.rad(50), math.rad(-90)), Time = 0.1},
+		{CFrame = CFrame.new(0.7, -0.71, 0.59) * CFrame.Angles(math.rad(-84), math.rad(50), math.rad(-38)), Time = 0.2}
+	},
+	['Exhibition Old'] = {
+		{CFrame = CFrame.new(0.69, -0.7, 0.6) * CFrame.Angles(math.rad(-30), math.rad(50), math.rad(-90)), Time = 0.15},
+		{CFrame = CFrame.new(0.69, -0.7, 0.6) * CFrame.Angles(math.rad(-30), math.rad(50), math.rad(-90)), Time = 0.05},
+		{CFrame = CFrame.new(0.7, -0.71, 0.59) * CFrame.Angles(math.rad(-84), math.rad(50), math.rad(-38)), Time = 0.1},
+		{CFrame = CFrame.new(0.7, -0.71, 0.59) * CFrame.Angles(math.rad(-84), math.rad(50), math.rad(-38)), Time = 0.05},
+		{CFrame = CFrame.new(0.63, -0.1, 1.37) * CFrame.Angles(math.rad(-84), math.rad(50), math.rad(-38)), Time = 0.15}
 	}
+}
 
-	window = Instance.new('TextButton')
-	window.Name = categorysettings.Name..'Overlay'
-	window.Size = UDim2.fromOffset(categorysettings.CategorySize or 220, 41)
-	window.Position = UDim2.fromOffset(240, 46)
-	window.BackgroundColor3 = uipallet.Main
-	window.AutoButtonColor = false
-	window.Visible = false
-	window.Text = ''
-	window.Parent = scaledgui
-	local blur = addBlur(window)
-	addCorner(window)
-	makeDraggable(window)
-	local icon = Instance.new('ImageLabel')
-	icon.Name = 'Icon'
-	icon.Size = categorysettings.Size
-	icon.Position = UDim2.fromOffset(12, (icon.Size.X.Offset > 14 and 14 or 13))
-	icon.BackgroundTransparency = 1
-	icon.Image = categorysettings.Icon
-	icon.ImageColor3 = uipallet.Text
-	icon.Parent = window
-	local title = Instance.new('TextLabel')
-	title.Name = 'Title'
-	title.Size = UDim2.new(1, -32, 0, 41)
-	title.Position = UDim2.fromOffset(math.abs(title.Size.X.Offset), 0)
-	title.BackgroundTransparency = 1
-	title.Text = categorysettings.Name
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.TextColor3 = uipallet.Text
-	title.TextSize = 13
-	title.FontFace = uipallet.Font
-	title.Parent = window
-	local pin = Instance.new('ImageButton')
-	pin.Name = 'Pin'
-	pin.Size = UDim2.fromOffset(16, 16)
-	pin.Position = UDim2.new(1, -47, 0, 12)
-	pin.BackgroundTransparency = 1
-	pin.AutoButtonColor = false
-	pin.Image = getcustomasset('newvape/assets/new/pin.png')
-	pin.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-	pin.Parent = window
-	local dotsbutton = Instance.new('TextButton')
-	dotsbutton.Name = 'Dots'
-	dotsbutton.Size = UDim2.fromOffset(17, 40)
-	dotsbutton.Position = UDim2.new(1, -17, 0, 0)
-	dotsbutton.BackgroundTransparency = 1
-	dotsbutton.Text = ''
-	dotsbutton.Parent = window
-	local dots = Instance.new('ImageLabel')
-	dots.Name = 'Dots'
-	dots.Size = UDim2.fromOffset(3, 16)
-	dots.Position = UDim2.fromOffset(4, 12)
-	dots.BackgroundTransparency = 1
-	dots.Image = getcustomasset('newvape/assets/new/dots.png')
-	dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
-	dots.Parent = dotsbutton
-	local customchildren = Instance.new('Frame')
-	customchildren.Name = 'CustomChildren'
-	customchildren.Size = UDim2.new(1, 0, 0, 200)
-	customchildren.Position = UDim2.fromScale(0, 1)
-	customchildren.BackgroundTransparency = 1
-	customchildren.Parent = window
-	local children = Instance.new('ScrollingFrame')
-	children.Name = 'Children'
-	children.Size = UDim2.new(1, 0, 1, -41)
-	children.Position = UDim2.fromOffset(0, 37)
-	children.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-	children.BorderSizePixel = 0
-	children.Visible = false
-	children.ScrollBarThickness = 2
-	children.ScrollBarImageTransparency = 0.75
-	children.CanvasSize = UDim2.new()
-	children.Parent = window
-	local windowlist = Instance.new('UIListLayout')
-	windowlist.SortOrder = Enum.SortOrder.LayoutOrder
-	windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	windowlist.Parent = children
-	addMaid(categoryapi)
-
-	function categoryapi:Expand(check)
-		if check and not blur.Visible then return end
-		self.Expanded = not self.Expanded
-		children.Visible = self.Expanded
-		dots.ImageColor3 = self.Expanded and uipallet.Text or color.Light(uipallet.Main, 0.37)
-		if self.Expanded then
-			window.Size = UDim2.fromOffset(window.Size.X.Offset, math.min(41 + windowlist.AbsoluteContentSize.Y / scale.Scale, 601))
-		else
-			window.Size = UDim2.fromOffset(window.Size.X.Offset, 41)
+local SpeedMethods
+local SpeedMethodList = {'Velocity'}
+SpeedMethods = {
+	Velocity = function(options, moveDirection)
+		local root = entitylib.character.RootPart
+		root.AssemblyLinearVelocity = (moveDirection * options.Value.Value) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+	end,
+	Impulse = function(options, moveDirection)
+		local root = entitylib.character.RootPart
+		local diff = ((moveDirection * options.Value.Value) - root.AssemblyLinearVelocity) * Vector3.new(1, 0, 1)
+		if diff.Magnitude > (moveDirection == Vector3.zero and 10 or 2) then
+			root:ApplyImpulse(diff * root.AssemblyMass)
 		end
+	end,
+	CFrame = function(options, moveDirection, dt)
+		local root = entitylib.character.RootPart
+		local dest = (moveDirection * math.max(options.Value.Value - entitylib.character.Humanoid.WalkSpeed, 0) * dt)
+		if options.WallCheck.Enabled then
+			options.rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+			options.rayCheck.CollisionGroup = root.CollisionGroup
+			local ray = workspace:Raycast(root.Position, dest, options.rayCheck)
+			if ray then
+				dest = ((ray.Position + ray.Normal) - root.Position)
+			end
+		end
+		root.CFrame += dest
+	end,
+	TP = function(options, moveDirection)
+		if options.TPTiming < tick() then
+			options.TPTiming = tick() + options.TPFrequency.Value
+			SpeedMethods.CFrame(options, moveDirection, 1)
+		end
+	end,
+	WalkSpeed = function(options)
+		if not options.WalkSpeed then options.WalkSpeed = entitylib.character.Humanoid.WalkSpeed end
+		entitylib.character.Humanoid.WalkSpeed = options.Value.Value
+	end,
+	Pulse = function(options, moveDirection)
+		local root = entitylib.character.RootPart
+		local dt = math.max(options.Value.Value - entitylib.character.Humanoid.WalkSpeed, 0)
+		dt = dt * (1 - math.min((tick() % (options.PulseLength.Value + options.PulseDelay.Value)) / options.PulseLength.Value, 1))
+		root.AssemblyLinearVelocity = (moveDirection * (entitylib.character.Humanoid.WalkSpeed + dt)) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+	end
+}
+for name in SpeedMethods do
+	if not table.find(SpeedMethodList, name) then
+		table.insert(SpeedMethodList, name)
+	end
+end
+
+run(function()
+	entitylib.getUpdateConnections = function(ent)
+		local hum = ent.Humanoid
+		return {
+			hum:GetPropertyChangedSignal('Health'),
+			hum:GetPropertyChangedSignal('MaxHealth'),
+			{
+				Connect = function()
+					ent.Friend = ent.Player and isFriend(ent.Player) or nil
+					ent.Target = ent.Player and isTarget(ent.Player) or nil
+					return {
+						Disconnect = function() end
+					}
+				end
+			}
+		}
 	end
 
-	function categoryapi:Pin()
-		self.Pinned = not self.Pinned
-		pin.ImageColor3 = self.Pinned and uipallet.Text or color.Dark(uipallet.Text, 0.43)
+	entitylib.targetCheck = function(ent)
+		if ent.TeamCheck then
+			return ent:TeamCheck()
+		end
+		if ent.NPC then return true end
+		if isFriend(ent.Player) then return false end
+		if not select(2, whitelist:get(ent.Player)) then return false end
+		if vape.Categories.Main.Options['Teams by server'].Enabled then
+			if not lplr.Team then return true end
+			if not ent.Player.Team then return true end
+			if ent.Player.Team ~= lplr.Team then return true end
+			return #ent.Player.Team:GetPlayers() == #playersService:GetPlayers()
+		end
+		return true
 	end
 
-	function categoryapi:Update()
-		window.Visible = self.Button.Enabled and (clickgui.Visible or self.Pinned)
-		if self.Expanded then
-			self:Expand()
+	entitylib.getEntityColor = function(ent)
+		ent = ent.Player
+		if not (ent and vape.Categories.Main.Options['Use team color'].Enabled) then return end
+		if isFriend(ent, true) then
+			return Color3.fromHSV(vape.Categories.Friends.Options['Friends color'].Hue, vape.Categories.Friends.Options['Friends color'].Sat, vape.Categories.Friends.Options['Friends color'].Value)
 		end
-		if clickgui.Visible then
-			window.Size = UDim2.fromOffset(window.Size.X.Offset, 41)
-			window.BackgroundTransparency = 0
-			blur.Visible = true
-			icon.Visible = true
-			title.Visible = true
-			pin.Visible = true
-			dotsbutton.Visible = true
-		else
-			window.Size = UDim2.fromOffset(window.Size.X.Offset, 0)
-			window.BackgroundTransparency = 1
-			blur.Visible = false
-			icon.Visible = false
-			title.Visible = false
-			pin.Visible = false
-			dotsbutton.Visible = false
-		end
+		return tostring(ent.TeamColor) ~= 'White' and ent.TeamColor.Color or nil
 	end
 
-	for i, v in components do
-		categoryapi['Create'..i] = function(self, optionsettings)
-			return v(optionsettings, children, categoryapi)
-		end
-	end
-
-	dotsbutton.MouseEnter:Connect(function()
-		if not children.Visible then
-			dots.ImageColor3 = uipallet.Text
-		end
+	vape:Clean(function()
+		entitylib.kill()
+		entitylib = nil
 	end)
-	dotsbutton.MouseLeave:Connect(function()
-		if not children.Visible then
-			dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		end
-	end)
-	dotsbutton.MouseButton1Click:Connect(function()
-		categoryapi:Expand(true)
-	end)
-	dotsbutton.MouseButton2Click:Connect(function()
-		categoryapi:Expand(true)
-	end)
-	pin.MouseButton1Click:Connect(function()
-		categoryapi:Pin()
-	end)
-	window.MouseButton2Click:Connect(function()
-		categoryapi:Expand(true)
-	end)
-	windowlist:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		if self.ThreadFix then
-			setthreadidentity(8)
-		end
-		children.CanvasSize = UDim2.fromOffset(0, windowlist.AbsoluteContentSize.Y / scale.Scale)
-		if categoryapi.Expanded then
-			window.Size = UDim2.fromOffset(window.Size.X.Offset, math.min(41 + windowlist.AbsoluteContentSize.Y / scale.Scale, 601))
-		end
-	end)
-	self:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
-		categoryapi:Update()
+	vape:Clean(vape.Categories.Friends.Update.Event:Connect(function() entitylib.refresh() end))
+	vape:Clean(vape.Categories.Targets.Update.Event:Connect(function() entitylib.refresh() end))
+	vape:Clean(entitylib.Events.LocalAdded:Connect(updateVelocity))
+	vape:Clean(workspace:GetPropertyChangedSignal('CurrentCamera'):Connect(function()
+		gameCamera = workspace.CurrentCamera or workspace:FindFirstChildWhichIsA('Camera')
 	end))
+end)
 
-	categoryapi:Update()
-	categoryapi.Object = window
-	categoryapi.Children = customchildren
-	self.Categories[categorysettings.Name] = categoryapi
+run(function()
+	function whitelist:get(plr)
+		local plrstr = self.hashes[plr.Name..plr.UserId]
+		for _, v in self.data.WhitelistedUsers do
+			if v.hash == plrstr then
+				return v.level, v.attackable or whitelist.localprio >= v.level, v.tags
+			end
+		end
+		return 0, true
+	end
 
-	return categoryapi
-end
+	function whitelist:isingame()
+		for _, v in playersService:GetPlayers() do
+			if self:get(v) ~= 0 then return true end
+		end
+		return false
+	end
 
-function mainapi:CreateCategoryList(categorysettings)
-	local categoryapi = {
-		Type = 'CategoryList',
-		Expanded = false,
-		List = {},
-		ListEnabled = {},
-		Objects = {},
-		Options = {}
-	}
-	categorysettings.Color = categorysettings.Color or Color3.fromRGB(5, 134, 105)
+	function whitelist:tag(plr, text, rich)
+		local plrtag, newtag = select(3, self:get(plr)) or self.customtags[plr.Name] or {}, ''
+		if not text then return plrtag end
+		for _, v in plrtag do
+			newtag = newtag..(rich and '<font color="#'..v.color:ToHex()..'">['..v.text..']</font>' or '['..removeTags(v.text)..']')..' '
+		end
+		return newtag
+	end
 
-	local window = Instance.new('TextButton')
-	window.Name = categorysettings.Name..'CategoryList'
-	window.Size = UDim2.fromOffset(220, 45)
-	window.Position = UDim2.fromOffset(240, 46)
-	window.BackgroundColor3 = uipallet.Main
-	window.AutoButtonColor = false
-	window.Visible = false
-	window.Text = ''
-	window.Parent = clickgui
-	addBlur(window)
-	addCorner(window)
-	makeDraggable(window)
-	local icon = Instance.new('ImageLabel')
-	icon.Name = 'Icon'
-	icon.Size = categorysettings.Size
-	icon.Position = categorysettings.Position or UDim2.fromOffset(12, (categorysettings.Size.X.Offset > 20 and 13 or 12))
-	icon.BackgroundTransparency = 1
-	icon.Image = categorysettings.Icon
-	icon.ImageColor3 = uipallet.Text
-	icon.Parent = window
-	local title = Instance.new('TextLabel')
-	title.Name = 'Title'
-	title.Size = UDim2.new(1, -(categorysettings.Size.X.Offset > 20 and 44 or 36), 0, 20)
-	title.Position = UDim2.fromOffset(math.abs(title.Size.X.Offset), 12)
-	title.BackgroundTransparency = 1
-	title.Text = categorysettings.Name
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.TextColor3 = uipallet.Text
-	title.TextSize = 13
-	title.FontFace = uipallet.Font
-	title.Parent = window
-	local arrowbutton = Instance.new('TextButton')
-	arrowbutton.Name = 'Arrow'
-	arrowbutton.Size = UDim2.fromOffset(40, 40)
-	arrowbutton.Position = UDim2.new(1, -40, 0, 0)
-	arrowbutton.BackgroundTransparency = 1
-	arrowbutton.Text = ''
-	arrowbutton.Parent = window
-	local arrow = Instance.new('ImageLabel')
-	arrow.Name = 'Arrow'
-	arrow.Size = UDim2.fromOffset(9, 4)
-	arrow.Position = UDim2.fromOffset(20, 19)
-	arrow.BackgroundTransparency = 1
-	arrow.Image = getcustomasset('newvape/assets/new/expandup.png')
-	arrow.ImageColor3 = Color3.fromRGB(140, 140, 140)
-	arrow.Rotation = 180
-	arrow.Parent = arrowbutton
-	local children = Instance.new('ScrollingFrame')
-	children.Name = 'Children'
-	children.Size = UDim2.new(1, 0, 1, -45)
-	children.Position = UDim2.fromOffset(0, 45)
-	children.BackgroundTransparency = 1
-	children.BorderSizePixel = 0
-	children.Visible = false
-	children.ScrollBarThickness = 2
-	children.ScrollBarImageTransparency = 0.75
-	children.CanvasSize = UDim2.new()
-	children.Parent = window
-	local childrentwo = Instance.new('Frame')
-	childrentwo.BackgroundTransparency = 1
-	childrentwo.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-	childrentwo.Visible = false
-	childrentwo.Parent = children
-	local settings = Instance.new('ImageButton')
-	settings.Name = 'Settings'
-	settings.Size = UDim2.fromOffset(16, 16)
-	settings.Position = UDim2.new(1, -52, 0, 13)
-	settings.BackgroundTransparency = 1
-	settings.AutoButtonColor = false
-	settings.Image = getcustomasset('newvape/assets/new/customsettings.png')
-	settings.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-	settings.Parent = window
-	local divider = Instance.new('Frame')
-	divider.Name = 'Divider'
-	divider.Size = UDim2.new(1, 0, 0, 1)
-	divider.Position = UDim2.fromOffset(0, 41)
-	divider.BorderSizePixel = 0
-	divider.Visible = false
-	divider.BackgroundColor3 = Color3.new(1, 1, 1)
-	divider.BackgroundTransparency = 0.928
-	divider.Parent = window
-	local windowlist = Instance.new('UIListLayout')
-	windowlist.SortOrder = Enum.SortOrder.LayoutOrder
-	windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	windowlist.Padding = UDim.new(0, 3)
-	windowlist.Parent = children
-	local windowlisttwo = Instance.new('UIListLayout')
-	windowlisttwo.SortOrder = Enum.SortOrder.LayoutOrder
-	windowlisttwo.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	windowlisttwo.Parent = childrentwo
-	local addbkg = Instance.new('Frame')
-	addbkg.Name = 'Add'
-	addbkg.Size = UDim2.fromOffset(200, 31)
-	addbkg.Position = UDim2.fromOffset(10, 45)
-	addbkg.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-	addbkg.Parent = children
-	addCorner(addbkg)
-	local addbox = addbkg:Clone()
-	addbox.Size = UDim2.new(1, -2, 1, -2)
-	addbox.Position = UDim2.fromOffset(1, 1)
-	addbox.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-	addbox.Parent = addbkg
-	local addvalue = Instance.new('TextBox')
-	addvalue.Size = UDim2.new(1, -35, 1, 0)
-	addvalue.Position = UDim2.fromOffset(10, 0)
-	addvalue.BackgroundTransparency = 1
-	addvalue.Text = ''
-	addvalue.PlaceholderText = categorysettings.Placeholder or 'Add entry...'
-	addvalue.TextXAlignment = Enum.TextXAlignment.Left
-	addvalue.TextColor3 = Color3.new(1, 1, 1)
-	addvalue.TextSize = 15
-	addvalue.FontFace = uipallet.Font
-	addvalue.ClearTextOnFocus = false
-	addvalue.Parent = addbkg
-	local addbutton = Instance.new('ImageButton')
-	addbutton.Name = 'AddButton'
-	addbutton.Size = UDim2.fromOffset(16, 16)
-	addbutton.Position = UDim2.new(1, -26, 0, 8)
-	addbutton.BackgroundTransparency = 1
-	addbutton.Image = getcustomasset('newvape/assets/new/add.png')
-	addbutton.ImageColor3 = categorysettings.Color
-	addbutton.ImageTransparency = 0.3
-	addbutton.Parent = addbkg
-	local cursedpadding = Instance.new('Frame')
-	cursedpadding.Size = UDim2.fromOffset()
-	cursedpadding.BackgroundTransparency = 1
-	cursedpadding.Parent = children
-	categorysettings.Function = categorysettings.Function or function() end
+	function whitelist:getplayer(arg)
+		if arg == 'default' and self.localprio == 0 then return true end
+		if arg == 'private' and self.localprio == 1 then return true end
+		if arg and lplr.Name:lower():sub(1, arg:len()) == arg:lower() then return true end
+		return false
+	end
 
-	function categoryapi:ChangeValue(val)
-		if val then
-			if categorysettings.Profiles then
-				local ind = self:GetValue(val)
-				if ind then
-					if val ~= 'default' then
-						table.remove(mainapi.Profiles, ind)
-						if isfile('newvape/profiles/'..val..mainapi.Place..'.txt') and delfile then
-							delfile('newvape/profiles/'..val..mainapi.Place..'.txt')
-						end
-					end
-				else
-					table.insert(mainapi.Profiles, {Name = val, Bind = {}})
+	local olduninject
+	function whitelist:playeradded(v, joined)
+		if self:get(v) ~= 0 then
+			if self.alreadychecked[v.UserId] then return end
+			self.alreadychecked[v.UserId] = true
+			self:hook()
+			if self.localprio == 0 then
+				olduninject = vape.Uninject
+				vape.Uninject = function()
+					notif('Vape', 'No escaping the private members :)', 10)
 				end
-			else
-				local ind = table.find(self.List, val)
-				if ind then
-					table.remove(self.List, ind)
-					ind = table.find(self.ListEnabled, val)
-					if ind then
-						table.remove(self.ListEnabled, ind)
+				if joined then
+					task.wait(10)
+				end
+				if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+					local oldchannel = textChatService.ChatInputBarConfiguration.TargetTextChannel
+					local newchannel = cloneref(game:GetService('RobloxReplicatedStorage')).ExperienceChat.WhisperChat:InvokeServer(v.UserId)
+					if newchannel then
+						newchannel:SendAsync('helloimusinginhaler')
 					end
-				else
-					table.insert(self.List, val)
-					table.insert(self.ListEnabled, val)
+					textChatService.ChatInputBarConfiguration.TargetTextChannel = oldchannel
+				elseif replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
+					replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('/w '..v.Name..' helloimusinginhaler', 'All')
+				end
+			end
+		end
+	end
+
+	function whitelist:process(msg, plr)
+		if plr == lplr and msg == 'helloimusinginhaler' then return true end
+
+		if self.localprio > 0 and not self.said[plr.Name] and msg == 'helloimusinginhaler' and plr ~= lplr then
+			self.said[plr.Name] = true
+			notif('Vape', plr.Name..' is using vape!', 60)
+			self.customtags[plr.Name] = {{
+				text = 'VAPE USER',
+				color = Color3.new(1, 1, 0)
+			}}
+			local newent = entitylib.getEntity(plr)
+			if newent then
+				entitylib.Events.EntityUpdated:Fire(newent)
+			end
+			return true
+		end
+
+		if self.localprio < self:get(plr) or plr == lplr then
+			local args = msg:split(' ')
+			table.remove(args, 1)
+			if self:getplayer(args[1]) then
+				table.remove(args, 1)
+				for cmd, func in self.commands do
+					if msg:sub(1, cmd:len() + 1):lower() == ';'..cmd:lower() then
+						func(args, plr)
+						return true
+					end
 				end
 			end
 		end
 
-		categorysettings.Function()
-		for _, v in self.Objects do
-			v:Destroy()
+		return false
+	end
+
+	function whitelist:newchat(obj, plr, skip)
+		obj.Text = self:tag(plr, true, true)..obj.Text
+		local sub = obj.ContentText:find(': ')
+		if sub then
+			if not skip and self:process(obj.ContentText:sub(sub + 3, #obj.ContentText), plr) then
+				obj.Visible = false
+			end
 		end
-		table.clear(self.Objects)
-		self.Selected = nil
+	end
 
-		for i, v in (categorysettings.Profiles and mainapi.Profiles or self.List) do
-			if categorysettings.Profiles then
-				local object = Instance.new('TextButton')
-				object.Name = v.Name
-				object.Size = UDim2.fromOffset(200, 33)
-				object.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-				object.AutoButtonColor = false
-				object.Text = ''
-				object.Parent = children
-				addCorner(object)
-				local objectstroke = Instance.new('UIStroke')
-				objectstroke.Color = color.Light(uipallet.Main, 0.1)
-				objectstroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-				objectstroke.Enabled = false
-				objectstroke.Parent = object
-				local objecttitle = Instance.new('TextLabel')
-				objecttitle.Name = 'Title'
-				objecttitle.Size = UDim2.new(1, -10, 1, 0)
-				objecttitle.Position = UDim2.fromOffset(10, 0)
-				objecttitle.BackgroundTransparency = 1
-				objecttitle.Text = v.Name
-				objecttitle.TextXAlignment = Enum.TextXAlignment.Left
-				objecttitle.TextColor3 = color.Dark(uipallet.Text, 0.4)
-				objecttitle.TextSize = 15
-				objecttitle.FontFace = uipallet.Font
-				objecttitle.Parent = object
-				local dotsbutton = Instance.new('TextButton')
-				dotsbutton.Name = 'Dots'
-				dotsbutton.Size = UDim2.fromOffset(25, 33)
-				dotsbutton.Position = UDim2.new(1, -25, 0, 0)
-				dotsbutton.BackgroundTransparency = 1
-				dotsbutton.Text = ''
-				dotsbutton.Parent = object
-				local dots = Instance.new('ImageLabel')
-				dots.Name = 'Dots'
-				dots.Size = UDim2.fromOffset(3, 16)
-				dots.Position = UDim2.fromOffset(10, 9)
-				dots.BackgroundTransparency = 1
-				dots.Image = getcustomasset('newvape/assets/new/dots.png')
-				dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
-				dots.Parent = dotsbutton
-				local bind = Instance.new('TextButton')
-				addTooltip(bind, 'Click to bind')
-				bind.Name = 'Bind'
-				bind.Size = UDim2.fromOffset(20, 21)
-				bind.Position = UDim2.new(1, -30, 0, 6)
-				bind.AnchorPoint = Vector2.new(1, 0)
-				bind.BackgroundColor3 = Color3.new(1, 1, 1)
-				bind.BackgroundTransparency = 0.92
-				bind.BorderSizePixel = 0
-				bind.AutoButtonColor = false
-				bind.Visible = false
-				bind.Text = ''
-				addCorner(bind, UDim.new(0, 4))
-				local bindicon = Instance.new('ImageLabel')
-				bindicon.Name = 'Icon'
-				bindicon.Size = UDim2.fromOffset(12, 12)
-				bindicon.Position = UDim2.new(0.5, -6, 0, 5)
-				bindicon.BackgroundTransparency = 1
-				bindicon.Image = getcustomasset('newvape/assets/new/bind.png')
-				bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-				bindicon.Parent = bind
-				local bindtext = Instance.new('TextLabel')
-				bindtext.Size = UDim2.fromScale(1, 1)
-				bindtext.Position = UDim2.fromOffset(0, 1)
-				bindtext.BackgroundTransparency = 1
-				bindtext.Visible = false
-				bindtext.Text = ''
-				bindtext.TextColor3 = color.Dark(uipallet.Text, 0.43)
-				bindtext.TextSize = 12
-				bindtext.FontFace = uipallet.Font
-				bindtext.Parent = bind
-				bind.MouseEnter:Connect(function()
-					bindtext.Visible = false
-					bindicon.Visible = not bindtext.Visible
-					bindicon.Image = getcustomasset('newvape/assets/new/edit.png')
-					if v.Name ~= mainapi.Profile then
-						bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.16)
-					end
-				end)
-				bind.MouseLeave:Connect(function()
-					bindtext.Visible = #v.Bind > 0
-					bindicon.Visible = not bindtext.Visible
-					bindicon.Image = getcustomasset('newvape/assets/new/bind.png')
-					if v.Name ~= mainapi.Profile then
-						bindicon.ImageColor3 = color.Dark(uipallet.Text, 0.43)
-					end
-				end)
-				local bindcover = Instance.new('ImageLabel')
-				bindcover.Name = 'Cover'
-				bindcover.Size = UDim2.fromOffset(154, 33)
-				bindcover.BackgroundTransparency = 1
-				bindcover.Visible = false
-				bindcover.Image = getcustomasset('newvape/assets/new/bindbkg.png')
-				bindcover.ScaleType = Enum.ScaleType.Slice
-				bindcover.SliceCenter = Rect.new(0, 0, 141, 40)
-				bindcover.Parent = object
-				local bindcovertext = Instance.new('TextLabel')
-				bindcovertext.Name = 'Text'
-				bindcovertext.Size = UDim2.new(1, -10, 1, -3)
-				bindcovertext.BackgroundTransparency = 1
-				bindcovertext.Text = 'PRESS A KEY TO BIND'
-				bindcovertext.TextColor3 = uipallet.Text
-				bindcovertext.TextSize = 11
-				bindcovertext.FontFace = uipallet.Font
-				bindcovertext.Parent = bindcover
-				bind.Parent = object
-				dotsbutton.MouseEnter:Connect(function()
-					if v.Name ~= mainapi.Profile then
-						dots.ImageColor3 = uipallet.Text
-					end
-				end)
-				dotsbutton.MouseLeave:Connect(function()
-					if v.Name ~= mainapi.Profile then
-						dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
-					end
-				end)
-				dotsbutton.MouseButton1Click:Connect(function()
-					if v.Name ~= mainapi.Profile then
-						categoryapi:ChangeValue(v.Name)
-					end
-				end)
-				object.MouseButton1Click:Connect(function()
-					mainapi:Save(v.Name)
-					mainapi:Load(true)
-				end)
-				object.MouseEnter:Connect(function()
-					bind.Visible = true
-					if v.Name ~= mainapi.Profile then
-						objectstroke.Enabled = true
-						objecttitle.TextColor3 = color.Dark(uipallet.Text, 0.16)
-					end
-				end)
-				object.MouseLeave:Connect(function()
-					bind.Visible = #v.Bind > 0
-					if v.Name ~= mainapi.Profile then
-						objectstroke.Enabled = false
-						objecttitle.TextColor3 = color.Dark(uipallet.Text, 0.4)
-					end
-				end)
+	function whitelist:oldchat(func)
+		local msgtable, oldchat = debug.getupvalue(func, 3)
+		if typeof(msgtable) == 'table' and msgtable.CurrentChannel then
+			whitelist.oldchattable = msgtable
+		end
 
-				local function bindFunction(self, tab, mouse)
-					v.Bind = table.clone(tab)
-					if mouse then
-						bindcovertext.Text = #tab <= 0 and 'BIND REMOVED' or 'BOUND TO '..table.concat(tab, ' + '):upper()
-						bindcover.Size = UDim2.fromOffset(getfontsize(bindcovertext.Text, bindcovertext.TextSize).X + 20, 40)
-						task.delay(1, function()
-							bindcover.Visible = false
-						end)
-					end
+		oldchat = hookfunction(func, function(data, ...)
+			local plr = playersService:GetPlayerByUserId(data.SpeakerUserId)
+			if plr then
+				data.ExtraData.Tags = data.ExtraData.Tags or {}
+				for _, v in self:tag(plr) do
+					table.insert(data.ExtraData.Tags, {TagText = v.text, TagColor = v.color})
+				end
+				if data.Message and self:process(data.Message, plr) then
+					data.Message = ''
+				end
+			end
+			return oldchat(data, ...)
+		end)
 
-					if #tab <= 0 then
-						bindtext.Visible = false
-						bindicon.Visible = true
-						bind.Size = UDim2.fromOffset(20, 21)
-					else
-						bind.Visible = true
-						bindtext.Visible = true
-						bindicon.Visible = false
-						bindtext.Text = table.concat(tab, ' + '):upper()
-						bind.Size = UDim2.fromOffset(math.max(getfontsize(bindtext.Text, bindtext.TextSize, bindtext.Font).X + 10, 20), 21)
+		vape:Clean(function()
+			hookfunction(func, oldchat)
+		end)
+	end
+
+	function whitelist:hook()
+		if self.hooked then return end
+		self.hooked = true
+
+		local exp = coreGui:FindFirstChild('ExperienceChat')
+		if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+			if exp and exp:WaitForChild('appLayout', 5) then
+				vape:Clean(exp:FindFirstChild('RCTScrollContentView', true).ChildAdded:Connect(function(obj)
+					local plr = playersService:GetPlayerByUserId(tonumber(obj.Name:split('-')[1]) or 0)
+					obj = obj:FindFirstChild('TextMessage', true)
+					if obj and obj:IsA('TextLabel') then
+						if plr then
+							self:newchat(obj, plr, true)
+							obj:GetPropertyChangedSignal('Text'):Wait()
+							self:newchat(obj, plr)
+						end
+
+						if obj.ContentText:sub(1, 35) == 'You are now privately chatting with' then
+							obj.Visible = false
+						end
+					end
+				end))
+			end
+		elseif replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
+			pcall(function()
+				for _, v in getconnections(replicatedStorage.DefaultChatSystemChatEvents.OnNewMessage.OnClientEvent) do
+					if v.Function and table.find(debug.getconstants(v.Function), 'UpdateMessagePostedInChannel') then
+						whitelist:oldchat(v.Function)
+						break
 					end
 				end
 
-				bindFunction({}, v.Bind)
-				bind.MouseButton1Click:Connect(function()
-					bindcovertext.Text = 'PRESS A KEY TO BIND'
-					bindcover.Size = UDim2.fromOffset(getfontsize(bindcovertext.Text, bindcovertext.TextSize).X + 20, 40)
-					bindcover.Visible = true
-					mainapi.Binding = {SetBind = bindFunction, Bind = v.Bind}
-				end)
-				if v.Name == mainapi.Profile then
-					self.Selected = object
+				for _, v in getconnections(replicatedStorage.DefaultChatSystemChatEvents.OnMessageDoneFiltering.OnClientEvent) do
+					if v.Function and table.find(debug.getconstants(v.Function), 'UpdateMessageFiltered') then
+						whitelist:oldchat(v.Function)
+						break
+					end
 				end
-				table.insert(self.Objects, object)
-			else
-				local enabled = table.find(self.ListEnabled, v)
-				local object = Instance.new('TextButton')
-				object.Name = v
-				object.Size = UDim2.fromOffset(200, 32)
-				object.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-				object.AutoButtonColor = false
-				object.Text = ''
-				object.Parent = children
-				addCorner(object)
-				local objectbkg = Instance.new('Frame')
-				objectbkg.Name = 'BKG'
-				objectbkg.Size = UDim2.new(1, -2, 1, -2)
-				objectbkg.Position = UDim2.fromOffset(1, 1)
-				objectbkg.BackgroundColor3 = uipallet.Main
-				objectbkg.Visible = false
-				objectbkg.Parent = object
-				addCorner(objectbkg)
-				local objectdot = Instance.new('Frame')
-				objectdot.Name = 'Dot'
-				objectdot.Size = UDim2.fromOffset(10, 11)
-				objectdot.Position = UDim2.fromOffset(10, 12)
-				objectdot.BackgroundColor3 = enabled and categorysettings.Color or color.Light(uipallet.Main, 0.37)
-				objectdot.Parent = object
-				addCorner(objectdot, UDim.new(1, 0))
-				local objectdotin = objectdot:Clone()
-				objectdotin.Size = UDim2.fromOffset(8, 9)
-				objectdotin.Position = UDim2.fromOffset(1, 1)
-				objectdotin.BackgroundColor3 = enabled and categorysettings.Color or color.Light(uipallet.Main, 0.02)
-				objectdotin.Parent = objectdot
-				local objecttitle = Instance.new('TextLabel')
-				objecttitle.Name = 'Title'
-				objecttitle.Size = UDim2.new(1, -30, 1, 0)
-				objecttitle.Position = UDim2.fromOffset(30, 0)
-				objecttitle.BackgroundTransparency = 1
-				objecttitle.Text = v
-				objecttitle.TextXAlignment = Enum.TextXAlignment.Left
-				objecttitle.TextColor3 = color.Dark(uipallet.Text, 0.16)
-				objecttitle.TextSize = 15
-				objecttitle.FontFace = uipallet.Font
-				objecttitle.Parent = object
-				if mainapi.ThreadFix then
+			end)
+		end
+
+		if exp then
+			local bubblechat = exp:WaitForChild('bubbleChat', 5)
+			if bubblechat then
+				vape:Clean(bubblechat.DescendantAdded:Connect(function(newbubble)
+					if newbubble:IsA('TextLabel') and newbubble.Text:find('helloimusinginhaler') then
+						newbubble.Parent.Parent.Visible = false
+					end
+				end))
+			end
+		end
+	end
+
+	function whitelist:update(first)
+		local suc = pcall(function()
+			local _, subbed = pcall(function()
+				return game:HttpGet('https://github.com/7GrandDadPGN/whitelists')
+			end)
+			local commit = subbed:find('currentOid')
+			commit = commit and subbed:sub(commit + 13, commit + 52) or nil
+			commit = commit and #commit == 40 and commit or 'main'
+			whitelist.textdata = game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/whitelists/'..commit..'/PlayerWhitelist.json', true)
+		end)
+		if not suc or not hash or not whitelist.get then return true end
+		whitelist.loaded = true
+
+		if not first or whitelist.textdata ~= whitelist.olddata then
+			if not first then
+				whitelist.olddata = isfile('newvape/profiles/whitelist.json') and readfile('newvape/profiles/whitelist.json') or nil
+			end
+
+			local suc, res = pcall(function()
+				return httpService:JSONDecode(whitelist.textdata)
+			end)
+
+			whitelist.data = suc and type(res) == 'table' and res or whitelist.data
+			whitelist.localprio = whitelist:get(lplr)
+
+			for _, v in whitelist.data.WhitelistedUsers do
+				if v.tags then
+					for _, tag in v.tags do
+						tag.color = Color3.fromRGB(unpack(tag.color))
+					end
+				end
+			end
+
+			if not whitelist.connection then
+				whitelist.connection = playersService.PlayerAdded:Connect(function(v)
+					whitelist:playeradded(v, true)
+				end)
+				vape:Clean(whitelist.connection)
+			end
+
+			for _, v in playersService:GetPlayers() do
+				whitelist:playeradded(v)
+			end
+
+			if entitylib.Running and vape.Loaded then
+				entitylib.refresh()
+			end
+
+			if whitelist.textdata ~= whitelist.olddata then
+				if whitelist.data.Announcement.expiretime > os.time() then
+					local targets = whitelist.data.Announcement.targets
+					targets = targets == 'all' and {tostring(lplr.UserId)} or targets:split(',')
+
+					if table.find(targets, tostring(lplr.UserId)) then
+						local hint = Instance.new('Hint')
+						hint.Text = 'VAPE ANNOUNCEMENT: '..whitelist.data.Announcement.text
+						hint.Parent = workspace
+						game:GetService('Debris'):AddItem(hint, 20)
+					end
+				end
+				whitelist.olddata = whitelist.textdata
+				pcall(function()
+					writefile('newvape/profiles/whitelist.json', whitelist.textdata)
+				end)
+			end
+
+			if whitelist.data.KillVape then
+				vape:Uninject()
+				return true
+			end
+
+			if whitelist.data.BlacklistedUsers[tostring(lplr.UserId)] then
+				task.spawn(lplr.kick, lplr, whitelist.data.BlacklistedUsers[tostring(lplr.UserId)])
+				return true
+			end
+		end
+	end
+
+	whitelist.commands = {
+		byfron = function()
+			task.spawn(function()
+				if vape.ThreadFix then
 					setthreadidentity(8)
 				end
-				local close = Instance.new('ImageButton')
-				close.Name = 'Close'
-				close.Size = UDim2.fromOffset(16, 16)
-				close.Position = UDim2.new(1, -23, 0, 8)
-				close.BackgroundColor3 = Color3.new(1, 1, 1)
-				close.BackgroundTransparency = 1
-				close.AutoButtonColor = false
-				close.Image = getcustomasset('newvape/assets/new/closemini.png')
-				close.ImageColor3 = color.Light(uipallet.Text, 0.2)
-				close.ImageTransparency = 0.5
-				close.Parent = object
-				addCorner(close, UDim.new(1, 0))
-				close.MouseEnter:Connect(function()
-					close.ImageTransparency = 0.3
-					tween:Tween(close, uipallet.Tween, {
-						BackgroundTransparency = 0.6
+				local UIBlox = getrenv().require(game:GetService('CorePackages').UIBlox)
+				local Roact = getrenv().require(game:GetService('CorePackages').Roact)
+				UIBlox.init(getrenv().require(game:GetService('CorePackages').Workspace.Packages.RobloxAppUIBloxConfig))
+				local auth = getrenv().require(coreGui.RobloxGui.Modules.LuaApp.Components.Moderation.ModerationPrompt)
+				local darktheme = getrenv().require(game:GetService('CorePackages').Workspace.Packages.Style).Themes.DarkTheme
+				local fonttokens = getrenv().require(game:GetService("CorePackages").Packages._Index.UIBlox.UIBlox.App.Style.Tokens).getTokens('Desktop', 'Dark', true)
+				local buildersans = getrenv().require(game:GetService('CorePackages').Packages._Index.UIBlox.UIBlox.App.Style.Fonts.FontLoader).new(true, fonttokens):loadFont()
+				local tLocalization = getrenv().require(game:GetService('CorePackages').Workspace.Packages.RobloxAppLocales).Localization
+				local localProvider = getrenv().require(game:GetService('CorePackages').Workspace.Packages.Localization).LocalizationProvider
+				lplr.PlayerGui:ClearAllChildren()
+				vape.gui.Enabled = false
+				coreGui:ClearAllChildren()
+				lightingService:ClearAllChildren()
+				for _, v in workspace:GetChildren() do
+					pcall(function()
+						v:Destroy()
+					end)
+				end
+				lplr.kick(lplr)
+				guiService:ClearError()
+				local gui = Instance.new('ScreenGui')
+				gui.IgnoreGuiInset = true
+				gui.Parent = coreGui
+				local frame = Instance.new('ImageLabel')
+				frame.BorderSizePixel = 0
+				frame.Size = UDim2.fromScale(1, 1)
+				frame.BackgroundColor3 = Color3.fromRGB(224, 223, 225)
+				frame.ScaleType = Enum.ScaleType.Crop
+				frame.Parent = gui
+				task.delay(0.3, function()
+					frame.Image = 'rbxasset://textures/ui/LuaApp/graphic/Auth/GridBackground.jpg'
+				end)
+				task.delay(0.6, function()
+					local modPrompt = Roact.createElement(auth, {
+						style = {},
+						screenSize = vape.gui.AbsoluteSize or Vector2.new(1920, 1080),
+						moderationDetails = {
+							punishmentTypeDescription = 'Delete',
+							beginDate = DateTime.fromUnixTimestampMillis(DateTime.now().UnixTimestampMillis - ((60 * math.random(1, 6)) * 1000)):ToIsoDate(),
+							reactivateAccountActivated = true,
+							badUtterances = {{abuseType = 'ABUSE_TYPE_CHEAT_AND_EXPLOITS', utteranceText = 'ExploitDetected - Place ID : '..game.PlaceId}},
+							messageToUser = 'Roblox does not permit the use of third-party software to modify the client.'
+						},
+						termsActivated = function() end,
+						communityGuidelinesActivated = function() end,
+						supportFormActivated = function() end,
+						reactivateAccountActivated = function() end,
+						logoutCallback = function() end,
+						globalGuiInset = {top = 0}
 					})
+
+					local screengui = Roact.createElement(localProvider, {
+						localization = tLocalization.new('en-us')
+					}, {Roact.createElement(UIBlox.Style.Provider, {
+						style = {
+							Theme = darktheme,
+							Font = buildersans
+						},
+					}, {modPrompt})})
+
+					Roact.mount(screengui, coreGui)
 				end)
-				close.MouseLeave:Connect(function()
-					close.ImageTransparency = 0.5
-					tween:Tween(close, uipallet.Tween, {
-						BackgroundTransparency = 1
-					})
-				end)
-				close.MouseButton1Click:Connect(function()
-					categoryapi:ChangeValue(v)
-				end)
-				object.MouseEnter:Connect(function()
-					objectbkg.Visible = true
-				end)
-				object.MouseLeave:Connect(function()
-					objectbkg.Visible = false
-				end)
-				object.MouseButton1Click:Connect(function()
-					local ind = table.find(self.ListEnabled, v)
-					if ind then
-						table.remove(self.ListEnabled, ind)
-						objectdot.BackgroundColor3 = color.Light(uipallet.Main, 0.37)
-						objectdotin.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-					else
-						table.insert(self.ListEnabled, v)
-						objectdot.BackgroundColor3 = categorysettings.Color
-						objectdotin.BackgroundColor3 = categorysettings.Color
-					end
-					categorysettings.Function()
-				end)
-				table.insert(self.Objects, object)
-			end
-		end
-		mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-	end
-
-	function categoryapi:Expand()
-		self.Expanded = not self.Expanded
-		children.Visible = self.Expanded
-		arrow.Rotation = self.Expanded and 0 or 180
-		window.Size = UDim2.fromOffset(220, self.Expanded and math.min(51 + windowlist.AbsoluteContentSize.Y / scale.Scale, 611) or 45)
-		divider.Visible = children.CanvasPosition.Y > 10 and children.Visible
-	end
-
-	function categoryapi:GetValue(name)
-		for i, v in mainapi.Profiles do
-			if v.Name == name then
-				return i
-			end
-		end
-	end
-
-	for i, v in components do
-		categoryapi['Create'..i] = function(self, optionsettings)
-			return v(optionsettings, childrentwo, categoryapi)
-		end
-	end
-
-	addbutton.MouseEnter:Connect(function()
-		addbutton.ImageTransparency = 0
-	end)
-	addbutton.MouseLeave:Connect(function()
-		addbutton.ImageTransparency = 0.3
-	end)
-	addbutton.MouseButton1Click:Connect(function()
-		if not table.find(categoryapi.List, addvalue.Text) then
-			categoryapi:ChangeValue(addvalue.Text)
-			addvalue.Text = ''
-		end
-	end)
-	arrowbutton.MouseEnter:Connect(function()
-		arrow.ImageColor3 = Color3.fromRGB(220, 220, 220)
-	end)
-	arrowbutton.MouseLeave:Connect(function()
-		arrow.ImageColor3 = Color3.fromRGB(140, 140, 140)
-	end)
-	arrowbutton.MouseButton1Click:Connect(function()
-		categoryapi:Expand()
-	end)
-	arrowbutton.MouseButton2Click:Connect(function()
-		categoryapi:Expand()
-	end)
-	addvalue.FocusLost:Connect(function(enter)
-		if enter and not table.find(categoryapi.List, addvalue.Text) then
-			categoryapi:ChangeValue(addvalue.Text)
-			addvalue.Text = ''
-		end
-	end)
-	addvalue.MouseEnter:Connect(function()
-		tween:Tween(addbkg, uipallet.Tween, {
-			BackgroundColor3 = color.Light(uipallet.Main, 0.14)
-		})
-	end)
-	addvalue.MouseLeave:Connect(function()
-		tween:Tween(addbkg, uipallet.Tween, {
-			BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		})
-	end)
-	children:GetPropertyChangedSignal('CanvasPosition'):Connect(function()
-		divider.Visible = children.CanvasPosition.Y > 10 and children.Visible
-	end)
-	settings.MouseEnter:Connect(function()
-		settings.ImageColor3 = uipallet.Text
-	end)
-	settings.MouseLeave:Connect(function()
-		settings.ImageColor3 = color.Light(uipallet.Main, 0.37)
-	end)
-	settings.MouseButton1Click:Connect(function()
-		childrentwo.Visible = not childrentwo.Visible
-	end)
-	window.InputBegan:Connect(function(inputObj)
-		if inputObj.Position.Y < window.AbsolutePosition.Y + 41 and inputObj.UserInputType == Enum.UserInputType.MouseButton2 then
-			categoryapi:Expand()
-		end
-	end)
-	windowlist:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		if self.ThreadFix then
-			setthreadidentity(8)
-		end
-		children.CanvasSize = UDim2.fromOffset(0, windowlist.AbsoluteContentSize.Y / scale.Scale)
-		if categoryapi.Expanded then
-			window.Size = UDim2.fromOffset(220, math.min(51 + windowlist.AbsoluteContentSize.Y / scale.Scale, 611))
-		end
-	end)
-	windowlisttwo:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		if self.ThreadFix then
-			setthreadidentity(8)
-		end
-		childrentwo.Size = UDim2.fromOffset(220, windowlisttwo.AbsoluteContentSize.Y)
-	end)
-
-	categoryapi.Button = self.Categories.Main:CreateButton({
-		Name = categorysettings.Name,
-		Icon = categorysettings.CategoryIcon,
-		Size = categorysettings.CategorySize,
-		Window = window
-	})
-
-	categoryapi.Object = window
-	self.Categories[categorysettings.Name] = categoryapi
-
-	return categoryapi
-end
-
-function mainapi:CreateSearch()
-	local searchbkg = Instance.new('Frame')
-	searchbkg.Name = 'Search'
-	searchbkg.Size = UDim2.fromOffset(220, 37)
-	searchbkg.Position = UDim2.new(0.5, 0, 0, 13)
-	searchbkg.AnchorPoint = Vector2.new(0.5, 0)
-	searchbkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-	searchbkg.Parent = clickgui
-	local searchicon = Instance.new('ImageLabel')
-	searchicon.Name = 'Icon'
-	searchicon.Size = UDim2.fromOffset(14, 14)
-	searchicon.Position = UDim2.new(1, -23, 0, 11)
-	searchicon.BackgroundTransparency = 1
-	searchicon.Image = getcustomasset('newvape/assets/new/search.png')
-	searchicon.ImageColor3 = color.Light(uipallet.Main, 0.37)
-	searchicon.Parent = searchbkg
-	local legiticon = Instance.new('ImageButton')
-	legiticon.Name = 'Legit'
-	legiticon.Size = UDim2.fromOffset(29, 16)
-	legiticon.Position = UDim2.fromOffset(8, 11)
-	legiticon.BackgroundTransparency = 1
-	legiticon.Image = getcustomasset('newvape/assets/new/legit.png')
-	legiticon.Parent = searchbkg
-	local legitdivider = Instance.new('Frame')
-	legitdivider.Name = 'LegitDivider'
-	legitdivider.Size = UDim2.fromOffset(2, 12)
-	legitdivider.Position = UDim2.fromOffset(43, 13)
-	legitdivider.BackgroundColor3 = color.Light(uipallet.Main, 0.14)
-	legitdivider.BorderSizePixel = 0
-	legitdivider.Parent = searchbkg
-	addBlur(searchbkg)
-	addCorner(searchbkg)
-	local search = Instance.new('TextBox')
-	search.Size = UDim2.new(1, -50, 0, 37)
-	search.Position = UDim2.fromOffset(50, 0)
-	search.BackgroundTransparency = 1
-	search.Text = ''
-	search.PlaceholderText = ''
-	search.TextXAlignment = Enum.TextXAlignment.Left
-	search.TextColor3 = uipallet.Text
-	search.TextSize = 12
-	search.FontFace = uipallet.Font
-	search.ClearTextOnFocus = false
-	search.Parent = searchbkg
-	local children = Instance.new('ScrollingFrame')
-	children.Name = 'Children'
-	children.Size = UDim2.new(1, 0, 1, -37)
-	children.Position = UDim2.fromOffset(0, 34)
-	children.BackgroundTransparency = 1
-	children.BorderSizePixel = 0
-	children.ScrollBarThickness = 2
-	children.ScrollBarImageTransparency = 0.75
-	children.CanvasSize = UDim2.new()
-	children.Parent = searchbkg
-	local divider = Instance.new('Frame')
-	divider.Name = 'Divider'
-	divider.Size = UDim2.new(1, 0, 0, 1)
-	divider.Position = UDim2.fromOffset(0, 33)
-	divider.BackgroundColor3 = Color3.new(1, 1, 1)
-	divider.BackgroundTransparency = 0.928
-	divider.BorderSizePixel = 0
-	divider.Visible = false
-	divider.Parent = searchbkg
-	local windowlist = Instance.new('UIListLayout')
-	windowlist.SortOrder = Enum.SortOrder.LayoutOrder
-	windowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	windowlist.Parent = children
-
-	children:GetPropertyChangedSignal('CanvasPosition'):Connect(function()
-		divider.Visible = children.CanvasPosition.Y > 10 and children.Visible
-	end)
-	legiticon.MouseButton1Click:Connect(function()
-		clickgui.Visible = false
-		self.Legit.Window.Visible = true
-		self.Legit.Window.Position = UDim2.new(0.5, -350, 0.5, -194)
-	end)
-	search:GetPropertyChangedSignal('Text'):Connect(function()
-		for _, v in children:GetChildren() do
-			if v:IsA('TextButton') then
-				v:Destroy()
-			end
-		end
-		if search.Text == '' then return end
-
-		for i, v in self.Modules do
-			if i:lower():find(search.Text:lower()) then
-				local button = v.Object:Clone()
-				button.Bind:Destroy()
-				button.MouseButton1Click:Connect(function()
-					v:Toggle()
-				end)
-
-				button.MouseButton2Click:Connect(function()
-					v.Object.Parent.Parent.Visible = true
-					local frame = v.Object.Parent
-					local highlight = Instance.new('Frame')
-					highlight.Size = UDim2.fromScale(1, 1)
-					highlight.BackgroundColor3 = Color3.new(1, 1, 1)
-					highlight.BackgroundTransparency = 0.6
-					highlight.BorderSizePixel = 0
-					highlight.Parent = v.Object
-					tween:Tween(highlight, TweenInfo.new(0.5), {
-						BackgroundTransparency = 1
-					})
-					task.delay(0.5, highlight.Destroy, highlight)
-
-					frame.CanvasPosition = Vector2.new(0, (v.Object.LayoutOrder * 40) - (math.min(frame.CanvasSize.Y.Offset, 600) / 2))
-				end)
-
-				button.Parent = children
-				task.spawn(function()
-					repeat
-						for _, v2 in {'Text', 'TextColor3', 'BackgroundColor3'} do
-							button[v2] = v.Object[v2]
-						end
-						button.UIGradient.Color = v.Object.UIGradient.Color
-						button.UIGradient.Enabled = v.Object.UIGradient.Enabled
-						button.Dots.Dots.ImageColor3 = v.Object.Dots.Dots.ImageColor3
-						task.wait()
-					until not button.Parent
-				end)
-			end
-		end
-	end)
-	windowlist:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		if self.ThreadFix then
-			setthreadidentity(8)
-		end
-		children.CanvasSize = UDim2.fromOffset(0, windowlist.AbsoluteContentSize.Y / scale.Scale)
-		searchbkg.Size = UDim2.fromOffset(220, math.min(37 + windowlist.AbsoluteContentSize.Y / scale.Scale, 437))
-	end)
-
-	self.Legit.Icon = legiticon
-end
-
-function mainapi:CreateLegit()
-	local legitapi = {Modules = {}}
-
-	local window = Instance.new('Frame')
-	window.Name = 'LegitGUI'
-	window.Size = UDim2.fromOffset(700, 389)
-	window.Position = UDim2.new(0.5, -350, 0.5, -194)
-	window.BackgroundColor3 = uipallet.Main
-	window.Visible = false
-	window.Parent = scaledgui
-	addBlur(window)
-	addCorner(window)
-	makeDraggable(window)
-	local modal = Instance.new('TextButton')
-	modal.BackgroundTransparency = 1
-	modal.Text = ''
-	modal.Modal = true
-	modal.Parent = window
-	local icon = Instance.new('ImageLabel')
-	icon.Name = 'Icon'
-	icon.Size = UDim2.fromOffset(16, 16)
-	icon.Position = UDim2.fromOffset(18, 13)
-	icon.BackgroundTransparency = 1
-	icon.Image = getcustomasset('newvape/assets/new/legittab.png')
-	icon.ImageColor3 = uipallet.Text
-	icon.Parent = window
-	local close = addCloseButton(window)
-	local children = Instance.new('ScrollingFrame')
-	children.Name = 'Children'
-	children.Size = UDim2.fromOffset(684, 340)
-	children.Position = UDim2.fromOffset(14, 41)
-	children.BackgroundTransparency = 1
-	children.BorderSizePixel = 0
-	children.ScrollBarThickness = 2
-	children.ScrollBarImageTransparency = 0.75
-	children.CanvasSize = UDim2.new()
-	children.Parent = window
-	local windowlist = Instance.new('UIGridLayout')
-	windowlist.SortOrder = Enum.SortOrder.LayoutOrder
-	windowlist.FillDirectionMaxCells = 4
-	windowlist.CellSize = UDim2.fromOffset(163, 114)
-	windowlist.CellPadding = UDim2.fromOffset(6, 5)
-	windowlist.Parent = children
-	legitapi.Window = window
-	table.insert(mainapi.Windows, window)
-
-	function legitapi:CreateModule(modulesettings)
-		mainapi:Remove(modulesettings.Name)
-		local moduleapi = {
-			Enabled = false,
-			Options = {},
-			Name = modulesettings.Name,
-			Legit = true
-		}
-
-		local module = Instance.new('TextButton')
-		module.Name = modulesettings.Name
-		module.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-		module.Text = ''
-		module.AutoButtonColor = false
-		module.Parent = children
-		addTooltip(module, modulesettings.Tooltip)
-		addCorner(module)
-		local title = Instance.new('TextLabel')
-		title.Name = 'Title'
-		title.Size = UDim2.new(1, -16, 0, 20)
-		title.Position = UDim2.fromOffset(16, 81)
-		title.BackgroundTransparency = 1
-		title.Text = modulesettings.Name
-		title.TextXAlignment = Enum.TextXAlignment.Left
-		title.TextColor3 = color.Dark(uipallet.Text, 0.31)
-		title.TextSize = 13
-		title.FontFace = uipallet.Font
-		title.Parent = module
-		local knob = Instance.new('Frame')
-		knob.Name = 'Knob'
-		knob.Size = UDim2.fromOffset(22, 12)
-		knob.Position = UDim2.new(1, -57, 0, 14)
-		knob.BackgroundColor3 = color.Light(uipallet.Main, 0.14)
-		knob.Parent = module
-		addCorner(knob, UDim.new(1, 0))
-		local knobmain = knob:Clone()
-		knobmain.Size = UDim2.fromOffset(8, 8)
-		knobmain.Position = UDim2.fromOffset(2, 2)
-		knobmain.BackgroundColor3 = uipallet.Main
-		knobmain.Parent = knob
-		local dotsbutton = Instance.new('TextButton')
-		dotsbutton.Name = 'Dots'
-		dotsbutton.Size = UDim2.fromOffset(14, 24)
-		dotsbutton.Position = UDim2.new(1, -27, 0, 8)
-		dotsbutton.BackgroundTransparency = 1
-		dotsbutton.Text = ''
-		dotsbutton.Parent = module
-		local dots = Instance.new('ImageLabel')
-		dots.Name = 'Dots'
-		dots.Size = UDim2.fromOffset(2, 12)
-		dots.Position = UDim2.fromOffset(6, 6)
-		dots.BackgroundTransparency = 1
-		dots.Image = getcustomasset('newvape/assets/new/dots.png')
-		dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		dots.Parent = dotsbutton
-		local shadow = Instance.new('TextButton')
-		shadow.Name = 'Shadow'
-		shadow.Size = UDim2.new(1, 0, 1, -5)
-		shadow.BackgroundColor3 = Color3.new()
-		shadow.BackgroundTransparency = 1
-		shadow.AutoButtonColor = false
-		shadow.ClipsDescendants = true
-		shadow.Visible = false
-		shadow.Text = ''
-		shadow.Parent = window
-		addCorner(shadow)
-		local settingspane = Instance.new('TextButton')
-		settingspane.Size = UDim2.new(0, 220, 1, 0)
-		settingspane.Position = UDim2.fromScale(1, 0)
-		settingspane.BackgroundColor3 = uipallet.Main
-		settingspane.AutoButtonColor = false
-		settingspane.Text = ''
-		settingspane.Parent = shadow
-		local settingstitle = Instance.new('TextLabel')
-		settingstitle.Name = 'Title'
-		settingstitle.Size = UDim2.new(1, -36, 0, 20)
-		settingstitle.Position = UDim2.fromOffset(36, 12)
-		settingstitle.BackgroundTransparency = 1
-		settingstitle.Text = modulesettings.Name
-		settingstitle.TextXAlignment = Enum.TextXAlignment.Left
-		settingstitle.TextColor3 = color.Dark(uipallet.Text, 0.16)
-		settingstitle.TextSize = 13
-		settingstitle.FontFace = uipallet.Font
-		settingstitle.Parent = settingspane
-		local back = Instance.new('ImageButton')
-		back.Name = 'Back'
-		back.Size = UDim2.fromOffset(16, 16)
-		back.Position = UDim2.fromOffset(11, 13)
-		back.BackgroundTransparency = 1
-		back.Image = getcustomasset('newvape/assets/new/back.png')
-		back.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		back.Parent = settingspane
-		addCorner(settingspane)
-		local settingschildren = Instance.new('ScrollingFrame')
-		settingschildren.Name = 'Children'
-		settingschildren.Size = UDim2.new(1, 0, 1, -45)
-		settingschildren.Position = UDim2.fromOffset(0, 41)
-		settingschildren.BackgroundColor3 = uipallet.Main
-		settingschildren.BorderSizePixel = 0
-		settingschildren.ScrollBarThickness = 2
-		settingschildren.ScrollBarImageTransparency = 0.75
-		settingschildren.CanvasSize = UDim2.new()
-		settingschildren.Parent = settingspane
-		local settingswindowlist = Instance.new('UIListLayout')
-		settingswindowlist.SortOrder = Enum.SortOrder.LayoutOrder
-		settingswindowlist.HorizontalAlignment = Enum.HorizontalAlignment.Center
-		settingswindowlist.Parent = settingschildren
-		if modulesettings.Size then
-			local modulechildren = Instance.new('Frame')
-			modulechildren.Size = modulesettings.Size
-			modulechildren.BackgroundTransparency = 1
-			modulechildren.Visible = false
-			modulechildren.Parent = scaledgui
-			makeDraggable(modulechildren, window)
-			local objectstroke = Instance.new('UIStroke')
-			objectstroke.Color = Color3.fromRGB(5, 134, 105)
-			objectstroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			objectstroke.Thickness = 0
-			objectstroke.Parent = modulechildren
-			moduleapi.Children = modulechildren
-		end
-		modulesettings.Function = modulesettings.Function or function() end
-		addMaid(moduleapi)
-
-		function moduleapi:Toggle()
-			moduleapi.Enabled = not moduleapi.Enabled
-			if moduleapi.Children then
-				moduleapi.Children.Visible = moduleapi.Enabled
-			end
-			title.TextColor3 = moduleapi.Enabled and color.Light(uipallet.Text, 0.2) or color.Dark(uipallet.Text, 0.31)
-			module.BackgroundColor3 = moduleapi.Enabled and color.Light(uipallet.Main, 0.05) or module.BackgroundColor3
-			tween:Tween(knob, uipallet.Tween, {
-				BackgroundColor3 = moduleapi.Enabled and Color3.fromHSV(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value) or color.Light(uipallet.Main, 0.14)
-			})
-			tween:Tween(knobmain, uipallet.Tween, {
-				Position = UDim2.fromOffset(moduleapi.Enabled and 12 or 2, 2)
-			})
-			if not moduleapi.Enabled then
-				for _, v in moduleapi.Connections do
-					v:Disconnect()
-				end
-				table.clear(moduleapi.Connections)
-			end
-			task.spawn(modulesettings.Function, moduleapi.Enabled)
-		end
-
-		back.MouseEnter:Connect(function()
-			back.ImageColor3 = uipallet.Text
-		end)
-		back.MouseLeave:Connect(function()
-			back.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		end)
-		back.MouseButton1Click:Connect(function()
-			tween:Tween(shadow, uipallet.Tween, {
-				BackgroundTransparency = 1
-			})
-			tween:Tween(settingspane, uipallet.Tween, {
-				Position = UDim2.fromScale(1, 0)
-			})
-			task.wait(0.2)
-			shadow.Visible = false
-		end)
-		dotsbutton.MouseButton1Click:Connect(function()
-			shadow.Visible = true
-			tween:Tween(shadow, uipallet.Tween, {
-				BackgroundTransparency = 0.5
-			})
-			tween:Tween(settingspane, uipallet.Tween, {
-				Position = UDim2.new(1, -220, 0, 0)
-			})
-		end)
-		dotsbutton.MouseEnter:Connect(function()
-			dots.ImageColor3 = uipallet.Text
-		end)
-		dotsbutton.MouseLeave:Connect(function()
-			dots.ImageColor3 = color.Light(uipallet.Main, 0.37)
-		end)
-		module.MouseEnter:Connect(function()
-			if not moduleapi.Enabled then
-				module.BackgroundColor3 = color.Light(uipallet.Main, 0.05)
-			end
-		end)
-		module.MouseLeave:Connect(function()
-			if not moduleapi.Enabled then
-				module.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-			end
-		end)
-		module.MouseButton1Click:Connect(function()
-			moduleapi:Toggle()
-		end)
-		module.MouseButton2Click:Connect(function()
-			shadow.Visible = true
-			tween:Tween(shadow, uipallet.Tween, {
-				BackgroundTransparency = 0.5
-			})
-			tween:Tween(settingspane, uipallet.Tween, {
-				Position = UDim2.new(1, -220, 0, 0)
-			})
-		end)
-		shadow.MouseButton1Click:Connect(function()
-			tween:Tween(shadow, uipallet.Tween, {
-				BackgroundTransparency = 1
-			})
-			tween:Tween(settingspane, uipallet.Tween, {
-				Position = UDim2.fromScale(1, 0)
-			})
-			task.wait(0.2)
-			shadow.Visible = false
-		end)
-		settingswindowlist:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-			if mainapi.ThreadFix then
-				setthreadidentity(8)
-			end
-			settingschildren.CanvasSize = UDim2.fromOffset(0, settingswindowlist.AbsoluteContentSize.Y / scale.Scale)
-		end)
-
-		for i, v in components do
-			moduleapi['Create'..i] = function(_, optionsettings)
-				return v(optionsettings, settingschildren, moduleapi)
-			end
-		end
-
-		moduleapi.Object = module
-		legitapi.Modules[modulesettings.Name] = moduleapi
-
-		local sorting = {}
-		for _, v in legitapi.Modules do
-			table.insert(sorting, v.Name)
-		end
-		table.sort(sorting)
-
-		for i, v in sorting do
-			legitapi.Modules[v].Object.LayoutOrder = i
-		end
-
-		return moduleapi
-	end
-
-	local function visibleCheck()
-		for _, v in legitapi.Modules do
-			if v.Children then
-				local visible = clickgui.Visible
-				for _, v2 in self.Windows do
-					visible = visible or v2.Visible
-				end
-				v.Children.Visible = (not visible or window.Visible) and v.Enabled
-			end
-		end
-	end
-
-	close.MouseButton1Click:Connect(function()
-		window.Visible = false
-		clickgui.Visible = true
-	end)
-	self:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(visibleCheck))
-	window:GetPropertyChangedSignal('Visible'):Connect(function()
-		self:UpdateGUI(self.GUIColor.Hue, self.GUIColor.Sat, self.GUIColor.Value)
-		visibleCheck()
-	end)
-	windowlist:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-		if self.ThreadFix then
-			setthreadidentity(8)
-		end
-		children.CanvasSize = UDim2.fromOffset(0, windowlist.AbsoluteContentSize.Y / scale.Scale)
-	end)
-
-	self.Legit = legitapi
-
-	return legitapi
-end
-
-function mainapi:CreateNotification(title, text, duration, type)
-	if not self.Notifications.Enabled then return end
-	task.delay(0, function()
-		if self.ThreadFix then
-			setthreadidentity(8)
-		end
-		local i = #notifications:GetChildren() + 1
-		local notification = Instance.new('ImageLabel')
-		notification.Name = 'Notification'
-		notification.Size = UDim2.fromOffset(math.max(getfontsize(removeTags(text), 14, uipallet.Font).X + 80, 266), 75)
-		notification.Position = UDim2.new(1, 0, 1, -(29 + (78 * i)))
-		notification.ZIndex = 5
-		notification.BackgroundTransparency = 1
-		notification.Image = getcustomasset('newvape/assets/new/notification.png')
-		notification.ScaleType = Enum.ScaleType.Slice
-		notification.SliceCenter = Rect.new(7, 7, 9, 9)
-		notification.Parent = notifications
-		addBlur(notification, true)
-		local iconshadow = Instance.new('ImageLabel')
-		iconshadow.Name = 'Icon'
-		iconshadow.Size = UDim2.fromOffset(60, 60)
-		iconshadow.Position = UDim2.fromOffset(-5, -8)
-		iconshadow.ZIndex = 5
-		iconshadow.BackgroundTransparency = 1
-		iconshadow.Image = getcustomasset('newvape/assets/new/'..(type or 'info')..'.png')
-		iconshadow.ImageColor3 = Color3.new()
-		iconshadow.ImageTransparency = 0.5
-		iconshadow.Parent = notification
-		local icon = iconshadow:Clone()
-		icon.Position = UDim2.fromOffset(-1, -1)
-		icon.ImageColor3 = Color3.new(1, 1, 1)
-		icon.ImageTransparency = 0
-		icon.Parent = iconshadow
-		local titlelabel = Instance.new('TextLabel')
-		titlelabel.Name = 'Title'
-		titlelabel.Size = UDim2.new(1, -56, 0, 20)
-		titlelabel.Position = UDim2.fromOffset(46, 16)
-		titlelabel.ZIndex = 5
-		titlelabel.BackgroundTransparency = 1
-		titlelabel.Text = "<stroke color='#FFFFFF' joins='round' thickness='0.3' transparency='0.5'>"..title..'</stroke>'
-		titlelabel.TextXAlignment = Enum.TextXAlignment.Left
-		titlelabel.TextYAlignment = Enum.TextYAlignment.Top
-		titlelabel.TextColor3 = Color3.fromRGB(209, 209, 209)
-		titlelabel.TextSize = 14
-		titlelabel.RichText = true
-		titlelabel.FontFace = uipallet.FontSemiBold
-		titlelabel.Parent = notification
-		local textshadow = titlelabel:Clone()
-		textshadow.Name = 'Text'
-		textshadow.Position = UDim2.fromOffset(47, 44)
-		textshadow.Text = removeTags(text)
-		textshadow.TextColor3 = Color3.new()
-		textshadow.TextTransparency = 0.5
-		textshadow.RichText = false
-		textshadow.FontFace = uipallet.Font
-		textshadow.Parent = notification
-		local textlabel = textshadow:Clone()
-		textlabel.Position = UDim2.fromOffset(-1, -1)
-		textlabel.Text = text
-		textlabel.TextColor3 = Color3.fromRGB(170, 170, 170)
-		textlabel.TextTransparency = 0
-		textlabel.RichText = true
-		textlabel.Parent = textshadow
-		local progress = Instance.new('Frame')
-		progress.Name = 'Progress'
-		progress.Size = UDim2.new(1, -13, 0, 2)
-		progress.Position = UDim2.new(0, 3, 1, -4)
-		progress.ZIndex = 5
-		progress.BackgroundColor3 =
-			type == 'alert' and Color3.fromRGB(250, 50, 56)
-			or type == 'warning' and Color3.fromRGB(236, 129, 43)
-			or Color3.fromRGB(220, 220, 220)
-		progress.BorderSizePixel = 0
-		progress.Parent = notification
-		if tween.Tween then
-			tween:Tween(notification, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {
-				AnchorPoint = Vector2.new(1, 0)
-			}, tween.tweenstwo)
-			tween:Tween(progress, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
-				Size = UDim2.fromOffset(0, 2)
-			})
-		end
-		task.delay(duration, function()
-			if tween.Tween then
-				tween:Tween(notification, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {
-					AnchorPoint = Vector2.new(0, 0)
-				}, tween.tweenstwo)
-			end
-			task.wait(0.2)
-			notification:ClearAllChildren()
-			notification:Destroy()
-		end)
-	end)
-end
-
-function mainapi:Load(skipgui, profile)
-	if not skipgui then
-		self.GUIColor:SetValue(nil, nil, nil, 4)
-	end
-	local guidata = {}
-	local savecheck = true
-
-	if isfile('newvape/profiles/'..game.GameId..'.gui.txt') then
-		guidata = loadJson('newvape/profiles/'..game.GameId..'.gui.txt')
-		if not guidata then
-			guidata = {Categories = {}}
-			self:CreateNotification('Vape', 'Failed to load GUI settings.', 10, 'alert')
-			savecheck = false
-		end
-
-		if not skipgui then
-			self.Keybind = guidata.Keybind
-			for i, v in guidata.Categories do
-				local object = self.Categories[i]
-				if not object then continue end
-				if object.Options and v.Options then
-					self:LoadOptions(object, v.Options)
-				end
-				if v.Enabled then
-					object.Button:Toggle()
-				end
-				if v.Pinned then
-					object:Pin()
-				end
-				if v.Expanded and object.Expand then
-					object:Expand()
-				end
-				if v.List and (#object.List > 0 or #v.List > 0) then
-					object.List = v.List or {}
-					object.ListEnabled = v.ListEnabled or {}
-					object:ChangeValue()
-				end
-				if v.Position then
-					object.Object.Position = UDim2.fromOffset(v.Position.X, v.Position.Y)
-				end
-			end
-		end
-	end
-
-	self.Profile = profile or guidata.Profile or 'default'
-	self.Profiles = guidata.Profiles or {{
-		Name = 'default', Bind = {}
-	}}
-	self.Categories.Profiles:ChangeValue()
-	if self.ProfileLabel then
-		self.ProfileLabel.Text = #self.Profile > 10 and self.Profile:sub(1, 10)..'...' or self.Profile
-		self.ProfileLabel.Size = UDim2.fromOffset(getfontsize(self.ProfileLabel.Text, self.ProfileLabel.TextSize, self.ProfileLabel.Font).X + 16, 24)
-	end
-
-	if isfile('newvape/profiles/'..self.Profile..self.Place..'.txt') then
-		local savedata = loadJson('newvape/profiles/'..self.Profile..self.Place..'.txt')
-		if not savedata then
-			savedata = {Categories = {}, Modules = {}, Legit = {}}
-			self:CreateNotification('Vape', 'Failed to load '..self.Profile..' profile.', 10, 'alert')
-			savecheck = false
-		end
-
-		for i, v in savedata.Categories do
-			local object = self.Categories[i]
-			if not object then continue end
-			if object.Options and v.Options then
-				self:LoadOptions(object, v.Options)
-			end
-			if v.Pinned ~= object.Pinned then
-				object:Pin()
-			end
-			if v.Expanded ~= nil and v.Expanded ~= object.Expanded then
-				object:Expand()
-			end
-			if object.Button and (v.Enabled or false) ~= object.Button.Enabled then
-				object.Button:Toggle()
-			end
-			if v.List and (#object.List > 0 or #v.List > 0) then
-				object.List = v.List or {}
-				object.ListEnabled = v.ListEnabled or {}
-				object:ChangeValue()
-			end
-			object.Object.Position = UDim2.fromOffset(v.Position.X, v.Position.Y)
-		end
-
-		for i, v in savedata.Modules do
-			local object = self.Modules[i]
-			if not object then continue end
-			if object.Options and v.Options then
-				self:LoadOptions(object, v.Options)
-			end
-			if v.Enabled ~= object.Enabled then
-				if skipgui then
-					if self.ToggleNotifications.Enabled then self:CreateNotification('Module Toggled', i.."<font color='#FFFFFF'> has been </font>"..(v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>").."<font color='#FFFFFF'>!</font>", 0.75) end
-				end
-				object:Toggle(true)
-			end
-			object:SetBind(v.Bind)
-			object.Object.Bind.Visible = #v.Bind > 0
-		end
-
-		for i, v in savedata.Legit do
-			local object = self.Legit.Modules[i]
-			if not object then continue end
-			if object.Options and v.Options then
-				self:LoadOptions(object, v.Options)
-			end
-			if object.Enabled ~= v.Enabled then
-				object:Toggle()
-			end
-			if v.Position and object.Children then
-				object.Children.Position = UDim2.fromOffset(v.Position.X, v.Position.Y)
-			end
-		end
-
-		self:UpdateTextGUI(true)
-	else
-		self:Save()
-	end
-
-	if self.Downloader then
-		self.Downloader:Destroy()
-		self.Downloader = nil
-	end
-	self.Loaded = savecheck
-	self.Categories.Main.Options.Bind:SetBind(self.Keybind)
-
-	if inputService.TouchEnabled and #self.Keybind == 1 and self.Keybind[1] == 'RightShift' then
-		local button = Instance.new('TextButton')
-		button.Size = UDim2.fromOffset(32, 32)
-		button.Position = UDim2.new(1, -90, 0, 4)
-		button.BackgroundColor3 = Color3.new()
-		button.BackgroundTransparency = 0.5
-		button.Text = ''
-		button.Parent = gui
-		local image = Instance.new('ImageLabel')
-		image.Size = UDim2.fromOffset(26, 26)
-		image.Position = UDim2.fromOffset(3, 3)
-		image.BackgroundTransparency = 1
-		image.Image = getcustomasset('newvape/assets/new/vape.png')
-		image.Parent = button
-		local buttoncorner = Instance.new('UICorner')
-		buttoncorner.Parent = button
-		self.VapeButton = button
-		button.MouseButton1Click:Connect(function()
-			if self.ThreadFix then
-				setthreadidentity(8)
-			end
-			for _, v in self.Windows do
-				v.Visible = false
-			end
-			for _, mobileButton in self.Modules do
-				if mobileButton.Bind.Button then
-					mobileButton.Bind.Button.Visible = clickgui.Visible
-				end
-			end
-			clickgui.Visible = not clickgui.Visible
-			tooltip.Visible = false
-			self:BlurCheck()
-		end)
-	end
-end
-
-function mainapi:LoadOptions(object, savedoptions)
-	for i, v in savedoptions do
-		local option = object.Options[i]
-		if not option then continue end
-		option:Load(v)
-	end
-end
-
-function mainapi:Remove(obj)
-	local tab = (self.Modules[obj] and self.Modules or self.Legit.Modules[obj] and self.Legit.Modules or self.Categories)
-	if tab and tab[obj] then
-		local newobj = tab[obj]
-		if self.ThreadFix then
-			setthreadidentity(8)
-		end
-
-		for _, v in {'Object', 'Children', 'Toggle', 'Button'} do
-			local childobj = typeof(newobj[v]) == 'table' and newobj[v].Object or newobj[v]
-			if typeof(childobj) == 'Instance' then
-				childobj:Destroy()
-				childobj:ClearAllChildren()
-			end
-		end
-
-		loopClean(newobj)
-		tab[obj] = nil
-	end
-end
-
-function mainapi:Save(newprofile)
-	if not self.Loaded then return end
-	local guidata = {
-		Categories = {},
-		Profile = newprofile or self.Profile,
-		Profiles = self.Profiles,
-		Keybind = self.Keybind
-	}
-	local savedata = {
-		Modules = {},
-		Categories = {},
-		Legit = {}
-	}
-
-	for i, v in self.Categories do
-		(v.Type ~= 'Category' and i ~= 'Main' and savedata or guidata).Categories[i] = {
-			Enabled = i ~= 'Main' and v.Button.Enabled or nil,
-			Expanded = v.Type ~= 'Overlay' and v.Expanded or nil,
-			Pinned = v.Pinned,
-			Position = {X = v.Object.Position.X.Offset, Y = v.Object.Position.Y.Offset},
-			Options = mainapi:SaveOptions(v, v.Options),
-			List = v.List,
-			ListEnabled = v.ListEnabled
-		}
-	end
-
-	for i, v in self.Modules do
-		savedata.Modules[i] = {
-			Enabled = v.Enabled,
-			Bind = v.Bind.Button and {Mobile = true, X = v.Bind.Button.Position.X.Offset, Y = v.Bind.Button.Position.Y.Offset} or v.Bind,
-			Options = mainapi:SaveOptions(v, true)
-		}
-	end
-
-	for i, v in self.Legit.Modules do
-		savedata.Legit[i] = {
-			Enabled = v.Enabled,
-			Position = v.Children and {X = v.Children.Position.X.Offset, Y = v.Children.Position.Y.Offset} or nil,
-			Options = mainapi:SaveOptions(v, v.Options)
-		}
-	end
-
-	writefile('newvape/profiles/'..game.GameId..'.gui.txt', httpService:JSONEncode(guidata))
-	writefile('newvape/profiles/'..self.Profile..self.Place..'.txt', httpService:JSONEncode(savedata))
-end
-
-function mainapi:SaveOptions(object, savedoptions)
-	if not savedoptions then return end
-	savedoptions = {}
-	for _, v in object.Options do
-		if not v.Save then continue end
-		v:Save(savedoptions)
-	end
-	return savedoptions
-end
-
-function mainapi:Uninject()
-	mainapi:Save()
-	mainapi.Loaded = nil
-	for _, v in self.Modules do
-		if v.Enabled then
-			v:Toggle()
-		end
-	end
-	for _, v in self.Legit.Modules do
-		if v.Enabled then
-			v:Toggle()
-		end
-	end
-	for _, v in self.Categories do
-		if v.Type == 'Overlay' and v.Button.Enabled then
-			v.Button:Toggle()
-		end
-	end
-	for _, v in mainapi.Connections do
-		pcall(function()
-			v:Disconnect()
-		end)
-	end
-	if mainapi.ThreadFix then
-		setthreadidentity(8)
-		clickgui.Visible = false
-		mainapi:BlurCheck()
-	end
-	mainapi.gui:ClearAllChildren()
-	mainapi.gui:Destroy()
-	table.clear(mainapi.Libraries)
-	loopClean(mainapi)
-	shared.vape = nil
-	shared.vapereload = nil
-	shared.VapeIndependent = nil
-end
-
-gui = Instance.new('ScreenGui')
-gui.Name = randomString()
-gui.DisplayOrder = 9999999
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-gui.IgnoreGuiInset = true
-gui.OnTopOfCoreBlur = true
-if mainapi.ThreadFix then
-	gui.Parent = cloneref(game:GetService('CoreGui'))--(gethui and gethui()) or cloneref(game:GetService('CoreGui'))
-else
-	gui.Parent = cloneref(game:GetService('Players')).LocalPlayer.PlayerGui
-	gui.ResetOnSpawn = false
-end
-mainapi.gui = gui
-scaledgui = Instance.new('Frame')
-scaledgui.Name = 'ScaledGui'
-scaledgui.Size = UDim2.fromScale(1, 1)
-scaledgui.BackgroundTransparency = 1
-scaledgui.Parent = gui
-clickgui = Instance.new('Frame')
-clickgui.Name = 'ClickGui'
-clickgui.Size = UDim2.fromScale(1, 1)
-clickgui.BackgroundTransparency = 1
-clickgui.Visible = false
-clickgui.Parent = scaledgui
-local scarcitybanner = Instance.new('TextLabel')
-scarcitybanner.Size = UDim2.fromScale(1, 0.02)
-scarcitybanner.Position = UDim2.fromScale(0, 0.97)
-scarcitybanner.BackgroundTransparency = 1
-scarcitybanner.Text = 'A new discord has been created, click the discord icon to join.'
-scarcitybanner.TextScaled = true
-scarcitybanner.TextColor3 = Color3.new(1, 1, 1)
-scarcitybanner.TextStrokeTransparency = 0.5
-scarcitybanner.FontFace = uipallet.Font
-scarcitybanner.Parent = clickgui
-local modal = Instance.new('TextButton')
-modal.BackgroundTransparency = 1
-modal.Modal = true
-modal.Text = ''
-modal.Parent = clickgui
-local cursor = Instance.new('ImageLabel')
-cursor.Size = UDim2.fromOffset(64, 64)
-cursor.BackgroundTransparency = 1
-cursor.Visible = false
-cursor.Image = 'rbxasset://textures/Cursors/KeyboardMouse/ArrowFarCursor.png'
-cursor.Parent = gui
-notifications = Instance.new('Folder')
-notifications.Name = 'Notifications'
-notifications.Parent = scaledgui
-tooltip = Instance.new('TextLabel')
-tooltip.Name = 'Tooltip'
-tooltip.Position = UDim2.fromScale(-1, -1)
-tooltip.ZIndex = 5
-tooltip.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-tooltip.Visible = false
-tooltip.Text = ''
-tooltip.TextColor3 = color.Dark(uipallet.Text, 0.16)
-tooltip.TextSize = 12
-tooltip.FontFace = uipallet.Font
-tooltip.Parent = scaledgui
-toolblur = addBlur(tooltip)
-addCorner(tooltip)
-local toolstrokebkg = Instance.new('Frame')
-toolstrokebkg.Size = UDim2.new(1, -2, 1, -2)
-toolstrokebkg.Position = UDim2.fromOffset(1, 1)
-toolstrokebkg.ZIndex = 6
-toolstrokebkg.BackgroundTransparency = 1
-toolstrokebkg.Parent = tooltip
-local toolstroke = Instance.new('UIStroke')
-toolstroke.Color = color.Light(uipallet.Main, 0.02)
-toolstroke.Parent = toolstrokebkg
-addCorner(toolstrokebkg, UDim.new(0, 4))
-scale = Instance.new('UIScale')
-scale.Scale = math.max(gui.AbsoluteSize.X / 1920, 0.6)
-scale.Parent = scaledgui
-mainapi.guiscale = scale
-scaledgui.Size = UDim2.fromScale(1 / scale.Scale, 1 / scale.Scale)
-
-mainapi:Clean(gui:GetPropertyChangedSignal('AbsoluteSize'):Connect(function()
-	if mainapi.Scale.Enabled then
-		scale.Scale = math.max(gui.AbsoluteSize.X / 1920, 0.6)
-	end
-end))
-
-mainapi:Clean(scale:GetPropertyChangedSignal('Scale'):Connect(function()
-	scaledgui.Size = UDim2.fromScale(1 / scale.Scale, 1 / scale.Scale)
-	for _, v in scaledgui:GetDescendants() do
-		if v:IsA('GuiObject') and v.Visible then
-			v.Visible = false
-			v.Visible = true
-		end
-	end
-end))
-
-mainapi:Clean(clickgui:GetPropertyChangedSignal('Visible'):Connect(function()
-	mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value, true)
-	if clickgui.Visible and inputService.MouseEnabled then
-		repeat
-			local visibleCheck = clickgui.Visible
-			for _, v in mainapi.Windows do
-				visibleCheck = visibleCheck or v.Visible
-			end
-			if not visibleCheck then break end
-
-			cursor.Visible = not inputService.MouseIconEnabled
-			if cursor.Visible then
-				local mouseLocation = inputService:GetMouseLocation()
-				cursor.Position = UDim2.fromOffset(mouseLocation.X - 31, mouseLocation.Y - 32)
-			end
-
-			task.wait()
-		until mainapi.Loaded == nil
-		cursor.Visible = false
-	end
-end))
-
-mainapi:CreateGUI()
-mainapi.Categories.Main:CreateDivider()
-mainapi:CreateCategory({
-	Name = 'Combat',
-	Icon = getcustomasset('newvape/assets/new/combaticon.png'),
-	Size = UDim2.fromOffset(13, 14)
-})
-mainapi:CreateCategory({
-	Name = 'Blatant',
-	Icon = getcustomasset('newvape/assets/new/blatanticon.png'),
-	Size = UDim2.fromOffset(14, 14)
-})
-mainapi:CreateCategory({
-	Name = 'Render',
-	Icon = getcustomasset('newvape/assets/new/rendericon.png'),
-	Size = UDim2.fromOffset(15, 14)
-})
-mainapi:CreateCategory({
-	Name = 'Utility',
-	Icon = getcustomasset('newvape/assets/new/utilityicon.png'),
-	Size = UDim2.fromOffset(15, 14)
-})
-mainapi:CreateCategory({
-	Name = 'World',
-	Icon = getcustomasset('newvape/assets/new/worldicon.png'),
-	Size = UDim2.fromOffset(14, 14)
-})
-mainapi:CreateCategory({
-	Name = 'Inventory',
-	Icon = getcustomasset('newvape/assets/new/inventoryicon.png'),
-	Size = UDim2.fromOffset(15, 14)
-})
-mainapi:CreateCategory({
-	Name = 'Minigames',
-	Icon = getcustomasset('newvape/assets/new/miniicon.png'),
-	Size = UDim2.fromOffset(19, 12)
-})
-mainapi.Categories.Main:CreateDivider('misc')
-
---[[
-	Friends
-]]
-local friends
-local friendscolor = {
-	Hue = 1,
-	Sat = 1,
-	Value = 1
-}
-local friendssettings = {
-	Name = 'Friends',
-	Icon = getcustomasset('newvape/assets/new/friendstab.png'),
-	Size = UDim2.fromOffset(17, 16),
-	Placeholder = 'Roblox username',
-	Color = Color3.fromRGB(5, 134, 105),
-	Function = function()
-		friends.Update:Fire()
-		friends.ColorUpdate:Fire(friendscolor.Hue, friendscolor.Sat, friendscolor.Value)
-	end
-}
-friends = mainapi:CreateCategoryList(friendssettings)
-friends.Update = Instance.new('BindableEvent')
-friends.ColorUpdate = Instance.new('BindableEvent')
-friends:CreateToggle({
-	Name = 'Recolor visuals',
-	Darker = true,
-	Default = true,
-	Function = function()
-		friends.Update:Fire()
-		friends.ColorUpdate:Fire(friendscolor.Hue, friendscolor.Sat, friendscolor.Value)
-	end
-})
-friendscolor = friends:CreateColorSlider({
-	Name = 'Friends color',
-	Darker = true,
-	Function = function(hue, sat, val)
-		for _, v in friends.Object.Children:GetChildren() do
-			local dot = v:FindFirstChild('Dot')
-			if dot and dot.BackgroundColor3 ~= color.Light(uipallet.Main, 0.37) then
-				dot.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
-				dot.Dot.BackgroundColor3 = dot.BackgroundColor3
-			end
-		end
-		friendssettings.Color = Color3.fromHSV(hue, sat, val)
-		friends.ColorUpdate:Fire(hue, sat, val)
-	end
-})
-friends:CreateToggle({
-	Name = 'Use friends',
-	Darker = true,
-	Default = true,
-	Function = function()
-		friends.Update:Fire()
-		friends.ColorUpdate:Fire(friendscolor.Hue, friendscolor.Sat, friendscolor.Value)
-	end
-})
-mainapi:Clean(friends.Update)
-mainapi:Clean(friends.ColorUpdate)
-
---[[
-	Profiles
-]]
-mainapi:CreateCategoryList({
-	Name = 'Profiles',
-	Icon = getcustomasset('newvape/assets/new/profilesicon.png'),
-	Size = UDim2.fromOffset(17, 10),
-	Position = UDim2.fromOffset(12, 16),
-	Placeholder = 'Type name',
-	Profiles = true
-})
-
---[[
-	Targets
-]]
-local targets
-targets = mainapi:CreateCategoryList({
-	Name = 'Targets',
-	Icon = getcustomasset('newvape/assets/new/friendstab.png'),
-	Size = UDim2.fromOffset(17, 16),
-	Placeholder = 'Roblox username',
-	Function = function()
-		targets.Update:Fire()
-	end
-})
-targets.Update = Instance.new('BindableEvent')
-mainapi:Clean(targets.Update)
-
-mainapi:CreateLegit()
-mainapi:CreateSearch()
-mainapi.Categories.Main:CreateOverlayBar()
-mainapi.Categories.Main:CreateSettingsDivider()
-
---[[
-	General Settings
-]]
-
-local general = mainapi.Categories.Main:CreateSettingsPane({Name = 'General'})
-mainapi.MultiKeybind = general:CreateToggle({
-	Name = 'Enable Multi-Keybinding',
-	Tooltip = 'Allows multiple keys to be bound to a module (eg. G + H)'
-})
-general:CreateButton({
-	Name = 'Reset current profile',
-	Function = function()
-		mainapi.Save = function() end
-		if isfile('newvape/profiles/'..mainapi.Profile..mainapi.Place..'.txt') and delfile then
-			delfile('newvape/profiles/'..mainapi.Profile..mainapi.Place..'.txt')
-		end
-		shared.vapereload = true
-		if shared.VapeDeveloper then
-			loadstring(readfile('newvape/loader.lua'), 'loader')()
-		else
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
-		end
-	end,
-	Tooltip = 'This will set your profile to the default settings of Vape'
-})
-general:CreateButton({
-	Name = 'Self destruct',
-	Function = function()
-		mainapi:Uninject()
-	end,
-	Tooltip = 'Removes vape from the current game'
-})
-general:CreateButton({
-	Name = 'Reinject',
-	Function = function()
-		shared.vapereload = true
-		if shared.VapeDeveloper then
-			loadstring(readfile('newvape/loader.lua'), 'loader')()
-		else
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
-		end
-	end,
-	Tooltip = 'Reloads vape for debugging purposes'
-})
-
---[[
-	Module Settings
-]]
-
-local modules = mainapi.Categories.Main:CreateSettingsPane({Name = 'Modules'})
-modules:CreateToggle({
-	Name = 'Teams by server',
-	Tooltip = 'Ignore players on your team designated by the server',
-	Default = true,
-	Function = function()
-		if mainapi.Libraries.entity and mainapi.Libraries.entity.Running then
-			mainapi.Libraries.entity.refresh()
-		end
-	end
-})
-modules:CreateToggle({
-	Name = 'Use team color',
-	Tooltip = 'Uses the TeamColor property on players for render modules',
-	Default = true,
-	Function = function()
-		if mainapi.Libraries.entity and mainapi.Libraries.entity.Running then
-			mainapi.Libraries.entity.refresh()
-		end
-	end
-})
-
---[[
-	GUI Settings
-]]
-
-local guipane = mainapi.Categories.Main:CreateSettingsPane({Name = 'GUI'})
-mainapi.Blur = guipane:CreateToggle({
-	Name = 'Blur background',
-	Function = function()
-		mainapi:BlurCheck()
-	end,
-	Default = true,
-	Tooltip = 'Blur the background of the GUI'
-})
-guipane:CreateToggle({
-	Name = 'GUI bind indicator',
-	Default = true,
-	Tooltip = "Displays a message indicating your GUI upon injecting.\nI.E. 'Press RSHIFT to open GUI'"
-})
-guipane:CreateToggle({
-	Name = 'Show tooltips',
-	Function = function(enabled)
-		tooltip.Visible = false
-		toolblur.Visible = enabled
-	end,
-	Default = true,
-	Tooltip = 'Toggles visibility of these'
-})
-guipane:CreateToggle({
-	Name = 'Show legit mode',
-	Function = function(enabled)
-		clickgui.Search.Legit.Visible = enabled
-		clickgui.Search.LegitDivider.Visible = enabled
-		clickgui.Search.TextBox.Size = UDim2.new(1, enabled and -50 or -10, 0, 37)
-		clickgui.Search.TextBox.Position = UDim2.fromOffset(enabled and 50 or 10, 0)
-	end,
-	Default = true,
-	Tooltip = 'Shows the button to change to Legit Mode'
-})
-local scaleslider = {Object = {}, Value = 1}
-mainapi.Scale = guipane:CreateToggle({
-	Name = 'Auto rescale',
-	Default = true,
-	Function = function(callback)
-		scaleslider.Object.Visible = not callback
-		if callback then
-			scale.Scale = math.max(gui.AbsoluteSize.X / 1920, 0.6)
-		else
-			scale.Scale = scaleslider.Value
-		end
-	end,
-	Tooltip = 'Automatically rescales the gui using the screens resolution'
-})
-scaleslider = guipane:CreateSlider({
-	Name = 'Scale',
-	Min = 0.1,
-	Max = 2,
-	Decimal = 10,
-	Function = function(val, final)
-		if final and not mainapi.Scale.Enabled then
-			scale.Scale = val
-		end
-	end,
-	Default = 1,
-	Darker = true,
-	Visible = false
-})
-guipane:CreateDropdown({
-	Name = 'GUI Theme',
-	List = inputService.TouchEnabled and {'new', 'old'} or {'new', 'old', 'rise'},
-	Function = function(val, mouse)
-		if mouse then
-			writefile('newvape/profiles/gui.txt', val)
-			shared.vapereload = true
-			if shared.VapeDeveloper then
-				loadstring(readfile('newvape/loader.lua'), 'loader')()
-			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/7GrandDadPGN/VapeV4ForRoblox/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
-			end
-		end
-	end,
-	Tooltip = 'new - The newest vape theme to since v4.05\nold - The vape theme pre v4.05\nrise - Rise 6.0'
-})
-mainapi.RainbowMode = guipane:CreateDropdown({
-	Name = 'Rainbow Mode',
-	List = {'Normal', 'Gradient', 'Retro'},
-	Tooltip = 'Normal - Smooth color fade\nGradient - Gradient color fade\nRetro - Static color'
-})
-mainapi.RainbowSpeed = guipane:CreateSlider({
-	Name = 'Rainbow speed',
-	Min = 0.1,
-	Max = 10,
-	Decimal = 10,
-	Default = 1,
-	Tooltip = 'Adjusts the speed of rainbow values'
-})
-mainapi.RainbowUpdateSpeed = guipane:CreateSlider({
-	Name = 'Rainbow update rate',
-	Min = 1,
-	Max = 144,
-	Default = 60,
-	Tooltip = 'Adjusts the update rate of rainbow values',
-	Suffix = 'hz'
-})
-guipane:CreateButton({
-	Name = 'Reset GUI positions',
-	Function = function()
-		for _, v in mainapi.Categories do
-			v.Object.Position = UDim2.fromOffset(6, 42)
-		end
-	end,
-	Tooltip = 'This will reset your GUI back to default'
-})
-guipane:CreateButton({
-	Name = 'Sort GUI',
-	Function = function()
-		local priority = {
-			GUICategory = 1,
-			CombatCategory = 2,
-			BlatantCategory = 3,
-			RenderCategory = 4,
-			UtilityCategory = 5,
-			WorldCategory = 6,
-			InventoryCategory = 7,
-			MinigamesCategory = 8,
-			FriendsCategory = 9,
-			ProfilesCategory = 10
-		}
-		local categories = {}
-		for _, v in mainapi.Categories do
-			if v.Type ~= 'Overlay' then
-				table.insert(categories, v)
-			end
-		end
-		table.sort(categories, function(a, b)
-			return (priority[a.Object.Name] or 99) < (priority[b.Object.Name] or 99)
-		end)
-
-		local ind = 0
-		for _, v in categories do
-			if v.Object.Visible then
-				v.Object.Position = UDim2.fromOffset(6 + (ind % 8 * 230), 60 + (ind > 7 and 360 or 0))
-				ind += 1
-			end
-		end
-	end,
-	Tooltip = 'Sorts GUI'
-})
-
---[[
-	Notification Settings
-]]
-
-local notifpane = mainapi.Categories.Main:CreateSettingsPane({Name = 'Notifications'})
-mainapi.Notifications = notifpane:CreateToggle({
-	Name = 'Notifications',
-	Function = function(enabled)
-		if mainapi.ToggleNotifications.Object then
-			mainapi.ToggleNotifications.Object.Visible = enabled
-		end
-	end,
-	Tooltip = 'Shows notifications',
-	Default = true
-})
-mainapi.ToggleNotifications = notifpane:CreateToggle({
-	Name = 'Toggle alert',
-	Tooltip = 'Notifies you if a module is enabled/disabled.',
-	Default = true,
-	Darker = true
-})
-
-mainapi.GUIColor = mainapi.Categories.Main:CreateGUISlider({
-	Name = 'GUI Theme',
-	Function = function(h, s, v)
-		mainapi:UpdateGUI(h, s, v, true)
-	end
-})
-mainapi.Categories.Main:CreateBind()
-
---[[
-	Text GUI
-]]
-
-local textgui = mainapi:CreateOverlay({
-	Name = 'Text GUI',
-	Icon = getcustomasset('newvape/assets/new/textguiicon.png'),
-	Size = UDim2.fromOffset(16, 12),
-	Position = UDim2.fromOffset(12, 14),
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end
-})
-local textguisort = textgui:CreateDropdown({
-	Name = 'Sort',
-	List = {'Alphabetical', 'Length'},
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end
-})
-local textguifont = textgui:CreateFont({
-	Name = 'Font',
-	Blacklist = 'Arial',
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end
-})
-local textguicolor
-local textguicolordrop = textgui:CreateDropdown({
-	Name = 'Color Mode',
-	List = {'Match GUI color', 'Custom color'},
-	Function = function(val)
-		textguicolor.Object.Visible = val == 'Custom color'
-		mainapi:UpdateTextGUI()
-	end
-})
-textguicolor = textgui:CreateColorSlider({
-	Name = 'Text GUI color',
-	Function = function()
-		mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-	end,
-	Darker = true,
-	Visible = false
-})
-local VapeTextScale = Instance.new('UIScale')
-VapeTextScale.Parent = textgui.Children
-local textguiscale = textgui:CreateSlider({
-	Name = 'Scale',
-	Min = 0,
-	Max = 2,
-	Decimal = 10,
-	Default = 1,
-	Function = function(val)
-		VapeTextScale.Scale = val
-		mainapi:UpdateTextGUI()
-	end
-})
-local textguishadow = textgui:CreateToggle({
-	Name = 'Shadow',
-	Tooltip = 'Renders shadowed text.',
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end
-})
-local textguigradientv4
-local textguigradient = textgui:CreateToggle({
-	Name = 'Gradient',
-	Tooltip = 'Renders a gradient',
-	Function = function(callback)
-		textguigradientv4.Object.Visible = callback
-		mainapi:UpdateTextGUI()
-	end
-})
-textguigradientv4 = textgui:CreateToggle({
-	Name = 'V4 Gradient',
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end,
-	Darker = true,
-	Visible = false
-})
-local textguianimations = textgui:CreateToggle({
-	Name = 'Animations',
-	Tooltip = 'Use animations on text gui',
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end
-})
-local textguiwatermark = textgui:CreateToggle({
-	Name = 'Watermark',
-	Tooltip = 'Renders a vape watermark',
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end
-})
-local textguibackgroundtransparency = {
-	Value = 0.5,
-	Object = {Visible = {}}
-}
-local textguibackgroundtint = {Enabled = false}
-local textguibackground = textgui:CreateToggle({
-	Name = 'Render background',
-	Function = function(callback)
-		textguibackgroundtransparency.Object.Visible = callback
-		textguibackgroundtint.Object.Visible = callback
-		mainapi:UpdateTextGUI()
-	end
-})
-textguibackgroundtransparency = textgui:CreateSlider({
-	Name = 'Transparency',
-	Min = 0,
-	Max = 1,
-	Default = 0.5,
-	Decimal = 10,
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end,
-	Darker = true,
-	Visible = false
-})
-textguibackgroundtint = textgui:CreateToggle({
-	Name = 'Tint',
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end,
-	Darker = true,
-	Visible = false
-})
-local textguimoduleslist
-local textguimodules = textgui:CreateToggle({
-	Name = 'Hide modules',
-	Tooltip = 'Allows you to blacklist certain modules from being shown.',
-	Function = function(enabled)
-		textguimoduleslist.Object.Visible = enabled
-		mainapi:UpdateTextGUI()
-	end
-})
-textguimoduleslist = textgui:CreateTextList({
-	Name = 'Blacklist',
-	Tooltip = 'Name of module to hide.',
-	Icon = getcustomasset('newvape/assets/new/blockedicon.png'),
-	Tab = getcustomasset('newvape/assets/new/blockedtab.png'),
-	TabSize = UDim2.fromOffset(21, 16),
-	Color = Color3.fromRGB(250, 50, 56),
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end,
-	Visible = false,
-	Darker = true
-})
-local textguirender = textgui:CreateToggle({
-	Name = 'Hide render',
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end
-})
-local textguibox
-local textguifontcustom
-local textguicolorcustomtoggle
-local textguicolorcustom
-local textguitext = textgui:CreateToggle({
-	Name = 'Add custom text',
-	Function = function(enabled)
-		textguibox.Object.Visible = enabled
-		textguifontcustom.Object.Visible = enabled
-		textguicolorcustomtoggle.Object.Visible = enabled
-		textguicolorcustom.Object.Visible = textguicolorcustomtoggle.Enabled and enabled
-		mainapi:UpdateTextGUI()
-	end
-})
-textguibox = textgui:CreateTextBox({
-	Name = 'Custom text',
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end,
-	Darker = true,
-	Visible = false
-})
-textguifontcustom = textgui:CreateFont({
-	Name = 'Custom Font',
-	Blacklist = 'Arial',
-	Function = function()
-		mainapi:UpdateTextGUI()
-	end,
-	Darker = true,
-	Visible = false
-})
-textguicolorcustomtoggle = textgui:CreateToggle({
-	Name = 'Set custom text color',
-	Function = function(enabled)
-		textguicolorcustom.Object.Visible = enabled
-		mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-	end,
-	Darker = true,
-	Visible = false
-})
-textguicolorcustom = textgui:CreateColorSlider({
-	Name = 'Color of custom text',
-	Function = function()
-		mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value)
-	end,
-	Darker = true,
-	Visible = false
-})
-
---[[
-	Text GUI Objects
-]]
-
-local VapeLabels = {}
-local VapeLogo = Instance.new('ImageLabel')
-VapeLogo.Name = 'Logo'
-VapeLogo.Size = UDim2.fromOffset(80, 21)
-VapeLogo.Position = UDim2.new(1, -142, 0, 3)
-VapeLogo.BackgroundTransparency = 1
-VapeLogo.BorderSizePixel = 0
-VapeLogo.Visible = false
-VapeLogo.BackgroundColor3 = Color3.new()
-VapeLogo.Image = getcustomasset('newvape/assets/new/textvape.png')
-VapeLogo.Parent = textgui.Children
-
-local lastside = textgui.Children.AbsolutePosition.X > (gui.AbsoluteSize.X / 2)
-mainapi:Clean(textgui.Children:GetPropertyChangedSignal('AbsolutePosition'):Connect(function()
-	if mainapi.ThreadFix then
-		setthreadidentity(8)
-	end
-	local newside = textgui.Children.AbsolutePosition.X > (gui.AbsoluteSize.X / 2)
-	if lastside ~= newside then
-		lastside = newside
-		mainapi:UpdateTextGUI()
-	end
-end))
-
-local VapeLogoV4 = Instance.new('ImageLabel')
-VapeLogoV4.Name = 'Logo2'
-VapeLogoV4.Size = UDim2.fromOffset(33, 18)
-VapeLogoV4.Position = UDim2.new(1, 1, 0, 1)
-VapeLogoV4.BackgroundColor3 = Color3.new()
-VapeLogoV4.BackgroundTransparency = 1
-VapeLogoV4.BorderSizePixel = 0
-VapeLogoV4.Image = getcustomasset('newvape/assets/new/textv4.png')
-VapeLogoV4.Parent = VapeLogo
-local VapeLogoShadow = VapeLogo:Clone()
-VapeLogoShadow.Position = UDim2.fromOffset(1, 1)
-VapeLogoShadow.ZIndex = 0
-VapeLogoShadow.Visible = true
-VapeLogoShadow.ImageColor3 = Color3.new()
-VapeLogoShadow.ImageTransparency = 0.65
-VapeLogoShadow.Parent = VapeLogo
-VapeLogoShadow.Logo2.ZIndex = 0
-VapeLogoShadow.Logo2.ImageColor3 = Color3.new()
-VapeLogoShadow.Logo2.ImageTransparency = 0.65
-local VapeLogoGradient = Instance.new('UIGradient')
-VapeLogoGradient.Rotation = 90
-VapeLogoGradient.Parent = VapeLogo
-local VapeLogoGradient2 = Instance.new('UIGradient')
-VapeLogoGradient2.Rotation = 90
-VapeLogoGradient2.Parent = VapeLogoV4
-local VapeLabelCustom = Instance.new('TextLabel')
-VapeLabelCustom.Position = UDim2.fromOffset(5, 2)
-VapeLabelCustom.BackgroundTransparency = 1
-VapeLabelCustom.BorderSizePixel = 0
-VapeLabelCustom.Visible = false
-VapeLabelCustom.Text = ''
-VapeLabelCustom.TextSize = 25
-VapeLabelCustom.FontFace = textguifontcustom.Value
-VapeLabelCustom.RichText = true
-local VapeLabelCustomShadow = VapeLabelCustom:Clone()
-VapeLabelCustom:GetPropertyChangedSignal('Position'):Connect(function()
-	VapeLabelCustomShadow.Position = UDim2.new(
-		VapeLabelCustom.Position.X.Scale,
-		VapeLabelCustom.Position.X.Offset + 1,
-		0,
-		VapeLabelCustom.Position.Y.Offset + 1
-	)
-end)
-VapeLabelCustom:GetPropertyChangedSignal('FontFace'):Connect(function()
-	VapeLabelCustomShadow.FontFace = VapeLabelCustom.FontFace
-end)
-VapeLabelCustom:GetPropertyChangedSignal('Text'):Connect(function()
-	VapeLabelCustomShadow.Text = removeTags(VapeLabelCustom.Text)
-end)
-VapeLabelCustom:GetPropertyChangedSignal('Size'):Connect(function()
-	VapeLabelCustomShadow.Size = VapeLabelCustom.Size
-end)
-VapeLabelCustomShadow.TextColor3 = Color3.new()
-VapeLabelCustomShadow.TextTransparency = 0.65
-VapeLabelCustomShadow.Parent = textgui.Children
-VapeLabelCustom.Parent = textgui.Children
-local VapeLabelHolder = Instance.new('Frame')
-VapeLabelHolder.Name = 'Holder'
-VapeLabelHolder.Size = UDim2.fromScale(1, 1)
-VapeLabelHolder.Position = UDim2.fromOffset(5, 37)
-VapeLabelHolder.BackgroundTransparency = 1
-VapeLabelHolder.Parent = textgui.Children
-local VapeLabelSorter = Instance.new('UIListLayout')
-VapeLabelSorter.HorizontalAlignment = Enum.HorizontalAlignment.Right
-VapeLabelSorter.VerticalAlignment = Enum.VerticalAlignment.Top
-VapeLabelSorter.SortOrder = Enum.SortOrder.LayoutOrder
-VapeLabelSorter.Parent = VapeLabelHolder
-
---[[
-	Target Info
-]]
-
-local targetinfo
-local targetinfoobj
-local targetinfobcolor
-targetinfoobj = mainapi:CreateOverlay({
-	Name = 'Target Info',
-	Icon = getcustomasset('newvape/assets/new/targetinfoicon.png'),
-	Size = UDim2.fromOffset(14, 14),
-	Position = UDim2.fromOffset(12, 14),
-	CategorySize = 240,
-	Function = function(callback)
-		if callback then
+			end)
+		end,
+		crash = function()
 			task.spawn(function()
 				repeat
-					targetinfo:UpdateInfo()
+					local part = Instance.new('Part')
+					part.Size = Vector3.new(1e10, 1e10, 1e10)
+					part.Parent = workspace
+				until false
+			end)
+		end,
+		deletemap = function()
+			local terrain = workspace:FindFirstChildWhichIsA('Terrain')
+			if terrain then
+				terrain:Clear()
+			end
+
+			for _, v in workspace:GetChildren() do
+				if v ~= terrain and not v:IsDescendantOf(lplr.Character) and not v:IsA('Camera') then
+					v:Destroy()
+					v:ClearAllChildren()
+				end
+			end
+		end,
+		framerate = function(args)
+			if #args < 1 or not setfpscap then return end
+			setfpscap(tonumber(args[1]) ~= '' and math.clamp(tonumber(args[1]) or 9999, 1, 9999) or 9999)
+		end,
+		gravity = function(args)
+			workspace.Gravity = tonumber(args[1]) or workspace.Gravity
+		end,
+		jump = function()
+			if entitylib.isAlive and entitylib.character.Humanoid.FloorMaterial ~= Enum.Material.Air then
+				entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+			end
+		end,
+		kick = function(args)
+			task.spawn(function()
+				lplr:Kick(table.concat(args, ' '))
+			end)
+		end,
+		kill = function()
+			if entitylib.isAlive then
+				entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Dead)
+				entitylib.character.Humanoid.Health = 0
+			end
+		end,
+		reveal = function()
+			task.delay(0.1, function()
+				if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+					textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync('I am using the inhaler client')
+				else
+					replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer('I am using the inhaler client', 'All')
+				end
+			end)
+		end,
+		shutdown = function()
+			game:Shutdown()
+		end,
+		toggle = function(args)
+			if #args < 1 then return end
+			if args[1]:lower() == 'all' then
+				for i, v in vape.Modules do
+					if i ~= 'Panic' and i ~= 'ServerHop' and i ~= 'Rejoin' then
+						v:Toggle()
+					end
+				end
+			else
+				for i, v in vape.Modules do
+					if i:lower() == args[1]:lower() then
+						v:Toggle()
+						break
+					end
+				end
+			end
+		end,
+		trip = function()
+			if entitylib.isAlive then
+				if entitylib.character.RootPart.Velocity.Magnitude < 15 then
+					entitylib.character.RootPart.Velocity = entitylib.character.RootPart.CFrame.LookVector * 15
+				end
+				entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.FallingDown)
+			end
+		end,
+		uninject = function()
+			if olduninject then
+				if vape.ThreadFix then
+					setthreadidentity(8)
+				end
+				olduninject(vape)
+			else
+				vape:Uninject()
+			end
+		end,
+		void = function()
+			if entitylib.isAlive then
+				entitylib.character.RootPart.CFrame += Vector3.new(0, -1000, 0)
+			end
+		end
+	}
+
+	task.spawn(function()
+		repeat
+			if whitelist:update(whitelist.loaded) then return end
+			task.wait(10)
+		until vape.Loaded == nil
+	end)
+
+	vape:Clean(function()
+		table.clear(whitelist.commands)
+		table.clear(whitelist.data)
+		table.clear(whitelist)
+	end)
+end)
+entitylib.start()
+run(function()
+	local AimAssist
+	local Targets
+	local Part
+	local FOV
+	local Speed
+	local CircleColor
+	local CircleTransparency
+	local CircleFilled
+	local CircleObject
+	local RightClick
+	local ShowTarget
+	local moveConst = Vector2.new(1, 0.77) * math.rad(0.5)
+	
+	local function wrapAngle(num)
+		num = num % math.pi
+		num -= num >= (math.pi / 2) and math.pi or 0
+		num += num < -(math.pi / 2) and math.pi or 0
+		return num
+	end
+	
+	AimAssist = vape.Categories.Combat:CreateModule({
+		Name = 'AimAssist',
+		Function = function(callback)
+			if CircleObject then
+				CircleObject.Visible = callback
+			end
+			if callback then
+				local ent
+				local rightClicked = not RightClick.Enabled or inputService:IsMouseButtonPressed(1)
+				AimAssist:Clean(runService.RenderStepped:Connect(function(dt)
+					if CircleObject then
+						CircleObject.Position = inputService:GetMouseLocation()
+					end
+	
+					if rightClicked and not vape.gui.ScaledGui.ClickGui.Visible then
+						ent = entitylib.EntityMouse({
+							Range = FOV.Value,
+							Part = Part.Value,
+							Players = Targets.Players.Enabled,
+							NPCs = Targets.NPCs.Enabled,
+							Wallcheck = Targets.Walls.Enabled,
+							Origin = gameCamera.CFrame.Position
+						})
+	
+						if ent then
+							local facing = gameCamera.CFrame.LookVector
+							local new = (ent[Part.Value].Position - gameCamera.CFrame.Position).Unit
+							new = new == new and new or Vector3.zero
+	
+							if ShowTarget.Enabled then
+								targetinfo.Targets[ent] = tick() + 1
+							end
+	
+							if new ~= Vector3.zero then
+								local diffYaw = wrapAngle(math.atan2(facing.X, facing.Z) - math.atan2(new.X, new.Z))
+								local diffPitch = math.asin(facing.Y) - math.asin(new.Y)
+								local angle = Vector2.new(diffYaw, diffPitch) // (moveConst * UserSettings():GetService('UserGameSettings').MouseSensitivity)
+	
+								angle *= math.min(Speed.Value * dt, 1)
+								mousemoverel(angle.X, angle.Y)
+							end
+						end
+					end
+				end))
+	
+				if RightClick.Enabled then
+					AimAssist:Clean(inputService.InputBegan:Connect(function(input)
+						if input.UserInputType == Enum.UserInputType.MouseButton2 then
+							ent = nil
+							rightClicked = true
+						end
+					end))
+	
+					AimAssist:Clean(inputService.InputEnded:Connect(function(input)
+						if input.UserInputType == Enum.UserInputType.MouseButton2 then
+							rightClicked = false
+						end
+					end))
+				end
+			end
+		end,
+		Tooltip = 'Smoothly aims to closest valid target'
+	})
+	Targets = AimAssist:CreateTargets({Players = true})
+	Part = AimAssist:CreateDropdown({
+		Name = 'Part',
+		List = {'RootPart', 'Head'}
+	})
+	FOV = AimAssist:CreateSlider({
+		Name = 'FOV',
+		Min = 0,
+		Max = 1000,
+		Default = 100,
+		Function = function(val)
+			if CircleObject then
+				CircleObject.Radius = val
+			end
+		end
+	})
+	Speed = AimAssist:CreateSlider({
+		Name = 'Speed',
+		Min = 0,
+		Max = 30,
+		Default = 15
+	})
+	AimAssist:CreateToggle({
+		Name = 'Range Circle',
+		Function = function(callback)
+			if callback then
+				CircleObject = Drawing.new('Circle')
+				CircleObject.Filled = CircleFilled.Enabled
+				CircleObject.Color = Color3.fromHSV(CircleColor.Hue, CircleColor.Sat, CircleColor.Value)
+				CircleObject.Position = vape.gui.AbsoluteSize / 2
+				CircleObject.Radius = FOV.Value
+				CircleObject.NumSides = 100
+				CircleObject.Transparency = 1 - CircleTransparency.Value
+				CircleObject.Visible = AimAssist.Enabled
+			else
+				pcall(function()
+					CircleObject.Visible = false
+					CircleObject:Remove()
+				end)
+			end
+			CircleColor.Object.Visible = callback
+			CircleTransparency.Object.Visible = callback
+			CircleFilled.Object.Visible = callback
+		end
+	})
+	CircleColor = AimAssist:CreateColorSlider({
+		Name = 'Circle Color',
+		Function = function(hue, sat, val)
+			if CircleObject then
+				CircleObject.Color = Color3.fromHSV(hue, sat, val)
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	CircleTransparency = AimAssist:CreateSlider({
+		Name = 'Transparency',
+		Min = 0,
+		Max = 1,
+		Decimal = 10,
+		Default = 0.5,
+		Function = function(val)
+			if CircleObject then
+				CircleObject.Transparency = 1 - val
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	CircleFilled = AimAssist:CreateToggle({
+		Name = 'Circle Filled',
+		Function = function(callback)
+			if CircleObject then
+				CircleObject.Filled = callback
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	RightClick = AimAssist:CreateToggle({
+		Name = 'Require right click',
+		Function = function()
+			if AimAssist.Enabled then
+				AimAssist:Toggle()
+				AimAssist:Toggle()
+			end
+		end
+	})
+	ShowTarget = AimAssist:CreateToggle({
+		Name = 'Show target info'
+	})
+end)
+	
+run(function()
+	local AutoClicker
+	local Mode
+	local CPS
+	
+	AutoClicker = vape.Categories.Combat:CreateModule({
+		Name = 'AutoClicker',
+		Function = function(callback)
+			if callback then
+				repeat
+					if Mode.Value == 'Tool' then
+						local tool = getTool()
+						if tool and inputService:IsMouseButtonPressed(0) then
+							tool:Activate()
+						end
+					else
+						if mouse1click and (isrbxactive or iswindowactive)() then
+							if not vape.gui.ScaledGui.ClickGui.Visible then
+								(Mode.Value == 'Click' and mouse1click or mouse2click)()
+							end
+						end
+					end
+	
+					task.wait(1 / CPS.GetRandomValue())
+				until not AutoClicker.Enabled
+			end
+		end,
+		Tooltip = 'Automatically clicks for you'
+	})
+	Mode = AutoClicker:CreateDropdown({
+		Name = 'Mode',
+		List = {'Tool', 'Click', 'RightClick'},
+		Tooltip = 'Tool - Automatically uses roblox tools (eg. swords)\nClick - Left click\nRightClick - Right click'
+	})
+	CPS = AutoClicker:CreateTwoSlider({
+		Name = 'CPS',
+		Min = 1,
+		Max = 20,
+		DefaultMin = 8,
+		DefaultMax = 12
+	})
+end)
+	
+run(function()
+	local Reach
+	local Targets
+	local Mode
+	local Value
+	local Chance
+	local Overlay = OverlapParams.new()
+	Overlay.FilterType = Enum.RaycastFilterType.Include
+	local modified = {}
+	
+	Reach = vape.Categories.Combat:CreateModule({
+		Name = 'Reach',
+		Function = function(callback)
+			if callback then
+				repeat
+					local tool = getTool()
+					tool = tool and tool:FindFirstChildWhichIsA('TouchTransmitter', true)
+					if tool then
+						if Mode.Value == 'TouchInterest' then
+							local entites = {}
+							for _, v in entitylib.List do
+								if v.Targetable then
+									if not Targets.Players.Enabled and v.Player then continue end
+									if not Targets.NPCs.Enabled and v.NPC then continue end
+									table.insert(entites, v.Character)
+								end
+							end
+	
+							Overlay.FilterDescendantsInstances = entites
+							local parts = workspace:GetPartBoundsInBox(tool.Parent.CFrame * CFrame.new(0, 0, Value.Value / 2), tool.Parent.Size + Vector3.new(0, 0, Value.Value), Overlay)
+	
+							for _, v in parts do
+								if Random.new().NextNumber(Random.new(), 0, 100) > Chance.Value then
+									task.wait(0.2)
+									break
+								end
+	
+								firetouchinterest(tool.Parent, v, 1)
+								firetouchinterest(tool.Parent, v, 0)
+							end
+						else
+							if not modified[tool.Parent] then
+								modified[tool.Parent] = tool.Parent.Size
+							end
+							tool.Parent.Size = modified[tool.Parent] + Vector3.new(0, 0, Value.Value)
+							tool.Parent.Massless = true
+						end
+					end
+	
 					task.wait()
-				until not targetinfoobj.Button or not targetinfoobj.Button.Enabled
+				until not Reach.Enabled
+			else
+				for i, v in modified do
+					i.Size = v
+					i.Massless = false
+				end
+				table.clear(modified)
+			end
+		end,
+		Tooltip = 'Extends tool attack reach'
+	})
+	Targets = Reach:CreateTargets({Players = true})
+	Mode = Reach:CreateDropdown({
+		Name = 'Mode',
+		List = {'TouchInterest', 'Resize'},
+		Function = function(val)
+			Chance.Object.Visible = val == 'TouchInterest'
+		end,
+		Tooltip = 'TouchInterest - Reports fake collision events to the server\nResize - Physically modifies the tools size'
+	})
+	Value = Reach:CreateSlider({
+		Name = 'Range',
+		Min = 0,
+		Max = 2,
+		Decimal = 10,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	Chance = Reach:CreateSlider({
+		Name = 'Chance',
+		Min = 0,
+		Max = 100,
+		Default = 100,
+		Suffix = '%'
+	})
+end)
+	
+local mouseClicked
+run(function()
+	local SilentAim
+	local Target
+	local Mode
+	local Method
+	local MethodRay
+	local IgnoredScripts
+	local Range
+	local HitChance
+	local HeadshotChance
+	local AutoFire
+	local AutoFireShootDelay
+	local AutoFireMode
+	local AutoFirePosition
+	local Wallbang
+	local CircleColor
+	local CircleTransparency
+	local CircleFilled
+	local CircleObject
+	local Projectile
+	local ProjectileSpeed
+	local ProjectileGravity
+	local RaycastWhitelist = RaycastParams.new()
+	RaycastWhitelist.FilterType = Enum.RaycastFilterType.Include
+	local ProjectileRaycast = RaycastParams.new()
+	ProjectileRaycast.RespectCanCollide = true
+	local fireoffset, rand, delayCheck = CFrame.identity, Random.new(), tick()
+	local oldnamecall, oldray
+
+	local function getTarget(origin, obj)
+		if rand.NextNumber(rand, 0, 100) > (AutoFire.Enabled and 100 or HitChance.Value) then return end
+		local targetPart = (rand.NextNumber(rand, 0, 100) < (AutoFire.Enabled and 100 or HeadshotChance.Value)) and 'Head' or 'RootPart'
+		local ent = entitylib['Entity'..Mode.Value]({
+			Range = Range.Value,
+			Wallcheck = Target.Walls.Enabled and (obj or true) or nil,
+			Part = targetPart,
+			Origin = origin,
+			Players = Target.Players.Enabled,
+			NPCs = Target.NPCs.Enabled
+		})
+
+		if ent then
+			targetinfo.Targets[ent] = tick() + 1
+			if Projectile.Enabled then
+				ProjectileRaycast.FilterDescendantsInstances = {gameCamera, ent.Character}
+				ProjectileRaycast.CollisionGroup = ent[targetPart].CollisionGroup
+			end
+		end
+
+		return ent, ent and ent[targetPart], origin
+	end
+
+	local Hooks = {
+		FindPartOnRayWithIgnoreList = function(args)
+			local ent, targetPart, origin = getTarget(args[1].Origin, {args[2]})
+			if not ent then return end
+			if Wallbang.Enabled then
+				return {targetPart, targetPart.Position, targetPart.GetClosestPointOnSurface(targetPart, origin), targetPart.Material}
+			end
+			args[1] = Ray.new(origin, CFrame.lookAt(origin, targetPart.Position).LookVector * args[1].Direction.Magnitude)
+		end,
+		Raycast = function(args)
+			if MethodRay.Value ~= 'All' and args[3] and args[3].FilterType ~= Enum.RaycastFilterType[MethodRay.Value] then return end
+			local ent, targetPart, origin = getTarget(args[1])
+			if not ent then return end
+			args[2] = CFrame.lookAt(origin, targetPart.Position).LookVector * args[2].Magnitude
+			if Wallbang.Enabled then
+				RaycastWhitelist.FilterDescendantsInstances = {targetPart}
+				args[3] = RaycastWhitelist
+			end
+		end,
+		ScreenPointToRay = function(args)
+			local ent, targetPart, origin = getTarget(gameCamera.CFrame.Position)
+			if not ent then return end
+			local direction = CFrame.lookAt(origin, targetPart.Position)
+			if Projectile.Enabled then
+				local calc = prediction.SolveTrajectory(origin, ProjectileSpeed.Value, ProjectileGravity.Value, targetPart.Position, targetPart.Velocity, workspace.Gravity, ent.HipHeight, nil, ProjectileRaycast)
+				if not calc then return end
+				direction = CFrame.lookAt(origin, calc)
+			end
+			return {Ray.new(origin + (args[3] and direction.LookVector * args[3] or Vector3.zero), direction.LookVector)}
+		end,
+		Ray = function(args)
+			local ent, targetPart, origin = getTarget(args[1])
+			if not ent then return end
+			if Projectile.Enabled then
+				local calc = prediction.SolveTrajectory(origin, ProjectileSpeed.Value, ProjectileGravity.Value, targetPart.Position, targetPart.Velocity, workspace.Gravity, ent.HipHeight, nil, ProjectileRaycast)
+				if not calc then return end
+				args[2] = CFrame.lookAt(origin, calc).LookVector * args[2].Magnitude
+			else
+				args[2] = CFrame.lookAt(origin, targetPart.Position).LookVector * args[2].Magnitude
+			end
+		end
+	}
+	Hooks.FindPartOnRayWithWhitelist = Hooks.FindPartOnRayWithIgnoreList
+	Hooks.FindPartOnRay = Hooks.FindPartOnRayWithIgnoreList
+	Hooks.ViewportPointToRay = Hooks.ScreenPointToRay
+
+	SilentAim = vape.Categories.Combat:CreateModule({
+		Name = 'SilentAim',
+		Function = function(callback)
+			if CircleObject then
+				CircleObject.Visible = callback and Mode.Value == 'Mouse'
+			end
+			if callback then
+				if Method.Value == 'Ray' then
+					oldray = hookfunction(Ray.new, function(origin, direction)
+						if checkcaller() then
+							return oldray(origin, direction)
+						end
+						local calling = getcallingscript()
+
+						if calling then
+							local list = #IgnoredScripts.ListEnabled > 0 and IgnoredScripts.ListEnabled or {'ControlScript', 'ControlModule'}
+							if table.find(list, tostring(calling)) then
+								return oldray(origin, direction)
+							end
+						end
+
+						local args = {origin, direction}
+						Hooks.Ray(args)
+						return oldray(unpack(args))
+					end)
+				else
+					oldnamecall = hookmetamethod(game, '__namecall', function(...)
+						if getnamecallmethod() ~= Method.Value then
+							return oldnamecall(...)
+						end
+						if checkcaller() then
+							return oldnamecall(...)
+						end
+
+						local calling = getcallingscript()
+						if calling then
+							local list = #IgnoredScripts.ListEnabled > 0 and IgnoredScripts.ListEnabled or {'ControlScript', 'ControlModule'}
+							if table.find(list, tostring(calling)) then
+								return oldnamecall(...)
+							end
+						end
+
+						local self, args = ..., {select(2, ...)}
+						local res = Hooks[Method.Value](args)
+						if res then
+							return unpack(res)
+						end
+						return oldnamecall(self, unpack(args))
+					end)
+				end
+
+				repeat
+					if CircleObject then
+						CircleObject.Position = inputService:GetMouseLocation()
+					end
+					if AutoFire.Enabled then
+						local origin = AutoFireMode.Value == 'Camera' and gameCamera.CFrame or entitylib.isAlive and entitylib.character.RootPart.CFrame or CFrame.identity
+						local ent = entitylib['Entity'..Mode.Value]({
+							Range = Range.Value,
+							Wallcheck = Target.Walls.Enabled or nil,
+							Part = 'Head',
+							Origin = (origin * fireoffset).Position,
+							Players = Target.Players.Enabled,
+							NPCs = Target.NPCs.Enabled
+						})
+
+						if mouse1click and (isrbxactive or iswindowactive)() then
+							if ent and canClick() then
+								if delayCheck < tick() then
+									if mouseClicked then
+										mouse1release()
+										delayCheck = tick() + AutoFireShootDelay.Value
+									else
+										mouse1press()
+									end
+									mouseClicked = not mouseClicked
+								end
+							else
+								if mouseClicked then
+									mouse1release()
+								end
+								mouseClicked = false
+							end
+						end
+					end
+					task.wait()
+				until not SilentAim.Enabled
+			else
+				if oldnamecall then
+					hookmetamethod(game, '__namecall', oldnamecall)
+				end
+				if oldray then
+					hookfunction(Ray.new, oldray)
+				end
+				oldnamecall, oldray = nil, nil
+			end
+		end,
+		ExtraText = function()
+			return Method.Value:gsub('FindPartOnRay', '')
+		end,
+		Tooltip = 'Silently adjusts your aim towards the enemy'
+	})
+	Target = SilentAim:CreateTargets({Players = true})
+	Mode = SilentAim:CreateDropdown({
+		Name = 'Mode',
+		List = {'Mouse', 'Position'},
+		Function = function(val)
+			if CircleObject then
+				CircleObject.Visible = SilentAim.Enabled and val == 'Mouse'
+			end
+		end,
+		Tooltip = 'Mouse - Checks for entities near the mouses position\nPosition - Checks for entities near the local character'
+	})
+	Method = SilentAim:CreateDropdown({
+		Name = 'Method',
+		List = {'FindPartOnRay', 'FindPartOnRayWithIgnoreList', 'FindPartOnRayWithWhitelist', 'ScreenPointToRay', 'ViewportPointToRay', 'Raycast', 'Ray'},
+		Function = function(val)
+			if SilentAim.Enabled then
+				SilentAim:Toggle()
+				SilentAim:Toggle()
+			end
+			MethodRay.Object.Visible = val == 'Raycast'
+		end,
+		Tooltip = 'FindPartOnRay* - Deprecated methods of raycasting used in old games\nRaycast - The modern raycast method\nPointToRay - Method to generate a ray from screen coords\nRay - Hooking Ray.new'
+	})
+	MethodRay = SilentAim:CreateDropdown({
+		Name = 'Raycast Type',
+		List = {'All', 'Exclude', 'Include'},
+		Darker = true,
+		Visible = false
+	})
+	IgnoredScripts = SilentAim:CreateTextList({Name = 'Ignored Scripts'})
+	Range = SilentAim:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 1000,
+		Default = 150,
+		Function = function(val)
+			if CircleObject then
+				CircleObject.Radius = val
+			end
+		end,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	HitChance = SilentAim:CreateSlider({
+		Name = 'Hit Chance',
+		Min = 0,
+		Max = 100,
+		Default = 85,
+		Suffix = '%'
+	})
+	HeadshotChance = SilentAim:CreateSlider({
+		Name = 'Headshot Chance',
+		Min = 0,
+		Max = 100,
+		Default = 65,
+		Suffix = '%'
+	})
+	AutoFire = SilentAim:CreateToggle({
+		Name = 'AutoFire',
+		Function = function(callback)
+			AutoFireShootDelay.Object.Visible = callback
+			AutoFireMode.Object.Visible = callback
+			AutoFirePosition.Object.Visible = callback
+		end
+	})
+	AutoFireShootDelay = SilentAim:CreateSlider({
+		Name = 'Next Shot Delay',
+		Min = 0,
+		Max = 1,
+		Decimal = 100,
+		Visible = false,
+		Darker = true,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	AutoFireMode = SilentAim:CreateDropdown({
+		Name = 'Origin',
+		List = {'RootPart', 'Camera'},
+		Visible = false,
+		Darker = true,
+		Tooltip = 'Determines the position to check for before shooting'
+	})
+	AutoFirePosition = SilentAim:CreateTextBox({
+		Name = 'Offset',
+		Function = function()
+			local suc, res = pcall(function()
+				return CFrame.new(unpack(AutoFirePosition.Value:split(',')))
+			end)
+			if suc then fireoffset = res end
+		end,
+		Default = '0, 0, 0',
+		Visible = false,
+		Darker = true
+	})
+	Wallbang = SilentAim:CreateToggle({Name = 'Wallbang'})
+	SilentAim:CreateToggle({
+		Name = 'Range Circle',
+		Function = function(callback)
+			if callback then
+				CircleObject = Drawing.new('Circle')
+				CircleObject.Filled = CircleFilled.Enabled
+				CircleObject.Color = Color3.fromHSV(CircleColor.Hue, CircleColor.Sat, CircleColor.Value)
+				CircleObject.Position = vape.gui.AbsoluteSize / 2
+				CircleObject.Radius = Range.Value
+				CircleObject.NumSides = 100
+				CircleObject.Transparency = 1 - CircleTransparency.Value
+				CircleObject.Visible = SilentAim.Enabled and Mode.Value == 'Mouse'
+			else
+				pcall(function()
+					CircleObject.Visible = false
+					CircleObject:Remove()
+				end)
+			end
+			CircleColor.Object.Visible = callback
+			CircleTransparency.Object.Visible = callback
+			CircleFilled.Object.Visible = callback
+		end
+	})
+	CircleColor = SilentAim:CreateColorSlider({
+		Name = 'Circle Color',
+		Function = function(hue, sat, val)
+			if CircleObject then
+				CircleObject.Color = Color3.fromHSV(hue, sat, val)
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	CircleTransparency = SilentAim:CreateSlider({
+		Name = 'Transparency',
+		Min = 0,
+		Max = 1,
+		Decimal = 10,
+		Default = 0.5,
+		Function = function(val)
+			if CircleObject then
+				CircleObject.Transparency = 1 - val
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	CircleFilled = SilentAim:CreateToggle({
+		Name = 'Circle Filled',
+		Function = function(callback)
+			if CircleObject then
+				CircleObject.Filled = callback
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	Projectile = SilentAim:CreateToggle({
+		Name = 'Projectile',
+		Function = function(callback)
+			ProjectileSpeed.Object.Visible = callback
+			ProjectileGravity.Object.Visible = callback
+		end
+	})
+	ProjectileSpeed = SilentAim:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 1000,
+		Default = 1000,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	ProjectileGravity = SilentAim:CreateSlider({
+		Name = 'Gravity',
+		Min = 0,
+		Max = 192.6,
+		Default = 192.6,
+		Darker = true,
+		Visible = false
+	})
+end)
+	
+run(function()
+	local TriggerBot
+	local Targets
+	local ShootDelay
+	local Distance
+	local rayCheck, delayCheck = RaycastParams.new(), tick()
+	
+	local function getTriggerBotTarget()
+		rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+	
+		local ray = workspace:Raycast(gameCamera.CFrame.Position, gameCamera.CFrame.LookVector * Distance.Value, rayCheck)
+		if ray and ray.Instance then
+			for _, v in entitylib.List do
+				if v.Targetable and v.Character and (Targets.Players.Enabled and v.Player or Targets.NPCs.Enabled and v.NPC) then
+					if ray.Instance:IsDescendantOf(v.Character) then
+						return entitylib.isVulnerable(v) and v
+					end
+				end
+			end
+		end
+	end
+	
+	TriggerBot = vape.Categories.Combat:CreateModule({
+		Name = 'TriggerBot',
+		Function = function(callback)
+			if callback then
+				repeat
+					if mouse1click and (isrbxactive or iswindowactive)() then
+						if getTriggerBotTarget() and canClick() then
+							if delayCheck < tick() then
+								if mouseClicked then
+									mouse1release()
+									delayCheck = tick() + ShootDelay.Value
+								else
+									mouse1press()
+								end
+								mouseClicked = not mouseClicked
+							end
+						else
+							if mouseClicked then
+								mouse1release()
+							end
+							mouseClicked = false
+						end
+					end
+					task.wait()
+				until not TriggerBot.Enabled
+			else
+				if mouse1click and (isrbxactive or iswindowactive)() then
+					if mouseClicked then
+						mouse1release()
+					end
+				end
+				mouseClicked = false
+			end
+		end,
+		Tooltip = 'Shoots people that enter your crosshair'
+	})
+	Targets = TriggerBot:CreateTargets({
+		Players = true,
+		NPCs = true
+	})
+	ShootDelay = TriggerBot:CreateSlider({
+		Name = 'Next Shot Delay',
+		Min = 0,
+		Max = 1,
+		Decimal = 100,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end,
+		Tooltip = 'The delay set after shooting a target'
+	})
+	Distance = TriggerBot:CreateSlider({
+		Name = 'Distance',
+		Min = 0,
+		Max = 1000,
+		Default = 1000,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+end)
+	
+run(function()
+	local AntiFall
+	local Method
+	local Mode
+	local Material
+	local Color
+	local rayCheck = RaycastParams.new()
+	rayCheck.RespectCanCollide = true
+	local part
+	
+	AntiFall = vape.Categories.Blatant:CreateModule({
+		Name = 'AntiFall',
+		Function = function(callback)
+			if callback then
+				if Method.Value == 'Part' then
+					local debounce = tick()
+					part = Instance.new('Part')
+					part.Size = Vector3.new(10000, 1, 10000)
+					part.Transparency = 1 - Color.Opacity
+					part.Material = Enum.Material[Material.Value]
+					part.Color = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+					part.CanCollide = Mode.Value == 'Collide'
+					part.Anchored = true
+					part.CanQuery = false
+					part.Parent = workspace
+					AntiFall:Clean(part)
+					AntiFall:Clean(part.Touched:Connect(function(touchedpart)
+						if touchedpart.Parent == lplr.Character and entitylib.isAlive and debounce < tick() then
+							local root = entitylib.character.RootPart
+							debounce = tick() + 0.1
+							if Mode.Value == 'Velocity' then
+								root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 100, root.AssemblyLinearVelocity.Z)
+							elseif Mode.Value == 'Impulse' then
+								root:ApplyImpulse(Vector3.new(0, (100 - root.AssemblyLinearVelocity.Y), 0) * root.AssemblyMass)
+							end
+						end
+					end))
+	
+					repeat
+						if entitylib.isAlive then
+							local root = entitylib.character.RootPart
+							rayCheck.FilterDescendantsInstances = {gameCamera, lplr.Character, part}
+							rayCheck.CollisionGroup = root.CollisionGroup
+							local ray = workspace:Raycast(root.Position, Vector3.new(0, -1000, 0), rayCheck)
+							if ray then
+								part.Position = ray.Position - Vector3.new(0, 15, 0)
+							end
+						end
+						task.wait(0.1)
+					until not AntiFall.Enabled
+				else
+					local lastpos
+					AntiFall:Clean(runService.PreSimulation:Connect(function()
+						if entitylib.isAlive then
+							local root = entitylib.character.RootPart
+							lastpos = entitylib.character.Humanoid.FloorMaterial ~= Enum.Material.Air and root.Position or lastpos
+							if (root.Position.Y + (root.Velocity.Y * 0.016)) <= (workspace.FallenPartsDestroyHeight + 10) then
+								lastpos = lastpos or Vector3.new(root.Position.X, (workspace.FallenPartsDestroyHeight + 20), root.Position.Z)
+								root.CFrame += (lastpos - root.Position)
+								root.Velocity *= Vector3.new(1, 0, 1)
+							end
+						end
+					end))
+				end
+			end
+		end,
+		Tooltip = 'Help\'s you with your Parkinson\'s\nPrevents you from falling into the void.'
+	})
+	Method = AntiFall:CreateDropdown({
+		Name = 'Method',
+		List = {'Part', 'Classic'},
+		Function = function(val)
+			if Mode.Object then
+				Mode.Object.Visible = val == 'Part'
+				Material.Object.Visible = val == 'Part'
+				Color.Object.Visible = val == 'Part'
+			end
+			if AntiFall.Enabled then
+				AntiFall:Toggle()
+				AntiFall:Toggle()
+			end
+		end,
+		Tooltip = 'Part - Moves a part under you that does various methods to stop you from falling\nClassic - Teleports you out of the void after reaching the part destroy plane'
+	})
+	Mode = AntiFall:CreateDropdown({
+		Name = 'Move Mode',
+		List = {'Impulse', 'Velocity', 'Collide'},
+		Darker = true,
+		Function = function(val)
+			if part then
+				part.CanCollide = val == 'Collide'
+			end
+		end,
+		Tooltip = 'Velocity - Launches you upward after touching\nCollide - Allows you to walk on the part'
+	})
+	local materials = {'ForceField'}
+	for _, v in Enum.Material:GetEnumItems() do
+		if v.Name ~= 'ForceField' then
+			table.insert(materials, v.Name)
+		end
+	end
+	Material = AntiFall:CreateDropdown({
+		Name = 'Material',
+		List = materials,
+		Darker = true,
+		Function = function(val)
+			if part then
+				part.Material = Enum.Material[val]
+			end
+		end
+	})
+	Color = AntiFall:CreateColorSlider({
+		Name = 'Color',
+		DefaultOpacity = 0.5,
+		Darker = true,
+		Function = function(h, s, v, o)
+			if part then
+				part.Color = Color3.fromHSV(h, s, v)
+				part.Transparency = 1 - o
+			end
+		end
+	})
+end)
+	
+local Fly
+local LongJump
+run(function()
+	local Options = {TPTiming = tick()}
+	local Mode
+	local FloatMode
+	local State
+	local MoveMethod
+	local Keys
+	local VerticalValue
+	local BounceLength
+	local BounceDelay
+	local FloatTPGround
+	local FloatTPAir
+	local CustomProperties
+	local WallCheck
+	local PlatformStanding
+	local Platform, YLevel, OldYLevel
+	local w, s, a, d, up, down = 0, 0, 0, 0, 0, 0
+	local rayCheck = RaycastParams.new()
+	rayCheck.RespectCanCollide = true
+	Options.rayCheck = rayCheck
+
+	local Functions
+	Functions = {
+		Velocity = function()
+			entitylib.character.RootPart.Velocity = (entitylib.character.RootPart.Velocity * Vector3.new(1, 0, 1)) + Vector3.new(0, 2.25 + ((up + down) * VerticalValue.Value), 0)
+		end,
+		Impulse = function(options, moveDirection)
+			local root = entitylib.character.RootPart
+			local diff = (Vector3.new(0, 2.25 + ((up + down) * VerticalValue.Value), 0) - root.AssemblyLinearVelocity) * Vector3.new(0, 1, 0)
+			if diff.Magnitude > 2 then
+				root:ApplyImpulse(diff * root.AssemblyMass)
+			end
+		end,
+		CFrame = function(dt)
+			local root = entitylib.character.RootPart
+			if not YLevel then
+				YLevel = root.Position.Y
+			end
+			YLevel = YLevel + ((up + down) * VerticalValue.Value * dt)
+			if WallCheck.Enabled then
+				rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+				rayCheck.CollisionGroup = root.CollisionGroup
+				local ray = workspace:Raycast(root.Position, Vector3.new(0, YLevel - root.Position.Y, 0), rayCheck)
+				if ray then
+					YLevel = ray.Position.Y + entitylib.character.HipHeight
+				end
+			end
+			root.Velocity *= Vector3.new(1, 0, 1)
+			root.CFrame += Vector3.new(0, YLevel - root.Position.Y, 0)
+		end,
+		Bounce = function()
+			Functions.Velocity()
+			entitylib.character.RootPart.Velocity += Vector3.new(0, ((tick() % BounceDelay.Value) / BounceDelay.Value > 0.5 and 1 or -1) * BounceLength.Value, 0)
+		end,
+		Floor = function()
+			Platform.CFrame = down ~= 0 and CFrame.identity or entitylib.character.RootPart.CFrame + Vector3.new(0, -(entitylib.character.HipHeight + 0.5), 0)
+		end,
+		TP = function(dt)
+			Functions.CFrame(dt)
+			if tick() % (FloatTPAir.Value + FloatTPGround.Value) > FloatTPAir.Value then
+				OldYLevel = OldYLevel or YLevel
+				rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+				rayCheck.CollisionGroup = entitylib.character.RootPart.CollisionGroup
+				local ray = workspace:Raycast(entitylib.character.RootPart.Position, Vector3.new(0, -1000, 0), rayCheck)
+				if ray then
+					YLevel = ray.Position.Y + entitylib.character.HipHeight
+				end
+			else
+				if OldYLevel then
+					YLevel = OldYLevel
+					OldYLevel = nil
+				end
+			end
+		end,
+		Jump = function(dt)
+			local root = entitylib.character.RootPart
+			if not YLevel then
+				YLevel = root.Position.Y
+			end
+			YLevel = YLevel + ((up + down) * VerticalValue.Value * dt)
+			if root.Position.Y < YLevel then
+				entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+			end
+		end
+	}
+
+	Fly = vape.Categories.Blatant:CreateModule({
+		Name = 'Fly',
+		Function = function(callback)
+			if Platform then
+				Platform.Parent = callback and gameCamera or nil
+			end
+			frictionTable.Fly = callback and CustomProperties.Enabled or nil
+			updateVelocity()
+			if callback then
+				Fly:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive then
+						if PlatformStanding.Enabled then
+							entitylib.character.Humanoid.PlatformStand = true
+							entitylib.character.RootPart.RotVelocity = Vector3.zero
+							entitylib.character.RootPart.CFrame = CFrame.lookAlong(entitylib.character.RootPart.CFrame.Position, gameCamera.CFrame.LookVector)
+						end
+						if State.Value ~= 'None' then
+							entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType[State.Value])
+						end
+						SpeedMethods[Mode.Value](Options, TargetStrafeVector or MoveMethod.Value == 'Direct' and calculateMoveVector(Vector3.new(a + d, 0, w + s)) or entitylib.character.Humanoid.MoveDirection, dt)
+						Functions[FloatMode.Value](dt)
+					else
+						YLevel = nil
+						OldYLevel = nil
+					end
+				end))
+
+				w, s, a, d = inputService:IsKeyDown(Enum.KeyCode.W) and -1 or 0, inputService:IsKeyDown(Enum.KeyCode.S) and 1 or 0, inputService:IsKeyDown(Enum.KeyCode.A) and -1 or 0, inputService:IsKeyDown(Enum.KeyCode.D) and 1 or 0
+				up, down = 0, 0
+				for _, v in {'InputBegan', 'InputEnded'} do
+					Fly:Clean(inputService[v]:Connect(function(input)
+						if not inputService:GetFocusedTextBox() then
+							local divided = Keys.Value:split('/')
+							if input.KeyCode == Enum.KeyCode.W then
+								w = v == 'InputBegan' and -1 or 0
+							elseif input.KeyCode == Enum.KeyCode.S then
+								s = v == 'InputBegan' and 1 or 0
+							elseif input.KeyCode == Enum.KeyCode.A then
+								a = v == 'InputBegan' and -1 or 0
+							elseif input.KeyCode == Enum.KeyCode.D then
+								d = v == 'InputBegan' and 1 or 0
+							elseif input.KeyCode == Enum.KeyCode[divided[1]] then
+								up = v == 'InputBegan' and 1 or 0
+							elseif input.KeyCode == Enum.KeyCode[divided[2]] then
+								down = v == 'InputBegan' and -1 or 0
+							end
+						end
+					end))
+				end
+				if inputService.TouchEnabled then
+					pcall(function()
+						local jumpButton = lplr.PlayerGui.TouchGui.TouchControlFrame.JumpButton
+						Fly:Clean(jumpButton:GetPropertyChangedSignal('ImageRectOffset'):Connect(function()
+							up = jumpButton.ImageRectOffset.X == 146 and 1 or 0
+						end))
+					end)
+				end
+			else
+				YLevel, OldYLevel = nil, nil
+				if entitylib.isAlive and PlatformStanding.Enabled then
+					entitylib.character.Humanoid.PlatformStand = false
+				end
+			end
+		end,
+		ExtraText = function()
+			return Mode.Value
+		end,
+		Tooltip = 'Makes you go zoom.'
+	})
+	Mode = Fly:CreateDropdown({
+		Name = 'Speed Mode',
+		List = SpeedMethodList,
+		Function = function(val)
+			WallCheck.Object.Visible = FloatMode.Value == 'CFrame' or FloatMode.Value == 'TP' or val == 'CFrame' or val == 'TP'
+			Options.TPFrequency.Object.Visible = val == 'TP'
+			Options.PulseLength.Object.Visible = val == 'Pulse'
+			Options.PulseDelay.Object.Visible = val == 'Pulse'
+			if Fly.Enabled then
+				Fly:Toggle()
+				Fly:Toggle()
+			end
+		end,
+		Tooltip = 'Velocity - Uses smooth physics based movement\nImpulse - Same as velocity while using forces instead\nCFrame - Directly adjusts the position of the root\nTP - Large teleports within intervals\nPulse - Controllable bursts of speed\nWalkSpeed - The classic mode of speed, usually detected on most games.'
+	})
+	FloatMode = Fly:CreateDropdown({
+		Name = 'Float Mode',
+		List = {'Velocity', 'Impulse', 'CFrame', 'Bounce', 'Floor', 'Jump', 'TP'},
+		Function = function(val)
+			WallCheck.Object.Visible = Mode.Value == 'CFrame' or Mode.Value == 'TP' or val == 'CFrame' or val == 'TP'
+			BounceLength.Object.Visible = val == 'Bounce'
+			BounceDelay.Object.Visible = val == 'Bounce'
+			VerticalValue.Object.Visible = val ~= 'Floor'
+			FloatTPGround.Object.Visible = val == 'TP'
+			FloatTPAir.Object.Visible = val == 'TP'
+			if Platform then
+				Platform:Destroy()
+				Platform = nil
+			end
+			if val == 'Floor' then
+				Platform = Instance.new('Part')
+				Platform.CanQuery = false
+				Platform.Anchored = true
+				Platform.Size = Vector3.one
+				Platform.Transparency = 1
+				Platform.Parent = Fly.Enabled and gameCamera or nil
+			end
+		end,
+		Tooltip = 'Velocity - Uses smooth physics based movement\nImpulse - Same as velocity while using forces instead\nCFrame - Directly adjusts the position of the root\nTP - Teleports you to the ground within intervals\nFloor - Spawns a part under you\nJump - Presses space after going below a certain Y Level\nBounce - Vertical bouncing motion'
+	})
+	local states = {'None'}
+	for _, v in Enum.HumanoidStateType:GetEnumItems() do
+		if v.Name ~= 'Dead' and v.Name ~= 'None' then
+			table.insert(states, v.Name)
+		end
+	end
+	State = Fly:CreateDropdown({
+		Name = 'Humanoid State',
+		List = states
+	})
+	MoveMethod = Fly:CreateDropdown({
+		Name = 'Move Mode',
+		List = {'MoveDirection', 'Direct'},
+		Tooltip = 'MoveDirection - Uses the games input vector for movement\nDirect - Directly calculate our own input vector'
+	})
+	Keys = Fly:CreateDropdown({
+		Name = 'Keys',
+		List = {'Space/LeftControl', 'Space/LeftShift', 'E/Q', 'Space/Q', 'ButtonA/ButtonL2'},
+		Tooltip = 'The key combination for going up & down'
+	})
+	Options.Value = Fly:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 150,
+		Default = 50,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	VerticalValue = Fly:CreateSlider({
+		Name = 'Vertical Speed',
+		Min = 1,
+		Max = 150,
+		Default = 50,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	Options.TPFrequency = Fly:CreateSlider({
+		Name = 'TP Frequency',
+		Min = 0,
+		Max = 1,
+		Decimal = 100,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	Options.PulseLength = Fly:CreateSlider({
+		Name = 'Pulse Length',
+		Min = 0,
+		Max = 1,
+		Decimal = 100,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	Options.PulseDelay = Fly:CreateSlider({
+		Name = 'Pulse Delay',
+		Min = 0,
+		Max = 1,
+		Decimal = 100,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	BounceLength = Fly:CreateSlider({
+		Name = 'Bounce Length',
+		Min = 0,
+		Max = 30,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	BounceDelay = Fly:CreateSlider({
+		Name = 'Bounce Delay',
+		Min = 0,
+		Max = 1,
+		Decimal = 100,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	FloatTPGround = Fly:CreateSlider({
+		Name = 'Ground',
+		Min = 0,
+		Max = 1,
+		Decimal = 10,
+		Default = 0.1,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	FloatTPAir = Fly:CreateSlider({
+		Name = 'Air',
+		Min = 0,
+		Max = 5,
+		Decimal = 10,
+		Default = 2,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	WallCheck = Fly:CreateToggle({
+		Name = 'Wall Check',
+		Default = true,
+		Darker = true,
+		Visible = false
+	})
+	Options.WallCheck = WallCheck
+	PlatformStanding = Fly:CreateToggle({
+		Name = 'PlatformStand',
+		Function = function(callback)
+			if Fly.Enabled then
+				entitylib.character.Humanoid.PlatformStand = callback
+			end
+		end,
+		Tooltip = 'Forces the character to look infront of the camera'
+	})
+	CustomProperties = Fly:CreateToggle({
+		Name = 'Custom Properties',
+		Function = function()
+			if Fly.Enabled then
+				Fly:Toggle()
+				Fly:Toggle()
+			end
+		end,
+		Default = true
+	})
+end)
+	
+run(function()
+	local HighJump
+	local Mode
+	local Value
+	local AutoDisable
+	
+	local function jump()
+		local state = entitylib.isAlive and entitylib.character.Humanoid:GetState() or nil
+	
+		if state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.Landed then
+			local root = entitylib.character.RootPart
+	
+			if Mode.Value == 'Velocity' then
+				entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+				root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Value.Value, root.AssemblyLinearVelocity.Z)
+			elseif Mode.Value == 'Impulse' then
+				entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+				task.delay(0, function()
+					root:ApplyImpulse(Vector3.new(0, Value.Value - root.AssemblyLinearVelocity.Y, 0) * root.AssemblyMass)
+				end)
+			else
+				local start = math.max(Value.Value - entitylib.character.Humanoid.JumpHeight, 0)
+				repeat
+					root.CFrame += Vector3.new(0, start * 0.016, 0)
+					start = start - (workspace.Gravity * 0.016)
+					if Mode.Value == 'CFrame' then
+						task.wait()
+					end
+				until start <= 0
+			end
+		end
+	end
+	
+	HighJump = vape.Categories.Blatant:CreateModule({
+		Name = 'HighJump',
+		Function = function(callback)
+			if callback then
+				if AutoDisable.Enabled then
+					jump()
+					HighJump:Toggle()
+				else
+					HighJump:Clean(runService.RenderStepped:Connect(function()
+						if not inputService:GetFocusedTextBox() and inputService:IsKeyDown(Enum.KeyCode.Space) then
+							jump()
+						end
+					end))
+				end
+			end
+		end,
+		ExtraText = function()
+			return Mode.Value
+		end,
+		Tooltip = 'Lets you jump higher'
+	})
+	Mode = HighJump:CreateDropdown({
+		Name = 'Mode',
+		List = {'Impulse', 'Velocity', 'CFrame', 'Instant'},
+		Tooltip = 'Velocity - Uses smooth movement to boost you upward\nImpulse - Same as velocity while using forces instead\nCFrame - Directly adjusts the position upward\nInstant - Teleports you to the peak of the jump'
+	})
+	Value = HighJump:CreateSlider({
+		Name = 'Velocity',
+		Min = 1,
+		Max = 150,
+		Default = 50,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	AutoDisable = HighJump:CreateToggle({
+		Name = 'Auto Disable',
+		Default = true
+	})
+end)
+	
+run(function()
+	local HitBoxes
+	local Targets
+	local TargetPart
+	local Expand
+	local modified = {}
+	
+	HitBoxes = vape.Categories.Blatant:CreateModule({
+		Name = 'HitBoxes',
+		Function = function(callback)
+			if callback then
+				repeat
+					for _, v in entitylib.List do
+						if v.Targetable then
+							if not Targets.Players.Enabled and v.Player then continue end
+							if not Targets.NPCs.Enabled and v.NPC then continue end
+							local part = v[TargetPart.Value]
+							if not modified[part] then
+								modified[part] = part.Size
+							end
+							part.Size = modified[part] + Vector3.new(Expand.Value, Expand.Value, Expand.Value)
+						end
+					end
+					task.wait()
+				until not HitBoxes.Enabled
+			else
+				for i, v in modified do
+					i.Size = v
+				end
+				table.clear(modified)
+			end
+		end,
+		Tooltip = 'Expands entities hitboxes'
+	})
+	Targets = HitBoxes:CreateTargets({Players = true})
+	TargetPart = HitBoxes:CreateDropdown({
+		Name = 'Part',
+		List = {'RootPart', 'Head'}
+	})
+	Expand = HitBoxes:CreateSlider({
+		Name = 'Expand amount',
+		Min = 0,
+		Max = 2,
+		Decimal = 10,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+end)
+	
+run(function()
+	local Invisible
+	local clone, oldroot, hip, valid
+	local animtrack
+	local proper = true
+	
+	local function doClone()
+		if entitylib.isAlive and entitylib.character.Humanoid.Health > 0 then
+			hip = entitylib.character.Humanoid.HipHeight
+			oldroot = entitylib.character.HumanoidRootPart
+			if not lplr.Character.Parent then
+				return false
+			end
+	
+			lplr.Character.Parent = game
+			clone = oldroot:Clone()
+			clone.Parent = lplr.Character
+			oldroot.Parent = gameCamera
+			clone.CFrame = oldroot.CFrame
+	
+			lplr.Character.PrimaryPart = clone
+			entitylib.character.HumanoidRootPart = clone
+			entitylib.character.RootPart = clone
+			lplr.Character.Parent = workspace
+	
+			for _, v in lplr.Character:GetDescendants() do
+				if v:IsA('Weld') or v:IsA('Motor6D') then
+					if v.Part0 == oldroot then
+						v.Part0 = clone
+					end
+					if v.Part1 == oldroot then
+						v.Part1 = clone
+					end
+				end
+			end
+	
+			return true
+		end
+	
+		return false
+	end
+	
+	local function revertClone()
+		if not oldroot or not oldroot:IsDescendantOf(workspace) or not entitylib.isAlive then
+			return false
+		end
+	
+		lplr.Character.Parent = game
+		oldroot.Parent = lplr.Character
+		lplr.Character.PrimaryPart = oldroot
+		entitylib.character.HumanoidRootPart = oldroot
+		entitylib.character.RootPart = oldroot
+		lplr.Character.Parent = workspace
+		oldroot.CanCollide = true
+	
+		for _, v in lplr.Character:GetDescendants() do
+			if v:IsA('Weld') or v:IsA('Motor6D') then
+				if v.Part0 == clone then
+					v.Part0 = oldroot
+				end
+				if v.Part1 == clone then
+					v.Part1 = oldroot
+				end
+			end
+		end
+	
+		local oldpos = clone.CFrame
+		if clone then
+			clone:Destroy()
+			clone = nil
+		end
+	
+		oldroot.CFrame = oldpos
+		oldroot = nil
+		entitylib.character.Humanoid.HipHeight = hip or 2
+	end
+	
+	local function animationTrickery()
+		if entitylib.isAlive then
+			local anim = Instance.new('Animation')
+			anim.AnimationId = 'http://www.roblox.com/asset/?id=18537363391'
+			animtrack = entitylib.character.Humanoid.Animator:LoadAnimation(anim)
+			animtrack.Priority = Enum.AnimationPriority.Action4
+			animtrack:Play(0, 1, 0)
+			anim:Destroy()
+			animtrack.Stopped:Connect(function()
+				if Invisible.Enabled then
+					animationTrickery()
+				end
+			end)
+	
+			task.delay(0, function()
+				animtrack.TimePosition = 0.77
+				task.delay(1, function()
+					animtrack:AdjustSpeed(math.huge)
+				end)
 			end)
 		end
 	end
-})
-
-local targetinfobkg = Instance.new('Frame')
-targetinfobkg.Size = UDim2.fromOffset(240, 89)
-targetinfobkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.1)
-targetinfobkg.BackgroundTransparency = 0.5
-targetinfobkg.Parent = targetinfoobj.Children
-local targetinfoblurobj = addBlur(targetinfobkg)
-targetinfoblurobj.Visible = false
-addCorner(targetinfobkg)
-local targetinfoshot = Instance.new('ImageLabel')
-targetinfoshot.Size = UDim2.fromOffset(26, 27)
-targetinfoshot.Position = UDim2.fromOffset(19, 17)
-targetinfoshot.BackgroundColor3 = uipallet.Main
-targetinfoshot.Image = 'rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420'
-targetinfoshot.Parent = targetinfobkg
-local targetinfoshotflash = Instance.new('Frame')
-targetinfoshotflash.Size = UDim2.fromScale(1, 1)
-targetinfoshotflash.BackgroundTransparency = 1
-targetinfoshotflash.BackgroundColor3 = Color3.new(1, 0, 0)
-targetinfoshotflash.Parent = targetinfoshot
-addCorner(targetinfoshotflash)
-local targetinfoshotblur = addBlur(targetinfoshot)
-targetinfoshotblur.Visible = false
-addCorner(targetinfoshot)
-local targetinfoname = Instance.new('TextLabel')
-targetinfoname.Size = UDim2.fromOffset(145, 20)
-targetinfoname.Position = UDim2.fromOffset(54, 20)
-targetinfoname.BackgroundTransparency = 1
-targetinfoname.Text = 'Target name'
-targetinfoname.TextXAlignment = Enum.TextXAlignment.Left
-targetinfoname.TextYAlignment = Enum.TextYAlignment.Top
-targetinfoname.TextScaled = true
-targetinfoname.TextColor3 = color.Light(uipallet.Text, 0.4)
-targetinfoname.TextStrokeTransparency = 1
-targetinfoname.FontFace = uipallet.Font
-local targetinfoshadow = targetinfoname:Clone()
-targetinfoshadow.Position = UDim2.fromOffset(55, 21)
-targetinfoshadow.TextColor3 = Color3.new()
-targetinfoshadow.TextTransparency = 0.65
-targetinfoshadow.Visible = false
-targetinfoshadow.Parent = targetinfobkg
-targetinfoname:GetPropertyChangedSignal('Size'):Connect(function()
-	targetinfoshadow.Size = targetinfoname.Size
-end)
-targetinfoname:GetPropertyChangedSignal('Text'):Connect(function()
-	targetinfoshadow.Text = targetinfoname.Text
-end)
-targetinfoname:GetPropertyChangedSignal('FontFace'):Connect(function()
-	targetinfoshadow.FontFace = targetinfoname.FontFace
-end)
-targetinfoname.Parent = targetinfobkg
-local targetinfohealthbkg = Instance.new('Frame')
-targetinfohealthbkg.Name = 'HealthBKG'
-targetinfohealthbkg.Size = UDim2.fromOffset(200, 9)
-targetinfohealthbkg.Position = UDim2.fromOffset(20, 56)
-targetinfohealthbkg.BackgroundColor3 = uipallet.Main
-targetinfohealthbkg.BorderSizePixel = 0
-targetinfohealthbkg.Parent = targetinfobkg
-addCorner(targetinfohealthbkg, UDim.new(1, 0))
-local targetinfohealth = targetinfohealthbkg:Clone()
-targetinfohealth.Size = UDim2.fromScale(0.8, 1)
-targetinfohealth.Position = UDim2.new()
-targetinfohealth.BackgroundColor3 = Color3.fromHSV(1 / 2.5, 0.89, 0.75)
-targetinfohealth.Parent = targetinfohealthbkg
-targetinfohealth:GetPropertyChangedSignal('Size'):Connect(function()
-	targetinfohealth.Visible = targetinfohealth.Size.X.Scale > 0.01
-end)
-local targetinfohealthextra = targetinfohealth:Clone()
-targetinfohealthextra.Size = UDim2.new()
-targetinfohealthextra.Position = UDim2.fromScale(1, 0)
-targetinfohealthextra.AnchorPoint = Vector2.new(1, 0)
-targetinfohealthextra.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
-targetinfohealthextra.Visible = false
-targetinfohealthextra.Parent = targetinfohealthbkg
-targetinfohealthextra:GetPropertyChangedSignal('Size'):Connect(function()
-	targetinfohealthextra.Visible = targetinfohealthextra.Size.X.Scale > 0.01
-end)
-local targetinfohealthblur = addBlur(targetinfohealthbkg)
-targetinfohealthblur.SliceCenter = Rect.new(52, 31, 261, 510)
-targetinfohealthblur.ImageColor3 = Color3.new()
-targetinfohealthblur.Visible = false
-local targetinfob = Instance.new('UIStroke')
-targetinfob.Enabled = false
-targetinfob.Color = Color3.fromHSV(0.44, 1, 1)
-targetinfob.Parent = targetinfobkg
-
-targetinfoobj:CreateFont({
-	Name = 'Font',
-	Blacklist = 'Arial',
-	Function = function(val)
-		targetinfoname.FontFace = val
-	end
-})
-local targetinfobackgroundtransparency = {
-	Value = 0.5,
-	Object = {Visible = {}}
-}
-local targetinfodisplay = targetinfoobj:CreateToggle({
-	Name = 'Use Displayname',
-	Default = true
-})
-targetinfoobj:CreateToggle({
-	Name = 'Render Background',
-	Function = function(callback)
-		targetinfobkg.BackgroundTransparency = callback and targetinfobackgroundtransparency.Value or 1
-		targetinfoshadow.Visible = not callback
-		targetinfoblurobj.Visible = callback
-		targetinfohealthblur.Visible = not callback
-		targetinfoshotblur.Visible = not callback
-		targetinfobackgroundtransparency.Object.Visible = callback
-	end,
-	Default = true
-})
-targetinfobackgroundtransparency = targetinfoobj:CreateSlider({
-	Name = 'Transparency',
-	Min = 0,
-	Max = 1,
-	Default = 0.5,
-	Decimal = 10,
-	Function = function(val)
-		targetinfobkg.BackgroundTransparency = val
-	end,
-	Darker = true
-})
-local targetinfocolor
-local targetinfocolortoggle = targetinfoobj:CreateToggle({
-	Name = 'Custom Color',
-	Function = function(callback)
-		targetinfocolor.Object.Visible = callback
-		if callback then
-			targetinfobkg.BackgroundColor3 = Color3.fromHSV(targetinfocolor.Hue, targetinfocolor.Sat, targetinfocolor.Value)
-			targetinfoshot.BackgroundColor3 = Color3.fromHSV(targetinfocolor.Hue, targetinfocolor.Sat, math.max(targetinfocolor.Value - 0.1, 0.075))
-			targetinfohealthbkg.BackgroundColor3 = targetinfoshot.BackgroundColor3
-		else
-			targetinfobkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.1)
-			targetinfoshot.BackgroundColor3 = uipallet.Main
-			targetinfohealthbkg.BackgroundColor3 = uipallet.Main
-		end
-	end
-})
-targetinfocolor = targetinfoobj:CreateColorSlider({
-	Name = 'Color',
-	Function = function(hue, sat, val)
-		if targetinfocolortoggle.Enabled then
-			targetinfobkg.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
-			targetinfoshot.BackgroundColor3 = Color3.fromHSV(hue, sat, math.max(val - 0.1, 0))
-			targetinfohealthbkg.BackgroundColor3 = targetinfoshot.BackgroundColor3
-		end
-	end,
-	Darker = true,
-	Visible = false
-})
-targetinfoobj:CreateToggle({
-	Name = 'Border',
-	Function = function(callback)
-		targetinfob.Enabled = callback
-		targetinfobcolor.Object.Visible = callback
-	end
-})
-targetinfobcolor = targetinfoobj:CreateColorSlider({
-	Name = 'Border Color',
-	Function = function(hue, sat, val, opacity)
-		targetinfob.Color = Color3.fromHSV(hue, sat, val)
-		targetinfob.Transparency = 1 - opacity
-	end,
-	Darker = true,
-	Visible = false
-})
-
-local lasthealth = 0
-local lastmaxhealth = 0
-targetinfo = {
-	Targets = {},
-	Object = targetinfobkg,
-	UpdateInfo = function(self)
-		local entitylib = mainapi.Libraries
-		if not entitylib then return end
-
-		for i, v in self.Targets do
-			if v < tick() then
-				self.Targets[i] = nil
-			end
-		end
-
-		local v, highest = nil, tick()
-		for i, check in self.Targets do
-			if check > highest then
-				v = i
-				highest = check
-			end
-		end
-
-		targetinfobkg.Visible = v ~= nil or mainapi.gui.ScaledGui.ClickGui.Visible
-		if v then
-			targetinfoname.Text = v.Player and (targetinfodisplay.Enabled and v.Player.DisplayName or v.Player.Name) or v.Character and v.Character.Name or targetinfoname.Text
-			targetinfoshot.Image = 'rbxthumb://type=AvatarHeadShot&id='..(v.Player and v.Player.UserId or 1)..'&w=420&h=420'
-
-			if not v.Character then
-				v.Health = v.Health or 0
-				v.MaxHealth = v.MaxHealth or 100
-			end
-
-			if v.Health ~= lasthealth or v.MaxHealth ~= lastmaxhealth then
-				local percent = math.max(v.Health / v.MaxHealth, 0)
-				tween:Tween(targetinfohealth, TweenInfo.new(0.3), {
-					Size = UDim2.fromScale(math.min(percent, 1), 1), BackgroundColor3 = Color3.fromHSV(math.clamp(percent / 2.5, 0, 1), 0.89, 0.75)
-				})
-				tween:Tween(targetinfohealthextra, TweenInfo.new(0.3), {
-					Size = UDim2.fromScale(math.clamp(percent - 1, 0, 0.8), 1)
-				})
-				if lasthealth > v.Health and self.LastTarget == v then
-					tween:Cancel(targetinfoshotflash)
-					targetinfoshotflash.BackgroundTransparency = 0.3
-					tween:Tween(targetinfoshotflash, TweenInfo.new(0.5), {
-						BackgroundTransparency = 1
-					})
+	
+	Invisible = vape.Categories.Blatant:CreateModule({
+		Name = 'Invisible',
+		Function = function(callback)
+			if callback then
+				if not proper then
+					notif('Invisible', 'Broken state detected', 3, 'alert')
+					Invisible:Toggle()
+					return
 				end
-				lasthealth = v.Health
-				lastmaxhealth = v.MaxHealth
+	
+				success = doClone()
+				if not success then
+					Invisible:Toggle()
+					return
+				end
+	
+				animationTrickery()
+				Invisible:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive and oldroot then
+						local root = entitylib.character.RootPart
+						local cf = root.CFrame - Vector3.new(0, entitylib.character.Humanoid.HipHeight + (root.Size.Y / 2) - 1, 0)
+	
+						if not isnetworkowner(oldroot) then
+							root.CFrame = oldroot.CFrame
+							root.Velocity = oldroot.Velocity
+							return
+						end
+	
+						oldroot.CFrame = cf * CFrame.Angles(math.rad(180), 0, 0)
+						oldroot.Velocity = root.Velocity
+						oldroot.CanCollide = false
+					end
+				end))
+	
+				Invisible:Clean(entitylib.Events.LocalAdded:Connect(function(char)
+					local animator = char.Humanoid:WaitForChild('Animator', 1)
+					if animator and Invisible.Enabled then
+						oldroot = nil
+						Invisible:Toggle()
+						Invisible:Toggle()
+					end
+				end))
+			else
+				if animtrack then
+					animtrack:Stop()
+					animtrack:Destroy()
+				end
+	
+				if success and clone and oldroot and proper then
+					proper = true
+					if oldroot and clone then
+						revertClone()
+					end
+				end
 			end
-
-			if not v.Character then table.clear(v) end
-			self.LastTarget = v
+		end,
+		Tooltip = 'Turns you invisible.'
+	})
+end)
+	
+run(function()
+	local Killaura
+	local Targets
+	local CPS
+	local SwingRange
+	local AttackRange
+	local AngleSlider
+	local Max
+	local Mouse
+	local Lunge
+	local BoxSwingColor
+	local BoxAttackColor
+	local ParticleTexture
+	local ParticleColor1
+	local ParticleColor2
+	local ParticleSize
+	local Face
+	local Overlay = OverlapParams.new()
+	Overlay.FilterType = Enum.RaycastFilterType.Include
+	local Particles, Boxes, AttackDelay = {}, {}, tick()
+	
+	local function getAttackData()
+		if Mouse.Enabled then
+			if not inputService:IsMouseButtonPressed(0) then return false end
 		end
-		return v
+	
+		local tool = getTool()
+		return tool and tool:FindFirstChildWhichIsA('TouchTransmitter', true) or nil, tool
 	end
-}
-mainapi.Libraries.targetinfo = targetinfo
-
-function mainapi:UpdateTextGUI(afterload)
-	if not afterload and not mainapi.Loaded then return end
-	if textgui.Button.Enabled then
-		local right = textgui.Children.AbsolutePosition.X > (gui.AbsoluteSize.X / 2)
-		VapeLogo.Visible = textguiwatermark.Enabled
-		VapeLogo.Position = right and UDim2.new(1 / VapeTextScale.Scale, -113, 0, 6) or UDim2.fromOffset(0, 6)
-		VapeLogoShadow.Visible = textguishadow.Enabled
-		VapeLabelCustom.Text = textguibox.Value
-		VapeLabelCustom.FontFace = textguifontcustom.Value
-		VapeLabelCustom.Visible = VapeLabelCustom.Text ~= '' and textguitext.Enabled
-		VapeLabelCustomShadow.Visible = VapeLabelCustom.Visible and textguishadow.Enabled
-		VapeLabelSorter.HorizontalAlignment = right and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Left
-		VapeLabelHolder.Size = UDim2.fromScale(1 / VapeTextScale.Scale, 1)
-		VapeLabelHolder.Position = UDim2.fromOffset(right and 3 or 0, 11 + (VapeLogo.Visible and VapeLogo.Size.Y.Offset or 0) + (VapeLabelCustom.Visible and 28 or 0) + (textguibackground.Enabled and 3 or 0))
-		if VapeLabelCustom.Visible then
-			local size = getfontsize(removeTags(VapeLabelCustom.Text), VapeLabelCustom.TextSize, VapeLabelCustom.FontFace)
-			VapeLabelCustom.Size = UDim2.fromOffset(size.X, size.Y)
-			VapeLabelCustom.Position = UDim2.new(right and 1 / VapeTextScale.Scale or 0, right and -size.X or 0, 0, (VapeLogo.Visible and 32 or 8))
-		end
-
-		local found = {}
-		for _, v in VapeLabels do
-			if v.Enabled then
-				table.insert(found, v.Object.Name)
-			end
-			v.Object:Destroy()
-		end
-		table.clear(VapeLabels)
-
-		local info = TweenInfo.new(0.3, Enum.EasingStyle.Exponential)
-		for i, v in mainapi.Modules do
-			if textguimodules.Enabled and table.find(textguimoduleslist.ListEnabled, i) then continue end
-			if textguirender.Enabled and v.Category == 'Render' then continue end
-			if v.Enabled or table.find(found, i) then
-				local holder = Instance.new('Frame')
-				holder.Name = i
-				holder.Size = UDim2.fromOffset()
-				holder.BackgroundTransparency = 1
-				holder.ClipsDescendants = true
-				holder.Parent = VapeLabelHolder
-				local holderbackground
-				local holdercolorline
-				if textguibackground.Enabled then
-					holderbackground = Instance.new('Frame')
-					holderbackground.Size = UDim2.new(1, 3, 1, 0)
-					holderbackground.BackgroundColor3 = color.Dark(uipallet.Main, 0.15)
-					holderbackground.BackgroundTransparency = textguibackgroundtransparency.Value
-					holderbackground.BorderSizePixel = 0
-					holderbackground.Parent = holder
-					local holderline = Instance.new('Frame')
-					holderline.Size = UDim2.new(1, 0, 0, 1)
-					holderline.Position = UDim2.new(0, 0, 1, -1)
-					holderline.BackgroundColor3 = Color3.new()
-					holderline.BackgroundTransparency = 0.928 + (0.072 * math.clamp((textguibackgroundtransparency.Value - 0.5) / 0.5, 0, 1))
-					holderline.BorderSizePixel = 0
-					holderline.Parent = holderbackground
-					local holderline2 = holderline:Clone()
-					holderline2.Name = 'Line'
-					holderline2.Position = UDim2.new()
-					holderline2.Parent = holderbackground
-					holdercolorline = Instance.new('Frame')
-					holdercolorline.Size = UDim2.new(0, 2, 1, 0)
-					holdercolorline.Position = right and UDim2.new(1, -5, 0, 0) or UDim2.new()
-					holdercolorline.BorderSizePixel = 0
-					holdercolorline.Parent = holderbackground
-				end
-				local holdertext = Instance.new('TextLabel')
-				holdertext.Position = UDim2.fromOffset(right and 3 or 6, 2)
-				holdertext.BackgroundTransparency = 1
-				holdertext.BorderSizePixel = 0
-				holdertext.Text = i..(v.ExtraText and " <font color='#A8A8A8'>"..v.ExtraText()..'</font>' or '')
-				holdertext.TextSize = 15
-				holdertext.FontFace = textguifont.Value
-				holdertext.RichText = true
-				local size = getfontsize(removeTags(holdertext.Text), holdertext.TextSize, holdertext.FontFace)
-				holdertext.Size = UDim2.fromOffset(size.X, size.Y)
-				if textguishadow.Enabled then
-					local holderdrop = holdertext:Clone()
-					holderdrop.Position = UDim2.fromOffset(holdertext.Position.X.Offset + 1, holdertext.Position.Y.Offset + 1)
-					holderdrop.Text = removeTags(holdertext.Text)
-					holderdrop.TextColor3 = Color3.new()
-					holderdrop.Parent = holder
-				end
-				holdertext.Parent = holder
-				local holdersize = UDim2.fromOffset(size.X + 10, size.Y + (textguibackground.Enabled and 5 or 3))
-				if textguianimations.Enabled then
-					if not table.find(found, i) then
-						tween:Tween(holder, info, {
-							Size = holdersize
+	
+	Killaura = vape.Categories.Blatant:CreateModule({
+		Name = 'Killaura',
+		Function = function(callback)
+			if callback then
+				repeat
+					local interest, tool = getAttackData()
+					local attacked = {}
+					if interest then
+						local plrs = entitylib.AllPosition({
+							Range = SwingRange.Value,
+							Wallcheck = Targets.Walls.Enabled or nil,
+							Part = 'RootPart',
+							Players = Targets.Players.Enabled,
+							NPCs = Targets.NPCs.Enabled,
+							Limit = Max.Value
 						})
-					else
-						holder.Size = holdersize
-						if not v.Enabled then
-							tween:Tween(holder, info, {
-								Size = UDim2.fromOffset()
-							})
+	
+						if #plrs > 0 then
+							local selfpos = entitylib.character.RootPart.Position
+							local localfacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
+	
+							for _, v in plrs do
+								local delta = (v.RootPart.Position - selfpos)
+								local angle = math.acos(localfacing:Dot((delta * Vector3.new(1, 0, 1)).Unit))
+								if angle > (math.rad(AngleSlider.Value) / 2) then continue end
+	
+								table.insert(attacked, {
+									Entity = v,
+									Check = delta.Magnitude > AttackRange.Value and BoxSwingColor or BoxAttackColor
+								})
+								targetinfo.Targets[v] = tick() + 1
+	
+								if AttackDelay < tick() then
+									AttackDelay = tick() + (1 / CPS.GetRandomValue())
+									tool:Activate()
+								end
+	
+								if Lunge.Enabled and tool.GripUp.X == 0 then break end
+								if delta.Magnitude > AttackRange.Value then continue end
+	
+								Overlay.FilterDescendantsInstances = {v.Character}
+								for _, part in workspace:GetPartBoundsInBox(v.RootPart.CFrame, Vector3.new(4, 4, 4), Overlay) do
+									firetouchinterest(interest.Parent, part, 1)
+									firetouchinterest(interest.Parent, part, 0)
+								end
+							end
+						end
+					end
+	
+					for i, v in Boxes do
+						v.Adornee = attacked[i] and attacked[i].Entity.RootPart or nil
+						if v.Adornee then
+							v.Color3 = Color3.fromHSV(attacked[i].Check.Hue, attacked[i].Check.Sat, attacked[i].Check.Value)
+							v.Transparency = 1 - attacked[i].Check.Opacity
+						end
+					end
+	
+					for i, v in Particles do
+						v.Position = attacked[i] and attacked[i].Entity.RootPart.Position or Vector3.new(9e9, 9e9, 9e9)
+						v.Parent = attacked[i] and gameCamera or nil
+					end
+	
+					if Face.Enabled and attacked[1] then
+						local vec = attacked[1].Entity.RootPart.Position * Vector3.new(1, 0, 1)
+						entitylib.character.RootPart.CFrame = CFrame.lookAt(entitylib.character.RootPart.Position, Vector3.new(vec.X, entitylib.character.RootPart.Position.Y + 0.01, vec.Z))
+					end
+	
+					task.wait()
+				until not Killaura.Enabled
+			else
+				for _, v in Boxes do
+					v.Adornee = nil
+				end
+				for _, v in Particles do
+					v.Parent = nil
+				end
+			end
+		end,
+		Tooltip = 'Attack players around you\nwithout aiming at them.'
+	})
+	Targets = Killaura:CreateTargets({Players = true})
+	CPS = Killaura:CreateTwoSlider({
+		Name = 'Attacks per Second',
+		Min = 1,
+		Max = 20,
+		DefaultMin = 12,
+		DefaultMax = 12
+	})
+	SwingRange = Killaura:CreateSlider({
+		Name = 'Swing range',
+		Min = 1,
+		Max = 30,
+		Default = 13,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	AttackRange = Killaura:CreateSlider({
+		Name = 'Attack range',
+		Min = 1,
+		Max = 30,
+		Default = 13,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	AngleSlider = Killaura:CreateSlider({
+		Name = 'Max angle',
+		Min = 1,
+		Max = 360,
+		Default = 90
+	})
+	Max = Killaura:CreateSlider({
+		Name = 'Max targets',
+		Min = 1,
+		Max = 10,
+		Default = 10
+	})
+	Mouse = Killaura:CreateToggle({Name = 'Require mouse down'})
+	Lunge = Killaura:CreateToggle({Name = 'Sword lunge only'})
+	Killaura:CreateToggle({
+		Name = 'Show target',
+		Function = function(callback)
+			BoxSwingColor.Object.Visible = callback
+			BoxAttackColor.Object.Visible = callback
+			if callback then
+				for i = 1, 10 do
+					local box = Instance.new('BoxHandleAdornment')
+					box.Adornee = nil
+					box.AlwaysOnTop = true
+					box.Size = Vector3.new(3, 5, 3)
+					box.CFrame = CFrame.new(0, -0.5, 0)
+					box.ZIndex = 0
+					box.Parent = vape.gui
+					Boxes[i] = box
+				end
+			else
+				for _, v in Boxes do
+					v:Destroy()
+				end
+				table.clear(Boxes)
+			end
+		end
+	})
+	BoxSwingColor = Killaura:CreateColorSlider({
+		Name = 'Target Color',
+		Darker = true,
+		DefaultHue = 0.6,
+		DefaultOpacity = 0.5,
+		Visible = false
+	})
+	BoxAttackColor = Killaura:CreateColorSlider({
+		Name = 'Attack Color',
+		Darker = true,
+		DefaultOpacity = 0.5,
+		Visible = false
+	})
+	Killaura:CreateToggle({
+		Name = 'Target particles',
+		Function = function(callback)
+			ParticleTexture.Object.Visible = callback
+			ParticleColor1.Object.Visible = callback
+			ParticleColor2.Object.Visible = callback
+			ParticleSize.Object.Visible = callback
+			if callback then
+				for i = 1, 10 do
+					local part = Instance.new('Part')
+					part.Size = Vector3.new(2, 4, 2)
+					part.Anchored = true
+					part.CanCollide = false
+					part.Transparency = 1
+					part.CanQuery = false
+					part.Parent = Killaura.Enabled and gameCamera or nil
+					local particles = Instance.new('ParticleEmitter')
+					particles.Brightness = 1.5
+					particles.Size = NumberSequence.new(ParticleSize.Value)
+					particles.Shape = Enum.ParticleEmitterShape.Sphere
+					particles.Texture = ParticleTexture.Value
+					particles.Transparency = NumberSequence.new(0)
+					particles.Lifetime = NumberRange.new(0.4)
+					particles.Speed = NumberRange.new(16)
+					particles.Rate = 128
+					particles.Drag = 16
+					particles.ShapePartial = 1
+					particles.Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0, Color3.fromHSV(ParticleColor1.Hue, ParticleColor1.Sat, ParticleColor1.Value)),
+						ColorSequenceKeypoint.new(1, Color3.fromHSV(ParticleColor2.Hue, ParticleColor2.Sat, ParticleColor2.Value))
+					})
+					particles.Parent = part
+					Particles[i] = part
+				end
+			else
+				for _, v in Particles do
+					v:Destroy()
+				end
+				table.clear(Particles)
+			end
+		end
+	})
+	ParticleTexture = Killaura:CreateTextBox({
+		Name = 'Texture',
+		Default = 'rbxassetid://14736249347',
+		Function = function()
+			for _, v in Particles do
+				v.ParticleEmitter.Texture = ParticleTexture.Value
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	ParticleColor1 = Killaura:CreateColorSlider({
+		Name = 'Color Begin',
+		Function = function(hue, sat, val)
+			for _, v in Particles do
+				v.ParticleEmitter.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromHSV(hue, sat, val)),
+					ColorSequenceKeypoint.new(1, Color3.fromHSV(ParticleColor2.Hue, ParticleColor2.Sat, ParticleColor2.Value))
+				})
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	ParticleColor2 = Killaura:CreateColorSlider({
+		Name = 'Color End',
+		Function = function(hue, sat, val)
+			for _, v in Particles do
+				v.ParticleEmitter.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromHSV(ParticleColor1.Hue, ParticleColor1.Sat, ParticleColor1.Value)),
+					ColorSequenceKeypoint.new(1, Color3.fromHSV(hue, sat, val))
+				})
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	ParticleSize = Killaura:CreateSlider({
+		Name = 'Size',
+		Min = 0,
+		Max = 1,
+		Default = 0.2,
+		Decimal = 100,
+		Function = function(val)
+			for _, v in Particles do
+				v.ParticleEmitter.Size = NumberSequence.new(val)
+			end
+		end,
+		Darker = true,
+		Visible = false
+	})
+	Face = Killaura:CreateToggle({Name = 'Face target'})
+end)
+	
+run(function()
+	local Mode
+	local Value
+	local AutoDisable
+	
+	LongJump = vape.Categories.Blatant:CreateModule({
+		Name = 'LongJump',
+		Function = function(callback)
+			if callback then
+				local exempt = tick() + 0.1
+				LongJump:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive then
+						if entitylib.character.Humanoid.FloorMaterial ~= Enum.Material.Air then
+							if exempt < tick() and AutoDisable.Enabled then
+								if LongJump.Enabled then
+									LongJump:Toggle()
+								end
+							else
+								entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+							end
+						end
+	
+						local root = entitylib.character.RootPart
+						local dir = entitylib.character.Humanoid.MoveDirection * Value.Value
+						if Mode.Value == 'Velocity' then
+							root.AssemblyLinearVelocity = dir + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+						elseif Mode.Value == 'Impulse' then
+							local diff = (dir - root.AssemblyLinearVelocity) * Vector3.new(1, 0, 1)
+							if diff.Magnitude > (dir == Vector3.zero and 10 or 2) then
+								root:ApplyImpulse(diff * root.AssemblyMass)
+							end
+						else
+							root.CFrame += dir * dt
+						end
+					end
+				end))
+			end
+		end,
+		ExtraText = function()
+			return Mode.Value
+		end,
+		Tooltip = 'Lets you jump farther'
+	})
+	Mode = LongJump:CreateDropdown({
+		Name = 'Mode',
+		List = {'Velocity', 'Impulse', 'CFrame'},
+		Tooltip = 'Velocity - Uses smooth physics based movement\nImpulse - Same as velocity while using forces instead\nCFrame - Directly adjusts the position of the root'
+	})
+	Value = LongJump:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 150,
+		Default = 50,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	AutoDisable = LongJump:CreateToggle({
+		Name = 'Auto Disable',
+		Default = true
+	})
+end)
+	
+run(function()
+	local MouseTP
+	local Mode
+	local MovementMode
+	local Length
+	local Delay
+	local rayCheck = RaycastParams.new()
+	rayCheck.RespectCanCollide = true
+	
+	local function getWaypointInMouse()
+		local returned, distance, mouseLocation = nil, math.huge, inputService:GetMouseLocation()
+		for _, v in WaypointFolder:GetChildren() do
+			local position, vis = gameCamera:WorldToViewportPoint(v.StudsOffsetWorldSpace)
+			if not vis then continue end
+			local mag = (mouseLocation - Vector2.new(position.x, position.y)).Magnitude
+			if mag < distance then
+				returned, distance = v, mag
+			end
+		end
+		return returned
+	end
+	
+	MouseTP = vape.Categories.Blatant:CreateModule({
+		Name = 'MouseTP',
+		Function = function(callback)
+			if callback then
+				local position
+				if Mode.Value == 'Mouse' then
+					local ray = cloneref(lplr:GetMouse()).UnitRay
+					rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+					ray = workspace:Raycast(ray.Origin, ray.Direction * 10000, rayCheck)
+					position = ray and ray.Position + Vector3.new(0, entitylib.character.HipHeight or 2, 0)
+				elseif Mode.Value == 'Waypoint' then
+					local waypoint = getWaypointInMouse()
+					position = waypoint and waypoint.StudsOffsetWorldSpace
+				else
+					local ent = entitylib.EntityMouse({
+						Range = math.huge,
+						Part = 'RootPart',
+						Players = true
+					})
+					position = ent and ent.RootPart.Position
+				end
+	
+				if not position then
+					notif('MouseTP', 'No position found.', 5)
+					MouseTP:Toggle()
+					return
+				end
+	
+				if MovementMode.Value ~= 'Lerp' then
+					MouseTP:Toggle()
+					if entitylib.isAlive then
+						if MovementMode.Value == 'Motor' then
+							motorMove(entitylib.character.RootPart, CFrame.lookAlong(position, entitylib.character.RootPart.CFrame.LookVector))
+						else
+							entitylib.character.RootPart.CFrame = CFrame.lookAlong(position, entitylib.character.RootPart.CFrame.LookVector)
 						end
 					end
 				else
-					holder.Size = v.Enabled and holdersize or UDim2.fromOffset()
+					MouseTP:Clean(runService.Heartbeat:Connect(function()
+						if entitylib.isAlive then
+							entitylib.character.RootPart.Velocity = Vector3.zero
+						end
+					end))
+	
+					repeat
+						if entitylib.isAlive then
+							local direction = CFrame.lookAt(entitylib.character.RootPart.Position, position).LookVector * math.min((entitylib.character.RootPart.Position - position).Magnitude, Length.Value)
+							entitylib.character.RootPart.CFrame += direction
+							if (entitylib.character.RootPart.Position - position).Magnitude < 3 and MouseTP.Enabled then
+								MouseTP:Toggle()
+							end
+						elseif MouseTP.Enabled then
+							MouseTP:Toggle()
+							notif('MouseTP', 'Character missing', 5, 'warning')
+						end
+	
+						task.wait(Delay.Value)
+					until not MouseTP.Enabled
 				end
-				table.insert(VapeLabels, {
-					Object = holder,
-					Text = holdertext,
-					Background = holderbackground,
-					Color = holdercolorline,
-					Enabled = v.Enabled
-				})
+			end
+		end,
+		Tooltip = 'Teleports to a selected position.'
+	})
+	Mode = MouseTP:CreateDropdown({
+		Name = 'Mode',
+		List = {'Mouse', 'Player', 'Waypoint'}
+	})
+	MovementMode = MouseTP:CreateDropdown({
+		Name = 'Movement',
+		List = {'CFrame', 'Motor', 'Lerp'},
+		Function = function(val)
+			Length.Object.Visible = val == 'Lerp'
+			Delay.Object.Visible = val == 'Lerp'
+		end
+	})
+	Length = MouseTP:CreateSlider({
+		Name = 'Length',
+		Min = 0,
+		Max = 150,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	Delay = MouseTP:CreateSlider({
+		Name = 'Delay',
+		Min = 0,
+		Max = 1,
+		Decimal = 100,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+end)
+	
+run(function()
+	local Mode
+	local StudLimit = {Object = {}}
+	local rayCheck = RaycastParams.new()
+	rayCheck.RespectCanCollide = true
+	local overlapCheck = OverlapParams.new()
+	overlapCheck.MaxParts = 9e9
+	local modified, fflag = {}
+	local teleported
+	
+	local function grabClosestNormal(ray)
+		local partCF, mag, closest = ray.Instance.CFrame, 0, Enum.NormalId.Top
+		for _, normal in Enum.NormalId:GetEnumItems() do
+			local dot = partCF:VectorToWorldSpace(Vector3.fromNormalId(normal)):Dot(ray.Normal)
+			if dot > mag then
+				mag, closest = dot, normal
 			end
 		end
-
-		if textguisort.Value == 'Alphabetical' then
-			table.sort(VapeLabels, function(a, b)
-				return a.Text.Text < b.Text.Text
-			end)
-		else
-			table.sort(VapeLabels, function(a, b)
-				return a.Text.Size.X.Offset > b.Text.Size.X.Offset
-			end)
-		end
-
-		for i, v in VapeLabels do
-			if v.Color then
-				v.Color.Parent.Line.Visible = i ~= 1
-			end
-			v.Object.LayoutOrder = i
-		end
+		return Vector3.fromNormalId(closest).X ~= 0 and 'X' or 'Z'
 	end
-
-	mainapi:UpdateGUI(mainapi.GUIColor.Hue, mainapi.GUIColor.Sat, mainapi.GUIColor.Value, true)
-end
-
-function mainapi:UpdateGUI(hue, sat, val, default)
-	if mainapi.Loaded == nil then return end
-	if not default and mainapi.GUIColor.Rainbow then return end
-	if textgui.Button.Enabled then
-		VapeLogoGradient.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromHSV(hue, sat, val)),
-			ColorSequenceKeypoint.new(1, textguigradient.Enabled and Color3.fromHSV(mainapi:Color((hue - 0.075) % 1)) or Color3.fromHSV(hue, sat, val))
-		})
-		VapeLogoGradient2.Color = textguigradient.Enabled and textguigradientv4.Enabled and VapeLogoGradient.Color or ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-			ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1))
-		})
-		VapeLabelCustom.TextColor3 = textguicolorcustomtoggle.Enabled and Color3.fromHSV(textguicolorcustom.Hue, textguicolorcustom.Sat, textguicolorcustom.Value) or VapeLogoGradient.Color.Keypoints[2].Value
-
-		local customcolor = textguicolordrop.Value == 'Custom color' and Color3.fromHSV(textguicolor.Hue, textguicolor.Sat, textguicolor.Value) or nil
-		for i, v in VapeLabels do
-			v.Text.TextColor3 = customcolor or (mainapi.GUIColor.Rainbow and Color3.fromHSV(mainapi:Color((hue - ((textguigradient and i + 2 or i) * 0.025)) % 1)) or VapeLogoGradient.Color.Keypoints[2].Value)
-			if v.Color then
-				v.Color.BackgroundColor3 = v.Text.TextColor3
+	
+	local Functions = {
+		Part = function()
+			local chars = {gameCamera, lplr.Character}
+			for _, v in entitylib.List do
+				table.insert(chars, v.Character)
 			end
-			if textguibackgroundtint.Enabled and v.Background then
-				v.Background.BackgroundColor3 = color.Dark(v.Text.TextColor3, 0.75)
+			overlapCheck.FilterDescendantsInstances = chars
+	
+			local parts = workspace:GetPartBoundsInBox(entitylib.character.RootPart.CFrame + Vector3.new(0, 1, 0), entitylib.character.RootPart.Size + Vector3.new(1, entitylib.character.HipHeight, 1), overlapCheck)
+			for _, part in parts do
+				if part.CanCollide and (not Spider.Enabled or SpiderShift) then
+					modified[part] = true
+					part.CanCollide = false
+				end
 			end
-		end
-	end
-
-	if not clickgui.Visible and not mainapi.Legit.Window.Visible then return end
-	local rainbow = mainapi.GUIColor.Rainbow and mainapi.RainbowMode.Value ~= 'Retro'
-
-	for i, v in mainapi.Categories do
-		if i == 'Main' then
-			v.Object.VapeLogo.V4Logo.ImageColor3 = Color3.fromHSV(hue, sat, val)
-			for _, button in v.Buttons do
-				if button.Enabled then
-					button.Object.TextColor3 = rainbow and Color3.fromHSV(mainapi:Color((hue - (button.Index * 0.025)) % 1)) or Color3.fromHSV(hue, sat, val)
-					if button.Icon then
-						button.Icon.ImageColor3 = button.Object.TextColor3
+	
+			for part in modified do
+				if not table.find(parts, part) then
+					modified[part] = nil
+					part.CanCollide = true
+				end
+			end
+		end,
+		Character = function()
+			for _, part in lplr.Character:GetDescendants() do
+				if part:IsA('BasePart') and part.CanCollide and (not Spider.Enabled or SpiderShift) then
+					modified[part] = true
+					part.CanCollide = Spider.Enabled and not SpiderShift
+				end
+			end
+		end,
+		CFrame = function()
+			local chars = {gameCamera, lplr.Character}
+			for _, v in entitylib.List do
+				table.insert(chars, v.Character)
+			end
+			rayCheck.FilterDescendantsInstances = chars
+			overlapCheck.FilterDescendantsInstances = chars
+	
+			local ray = workspace:Raycast(entitylib.character.Head.CFrame.Position, entitylib.character.Humanoid.MoveDirection * 1.1, rayCheck)
+			if ray and (not Spider.Enabled or SpiderShift) then
+				local phaseDirection = grabClosestNormal(ray)
+				if ray.Instance.Size[phaseDirection] <= StudLimit.Value then
+					local root = entitylib.character.RootPart
+					local dest = root.CFrame + (ray.Normal * (-(ray.Instance.Size[phaseDirection]) - (root.Size.X / 1.5)))
+	
+					if #workspace:GetPartBoundsInBox(dest, Vector3.one, overlapCheck) <= 0 then
+						if Mode.Value == 'Motor' then
+							motorMove(root, dest)
+						else
+							root.CFrame = dest
+						end
 					end
 				end
 			end
+		end,
+		FFlag = function()
+			if teleported then return end
+			setfflag('AssemblyExtentsExpansionStudHundredth', '-10000')
+			fflag = true
 		end
-
-		if v.Options then
-			for _, option in v.Options do
-				if option.Color then
-					option:Color(hue, sat, val, rainbow)
+	}
+	Functions.Motor = Functions.CFrame
+	
+	Phase = vape.Categories.Blatant:CreateModule({
+		Name = 'Phase',
+		Function = function(callback)
+			if callback then
+				Phase:Clean(runService.Stepped:Connect(function()
+					if entitylib.isAlive then
+						Functions[Mode.Value]()
+					end
+				end))
+	
+				if Mode.Value == 'FFlag' then
+					Phase:Clean(lplr.OnTeleport:Connect(function()
+						teleported = true
+						setfflag('AssemblyExtentsExpansionStudHundredth', '30')
+					end))
+				end
+			else
+				if fflag then
+					setfflag('AssemblyExtentsExpansionStudHundredth', '30')
+				end
+				for part in modified do
+					part.CanCollide = true
+				end
+				table.clear(modified)
+				fflag = nil
+			end
+		end,
+		Tooltip = 'Lets you Phase/Clip through walls. (Hold shift to use Phase over spider)'
+	})
+	Mode = Phase:CreateDropdown({
+		Name = 'Mode',
+		List = {'Part', 'Character', 'CFrame', 'Motor', 'FFlag'},
+		Function = function(val)
+			StudLimit.Object.Visible = val == 'CFrame' or val == 'Motor'
+			if fflag then
+				setfflag('AssemblyExtentsExpansionStudHundredth', '30')
+			end
+			for part in modified do
+				part.CanCollide = true
+			end
+			table.clear(modified)
+			fflag = nil
+		end,
+		Tooltip = 'Part - Modifies parts collision status around you\nCharacter - Modifies the local collision status of the character\nCFrame - Teleports you past parts\nMotor - Same as CFrame with a bypass\nFFlag - Directly adjusts all physics collisions'
+	})
+	StudLimit = Phase:CreateSlider({
+		Name = 'Wall Size',
+		Min = 1,
+		Max = 20,
+		Default = 5,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end,
+		Darker = true,
+		Visible = false
+	})
+end)
+	
+run(function()
+	local Speed
+	local Mode
+	local Options
+	local AutoJump
+	local AutoJumpCustom
+	local AutoJumpValue
+	local w, s, a, d = 0, 0, 0, 0
+	
+	Speed = vape.Categories.Blatant:CreateModule({
+		Name = 'Speed',
+		Function = function(callback)
+			frictionTable.Speed = callback and CustomProperties.Enabled or nil
+			updateVelocity()
+			if callback then
+				Speed:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive and not Fly.Enabled and not LongJump.Enabled then
+						local state = entitylib.character.Humanoid:GetState()
+						if state == Enum.HumanoidStateType.Climbing then return end
+	
+						local movevec = TargetStrafeVector or Options.MoveMethod.Value == 'Direct' and calculateMoveVector(Vector3.new(a + d, 0, w + s)) or entitylib.character.Humanoid.MoveDirection
+						SpeedMethods[Mode.Value](Options, movevec, dt)
+						if AutoJump.Enabled and entitylib.character.Humanoid.FloorMaterial ~= Enum.Material.Air and movevec ~= Vector3.zero then
+							if AutoJumpCustom.Enabled then
+								local velocity = entitylib.character.RootPart.Velocity * Vector3.new(1, 0, 1)
+								entitylib.character.RootPart.Velocity = Vector3.new(velocity.X, AutoJumpValue.Value, velocity.Z)
+							else
+								entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+							end
+						end
+					end
+				end))
+	
+				w, s, a, d = inputService:IsKeyDown(Enum.KeyCode.W) and -1 or 0, inputService:IsKeyDown(Enum.KeyCode.S) and 1 or 0, inputService:IsKeyDown(Enum.KeyCode.A) and -1 or 0, inputService:IsKeyDown(Enum.KeyCode.D) and 1 or 0
+				for _, v in {'InputBegan', 'InputEnded'} do
+					Speed:Clean(inputService[v]:Connect(function(input)
+						if not inputService:GetFocusedTextBox() then
+							if input.KeyCode == Enum.KeyCode.W then
+								w = v == 'InputBegan' and -1 or 0
+							elseif input.KeyCode == Enum.KeyCode.S then
+								s = v == 'InputBegan' and 1 or 0
+							elseif input.KeyCode == Enum.KeyCode.A then
+								a = v == 'InputBegan' and -1 or 0
+							elseif input.KeyCode == Enum.KeyCode.D then
+								d = v == 'InputBegan' and 1 or 0
+							end
+						end
+					end))
+				end
+			else
+				if Options.WalkSpeed and entitylib.isAlive then
+					entitylib.character.Humanoid.WalkSpeed = Options.WalkSpeed
+				end
+				Options.WalkSpeed = nil
+			end
+		end,
+		ExtraText = function()
+			return Mode.Value
+		end,
+		Tooltip = 'Increases your movement with various methods.'
+	})
+	Mode = Speed:CreateDropdown({
+		Name = 'Mode',
+		List = SpeedMethodList,
+		Function = function(val)
+			Options.WallCheck.Object.Visible = val == 'CFrame' or val == 'TP'
+			Options.TPFrequency.Object.Visible = val == 'TP'
+			Options.PulseLength.Object.Visible = val == 'Pulse'
+			Options.PulseDelay.Object.Visible = val == 'Pulse'
+			if Speed.Enabled then
+				Speed:Toggle()
+				Speed:Toggle()
+			end
+		end,
+		Tooltip = 'Velocity - Uses smooth physics based movement\nImpulse - Same as velocity while using forces instead\nCFrame - Directly adjusts the position of the root\nTP - Large teleports within intervals\nPulse - Controllable bursts of speed\nWalkSpeed - The classic mode of speed, usually detected on most games.'
+	})
+	Options = {
+		MoveMethod = Speed:CreateDropdown({
+			Name = 'Move Mode',
+			List = {'MoveDirection', 'Direct'},
+			Tooltip = 'MoveDirection - Uses the games input vector for movement\nDirect - Directly calculate our own input vector'
+		}),
+		Value = Speed:CreateSlider({
+			Name = 'Speed',
+			Min = 1,
+			Max = 150,
+			Default = 50,
+			Suffix = function(val)
+				return val == 1 and 'stud' or 'studs'
+			end
+		}),
+		TPFrequency = Speed:CreateSlider({
+			Name = 'TP Frequency',
+			Min = 0,
+			Max = 1,
+			Decimal = 100,
+			Darker = true,
+			Visible = false,
+			Suffix = function(val)
+				return val == 1 and 'second' or 'seconds'
+			end
+		}),
+		PulseLength = Speed:CreateSlider({
+			Name = 'Pulse Length',
+			Min = 0,
+			Max = 1,
+			Decimal = 100,
+			Darker = true,
+			Visible = false,
+			Suffix = function(val)
+				return val == 1 and 'second' or 'seconds'
+			end
+		}),
+		PulseDelay = Speed:CreateSlider({
+			Name = 'Pulse Delay',
+			Min = 0,
+			Max = 1,
+			Decimal = 100,
+			Darker = true,
+			Visible = false,
+			Suffix = function(val)
+				return val == 1 and 'second' or 'seconds'
+			end
+		}),
+		WallCheck = Speed:CreateToggle({
+			Name = 'Wall Check',
+			Default = true,
+			Darker = true,
+			Visible = false
+		}),
+		TPTiming = tick(),
+		rayCheck = RaycastParams.new()
+	}
+	Options.rayCheck.RespectCanCollide = true
+	CustomProperties = Speed:CreateToggle({
+		Name = 'Custom Properties',
+		Function = function()
+			if Speed.Enabled then
+				Speed:Toggle()
+				Speed:Toggle()
+			end
+		end,
+		Default = true
+	})
+	AutoJump = Speed:CreateToggle({
+		Name = 'AutoJump',
+		Function = function(callback)
+			AutoJumpCustom.Object.Visible = callback
+		end
+	})
+	AutoJumpCustom = Speed:CreateToggle({
+		Name = 'Custom Jump',
+		Function = function(callback)
+			AutoJumpValue.Object.Visible = callback
+		end,
+		Tooltip = 'Allows you to adjust the jump power',
+		Darker = true,
+		Visible = false
+	})
+	AutoJumpValue = Speed:CreateSlider({
+		Name = 'Jump Power',
+		Min = 1,
+		Max = 50,
+		Default = 30,
+		Darker = true,
+		Visible = false
+	})
+end)
+	
+run(function()
+	local Mode
+	local Value
+	local State
+	local rayCheck = RaycastParams.new()
+	rayCheck.RespectCanCollide = true
+	local Active, Truss
+	
+	Spider = vape.Categories.Blatant:CreateModule({
+		Name = 'Spider',
+		Function = function(callback)
+			if callback then
+				if Truss then Truss.Parent = gameCamera end
+				Spider:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive then
+						local root = entitylib.character.RootPart
+						local chars = {gameCamera, lplr.Character, Truss}
+						for _, v in entitylib.List do
+							table.insert(chars, v.Character)
+						end
+						SpiderShift = inputService:IsKeyDown(Enum.KeyCode.LeftShift)
+						rayCheck.FilterDescendantsInstances = chars
+						rayCheck.CollisionGroup = root.CollisionGroup
+	
+						if Mode.Value ~= 'Part' then
+							local vec = entitylib.character.Humanoid.MoveDirection * 2.5
+							local ray = workspace:Raycast(root.Position - Vector3.new(0, entitylib.character.HipHeight - 0.5, 0), vec, rayCheck)
+							if Active and not ray then
+								root.Velocity = Vector3.new(root.Velocity.X, 0, root.Velocity.Z)
+							end
+	
+							Active = ray
+							if Active and ray.Normal.Y == 0 then
+								if not Phase.Enabled or not SpiderShift then
+									if State.Enabled then
+										entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Climbing)
+									end
+	
+									root.Velocity *= Vector3.new(1, 0, 1)
+									if Mode.Value == 'CFrame' then
+										root.CFrame += Vector3.new(0, Value.Value * dt, 0)
+									elseif Mode.Value == 'Impulse' then
+										root:ApplyImpulse(Vector3.new(0, Value.Value, 0) * root.AssemblyMass)
+									else
+										root.Velocity += Vector3.new(0, Value.Value, 0)
+									end
+								end
+							end
+						else
+							local ray = workspace:Raycast(root.Position - Vector3.new(0, entitylib.character.HipHeight - 0.5, 0), entitylib.character.RootPart.CFrame.LookVector * 2, rayCheck)
+							if ray and (not Phase.Enabled or not SpiderShift) then
+								Truss.Position = ray.Position - ray.Normal * 0.9 or Vector3.zero
+							else
+								Truss.Position = Vector3.zero
+							end
+						end
+					end
+				end))
+			else
+				if Truss then
+					Truss.Parent = nil
+				end
+				SpiderShift = false
+			end
+		end,
+		Tooltip = 'Lets you climb up walls. (Hold shift to use Phase over spider)'
+	})
+	Mode = Spider:CreateDropdown({
+		Name = 'Mode',
+		List = {'Velocity', 'Impulse', 'CFrame', 'Part'},
+		Function = function(val)
+			Value.Object.Visible = val ~= 'Part'
+			State.Object.Visible = val ~= 'Part'
+			if Truss then
+				Truss:Destroy()
+				Truss = nil
+			end
+			if val == 'Part' then
+				Truss = Instance.new('TrussPart')
+				Truss.Size = Vector3.new(2, 2, 2)
+				Truss.Transparency = 1
+				Truss.Anchored = true
+				Truss.Parent = Spider.Enabled and gameCamera or nil
+			end
+		end,
+		Tooltip = 'Velocity - Uses smooth movement to boost you upward\nCFrame - Directly adjusts the position upward\nPart - Positions a climbable part infront of you'
+	})
+	Value = Spider:CreateSlider({
+		Name = 'Speed',
+		Min = 0,
+		Max = 100,
+		Default = 30,
+		Darker = true,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	State = Spider:CreateToggle({
+		Name = 'Climb State',
+		Darker = true
+	})
+end)
+	
+run(function()
+	local SpinBot
+	local Mode
+	local XToggle
+	local YToggle
+	local ZToggle
+	local Value
+	local AngularVelocity
+	
+	SpinBot = vape.Categories.Blatant:CreateModule({
+		Name = 'SpinBot',
+		Function = function(callback)
+			if callback then
+				SpinBot:Clean(runService.PreSimulation:Connect(function()
+					if entitylib.isAlive then
+						if Mode.Value == 'RotVelocity' then
+							local originalRotVelocity = entitylib.character.RootPart.RotVelocity
+							entitylib.character.Humanoid.AutoRotate = false
+							entitylib.character.RootPart.RotVelocity = Vector3.new(XToggle.Enabled and Value.Value or originalRotVelocity.X, YToggle.Enabled and Value.Value or originalRotVelocity.Y, ZToggle.Enabled and Value.Value or originalRotVelocity.Z)
+						elseif Mode.Value == 'CFrame' then
+							local val = math.rad((tick() * (20 * Value.Value)) % 360)
+							local x, y, z = entitylib.character.RootPart.CFrame:ToOrientation()
+							entitylib.character.RootPart.CFrame = CFrame.new(entitylib.character.RootPart.Position) * CFrame.Angles(XToggle.Enabled and val or x, YToggle.Enabled and val or y, ZToggle.Enabled and val or z)
+						elseif AngularVelocity then
+							AngularVelocity.Parent = entitylib.isAlive and entitylib.character.RootPart
+							AngularVelocity.MaxTorque = Vector3.new(XToggle.Enabled and math.huge or 0, YToggle.Enabled and math.huge or 0, ZToggle.Enabled and math.huge or 0)
+							AngularVelocity.AngularVelocity = Vector3.new(Value.Value, Value.Value, Value.Value)
+						end
+					end
+				end))
+			else
+				if entitylib.isAlive and Mode.Value == 'RotVelocity' then
+					entitylib.character.Humanoid.AutoRotate = true
+				end
+				if AngularVelocity then
+					AngularVelocity.Parent = nil
 				end
 			end
-		end
-
-		if v.Type == 'CategoryList' then
-			v.Object.Children.Add.AddButton.ImageColor3 = rainbow and Color3.fromHSV(mainapi:Color(hue % 1)) or Color3.fromHSV(hue, sat, val)
-			if v.Selected then
-				v.Selected.BackgroundColor3 = rainbow and Color3.fromHSV(mainapi:Color(hue % 1)) or Color3.fromHSV(hue, sat, val)
-				v.Selected.Title.TextColor3 = mainapi.GUIColor.Rainbow and Color3.new(0.19, 0.19, 0.19) or mainapi:TextColor(hue, sat, val)
-				v.Selected.Dots.Dots.ImageColor3 = v.Selected.Title.TextColor3
-				v.Selected.Bind.Icon.ImageColor3 = v.Selected.Title.TextColor3
-				v.Selected.Bind.TextLabel.TextColor3 = v.Selected.Title.TextColor3
+		end,
+		Tooltip = 'Makes your character spin around in circles (does not work in first person)'
+	})
+	Mode = SpinBot:CreateDropdown({
+		Name = 'Mode',
+		List = {'CFrame', 'RotVelocity', 'BodyMover'},
+		Function = function(val)
+			if AngularVelocity then
+				AngularVelocity:Destroy()
+				AngularVelocity = nil
 			end
+			AngularVelocity = val == 'BodyMover' and Instance.new('BodyAngularVelocity') or nil
 		end
-	end
-
-	for _, button in mainapi.Modules do
-		if button.Enabled then
-			button.Object.BackgroundColor3 = rainbow and Color3.fromHSV(mainapi:Color((hue - (button.Index * 0.025)) % 1)) or Color3.fromHSV(hue, sat, val)
-			button.Object.TextColor3 = mainapi.GUIColor.Rainbow and Color3.new(0.19, 0.19, 0.19) or mainapi:TextColor(hue, sat, val)
-			button.Object.UIGradient.Enabled = rainbow and mainapi.RainbowMode.Value == 'Gradient'
-			if button.Object.UIGradient.Enabled then
-				button.Object.BackgroundColor3 = Color3.new(1, 1, 1)
-				button.Object.UIGradient.Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromHSV(mainapi:Color((hue - (button.Index * 0.025)) % 1))),
-					ColorSequenceKeypoint.new(1, Color3.fromHSV(mainapi:Color((hue - ((button.Index + 1) * 0.025)) % 1)))
-				})
-			end
-			button.Object.Bind.Icon.ImageColor3 = button.Object.TextColor3
-			button.Object.Bind.TextLabel.TextColor3 = button.Object.TextColor3
-			button.Object.Dots.Dots.ImageColor3 = button.Object.TextColor3
-		end
-
-		for _, option in button.Options do
-			if option.Color then
-				option:Color(hue, sat, val, rainbow)
-			end
-		end
-	end
-
-	for i, v in mainapi.Overlays.Toggles do
-		if v.Enabled then
-			tween:Cancel(v.Object.Knob)
-			v.Object.Knob.BackgroundColor3 = rainbow and Color3.fromHSV(mainapi:Color((hue - (i * 0.075)) % 1)) or Color3.fromHSV(hue, sat, val)
-		end
-	end
-
-	if mainapi.Legit.Icon then
-		mainapi.Legit.Icon.ImageColor3 = Color3.fromHSV(hue, sat, val)
-	end
-
-	if mainapi.Legit.Window.Visible then
-		for _, v in mainapi.Legit.Modules do
-			if v.Enabled then
-				tween:Cancel(v.Object.Knob)
-				v.Object.Knob.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
-			end
-
-			for _, option in v.Options do
-				if option.Color then
-					option:Color(hue, sat, val, rainbow)
+	})
+	Value = SpinBot:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 100,
+		Default = 40
+	})
+	XToggle = SpinBot:CreateToggle({Name = 'Spin X'})
+	YToggle = SpinBot:CreateToggle({
+		Name = 'Spin Y',
+		Default = true
+	})
+	ZToggle = SpinBot:CreateToggle({Name = 'Spin Z'})
+end)
+	
+run(function()
+	local Swim
+	local terrain = cloneref(workspace:FindFirstChildWhichIsA('Terrain'))
+	local lastpos = Region3.new(Vector3.zero, Vector3.zero)
+	
+	Swim = vape.Categories.Blatant:CreateModule({
+		Name = 'Swim',
+		Function = function(callback)
+			if callback then
+				Swim:Clean(runService.PreSimulation:Connect(function(dt)
+					if entitylib.isAlive then
+						local root = entitylib.character.RootPart
+						local moving = entitylib.character.Humanoid.MoveDirection ~= Vector3.zero
+						local rootvelo = root.Velocity
+						local space = inputService:IsKeyDown(Enum.KeyCode.Space)
+	
+						if terrain then
+							local factor = (moving or space) and Vector3.new(6, 6, 6) or Vector3.new(2, 1, 2)
+							local pos = root.Position - Vector3.new(0, 1, 0)
+							local newpos = Region3.new(pos - factor, pos + factor):ExpandToGrid(4)
+							terrain:ReplaceMaterial(lastpos, 4, Enum.Material.Water, Enum.Material.Air)
+							terrain:FillRegion(newpos, 4, Enum.Material.Water)
+							lastpos = newpos
+						end
+					end
+				end))
+			else
+				if terrain and lastpos then
+					terrain:ReplaceMaterial(lastpos, 4, Enum.Material.Water, Enum.Material.Air)
 				end
 			end
+		end,
+		Tooltip = 'Lets you swim midair'
+	})
+end)
+	
+run(function()
+	local TargetStrafe
+	local Targets
+	local SearchRange
+	local StrafeRange
+	local YFactor
+	local rayCheck = RaycastParams.new()
+	rayCheck.RespectCanCollide = true
+	local module, old
+	
+	TargetStrafe = vape.Categories.Blatant:CreateModule({
+		Name = 'TargetStrafe',
+		Function = function(callback)
+			if callback then
+				if not module then
+					local suc = pcall(function() module = require(lplr.PlayerScripts.PlayerModule).controls end)
+					if not suc then
+						module = {}
+					end
+				end
+				
+				old = module.moveFunction
+				local flymod, ang, oldent = vape.Modules.Fly or {Enabled = false}
+				module.moveFunction = function(self, vec, face)
+					local wallcheck = Targets.Walls.Enabled
+					local ent = not inputService:IsKeyDown(Enum.KeyCode.S) and entitylib.EntityPosition({
+						Range = SearchRange.Value,
+						Wallcheck = wallcheck,
+						Part = 'RootPart',
+						Players = Targets.Players.Enabled,
+						NPCs = Targets.NPCs.Enabled
+					})
+	
+					if ent then
+						local root, targetPos = entitylib.character.RootPart, ent.RootPart.Position
+						rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera, ent.Character}
+						rayCheck.CollisionGroup = root.CollisionGroup
+	
+						if flymod.Enabled or workspace:Raycast(targetPos, Vector3.new(0, -70, 0), rayCheck) then
+							local factor, localPosition = 0, root.Position
+							if ent ~= oldent then
+								ang = math.deg(select(2, CFrame.lookAt(targetPos, localPosition):ToEulerAnglesYXZ()))
+							end
+							local yFactor = math.abs(localPosition.Y - targetPos.Y) * (YFactor.Value / 100)
+							local entityPos = Vector3.new(targetPos.X, localPosition.Y, targetPos.Z)
+							local newPos = entityPos + (CFrame.Angles(0, math.rad(ang), 0).LookVector * (StrafeRange.Value - yFactor))
+							local startRay, endRay = entityPos, newPos
+	
+							if not wallcheck and workspace:Raycast(targetPos, (localPosition - targetPos), rayCheck) then
+								startRay, endRay = entityPos + (CFrame.Angles(0, math.rad(ang), 0).LookVector * (entityPos - localPosition).Magnitude), entityPos
+							end
+	
+							local ray = workspace:Blockcast(CFrame.new(startRay), Vector3.new(1, entitylib.character.HipHeight + (root.Size.Y / 2), 1), (endRay - startRay), rayCheck)
+							if (localPosition - newPos).Magnitude < 3 or ray then
+								factor = (8 - math.min((localPosition - newPos).Magnitude, 3))
+								if ray then
+									newPos = ray.Position + (ray.Normal * 1.5)
+									factor = (localPosition - newPos).Magnitude > 3 and 0 or factor
+								end
+							end
+	
+							if not flymod.Enabled and not workspace:Raycast(newPos, Vector3.new(0, -70, 0), rayCheck) then
+								newPos = entityPos
+								factor = 40
+							end
+	
+							ang += factor % 360
+							vec = ((newPos - localPosition) * Vector3.new(1, 0, 1)).Unit
+							vec = vec == vec and vec or Vector3.zero
+							TargetStrafeVector = vec
+						else
+							ent = nil
+						end
+					end
+	
+					TargetStrafeVector = ent and vec or nil
+					oldent = ent
+					return old(self, vec, face)
+				end
+			else
+				if module and old then
+					module.moveFunction = old
+				end
+				TargetStrafeVector = nil
+			end
+		end,
+		Tooltip = 'Automatically strafes around the opponent'
+	})
+	Targets = TargetStrafe:CreateTargets({
+		Players = true,
+		Walls = true
+	})
+	SearchRange = TargetStrafe:CreateSlider({
+		Name = 'Search Range',
+		Min = 1,
+		Max = 30,
+		Default = 24,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
 		end
-	end
-end
-
-mainapi:Clean(notifications.ChildRemoved:Connect(function()
-	for i, v in notifications:GetChildren() do
-		if tween.Tween then
-			tween:Tween(v, TweenInfo.new(0.4, Enum.EasingStyle.Exponential), {
-				Position = UDim2.new(1, 0, 1, -(29 + (78 * i)))
-			})
+	})
+	StrafeRange = TargetStrafe:CreateSlider({
+		Name = 'Strafe Range',
+		Min = 1,
+		Max = 30,
+		Default = 18,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
 		end
+	})
+	YFactor = TargetStrafe:CreateSlider({
+		Name = 'Y Factor',
+		Min = 0,
+		Max = 100,
+		Default = 100,
+		Suffix = '%'
+	})
+end)
+	
+run(function()
+	local Timer
+	local Value
+	
+	Timer = vape.Categories.Blatant:CreateModule({
+		Name = 'Timer',
+		Function = function(callback)
+			if callback then
+				setfflag('SimEnableStepPhysics', 'True')
+				setfflag('SimEnableStepPhysicsSelective', 'True')
+				Timer:Clean(runService.RenderStepped:Connect(function(dt)
+					if Value.Value > 1 then
+						runService:Pause()
+						workspace:StepPhysics(dt * (Value.Value - 1), {entitylib.character.RootPart})
+						runService:Run()
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Change the game speed.'
+	})
+	Value = Timer:CreateSlider({
+		Name = 'Value',
+		Min = 1,
+		Max = 3,
+		Decimal = 10
+	})
+end)
+	
+run(function()
+	local Arrows
+	local Targets
+	local Color
+	local Teammates
+	local Distance
+	local DistanceLimit
+	local Reference = {}
+	local Folder = Instance.new('Folder')
+	Folder.Parent = vape.gui
+	
+	local function Added(ent)
+		if not Targets.Players.Enabled and ent.Player then return end
+		if not Targets.NPCs.Enabled and ent.NPC then return end
+		if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) and (not ent.Friend) then return end
+		if vape.ThreadFix then
+			setthreadidentity(8)
+		end
+	
+		local arrow = Instance.new('ImageLabel')
+		arrow.Size = UDim2.fromOffset(256, 256)
+		arrow.Position = UDim2.fromScale(0.5, 0.5)
+		arrow.AnchorPoint = Vector2.new(0.5, 0.5)
+		arrow.BackgroundTransparency = 1
+		arrow.BorderSizePixel = 0
+		arrow.Visible = false
+		arrow.Image = getcustomasset('newvape/assets/new/arrowmodule.png')
+		arrow.ImageColor3 = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+		arrow.Parent = Folder
+		Reference[ent] = arrow
 	end
-end))
-
-mainapi:Clean(inputService.InputBegan:Connect(function(inputObj)
-	if not inputService:GetFocusedTextBox() and inputObj.KeyCode ~= Enum.KeyCode.Unknown then
-		table.insert(mainapi.HeldKeybinds, inputObj.KeyCode.Name)
-		if mainapi.Binding then return end
-
-		if checkKeybinds(mainapi.HeldKeybinds, mainapi.Keybind, inputObj.KeyCode.Name) then
-			if mainapi.ThreadFix then
+	
+	local function Removed(ent)
+		local v = Reference[ent]
+		if v then
+			if vape.ThreadFix then
 				setthreadidentity(8)
 			end
-			for _, v in mainapi.Windows do
-				v.Visible = false
-			end
-			clickgui.Visible = not clickgui.Visible
-			tooltip.Visible = false
-			mainapi:BlurCheck()
-		end
-
-		local toggled = false
-		for i, v in mainapi.Modules do
-			if checkKeybinds(mainapi.HeldKeybinds, v.Bind, inputObj.KeyCode.Name) then
-				toggled = true
-				if mainapi.ToggleNotifications.Enabled then
-					mainapi:CreateNotification('Module Toggled', i.."<font color='#FFFFFF'> has been </font>"..(not v.Enabled and "<font color='#5AFF5A'>Enabled</font>" or "<font color='#FF5A5A'>Disabled</font>").."<font color='#FFFFFF'>!</font>", 0.75)
-				end
-				v:Toggle(true)
-			end
-		end
-		if toggled then
-			mainapi:UpdateTextGUI()
-		end
-
-		for _, v in mainapi.Profiles do
-			if checkKeybinds(mainapi.HeldKeybinds, v.Bind, inputObj.KeyCode.Name) and v.Name ~= mainapi.Profile then
-				mainapi:Save(v.Name)
-				mainapi:Load(true)
-				break
-			end
+			Reference[ent] = nil
+			v:Destroy()
 		end
 	end
-end))
-
-mainapi:Clean(inputService.InputEnded:Connect(function(inputObj)
-	if not inputService:GetFocusedTextBox() and inputObj.KeyCode ~= Enum.KeyCode.Unknown then
-		if mainapi.Binding then
-			if not mainapi.MultiKeybind.Enabled then
-				mainapi.HeldKeybinds = {inputObj.KeyCode.Name}
-			end
-			mainapi.Binding:SetBind(checkKeybinds(mainapi.HeldKeybinds, mainapi.Binding.Bind, inputObj.KeyCode.Name) and {} or mainapi.HeldKeybinds, true)
-			mainapi.Binding = nil
+	
+	local function ColorFunc(hue, sat, val)
+		local color = Color3.fromHSV(hue, sat, val)
+		for ent, EntityArrow in Reference do
+			EntityArrow.ImageColor3 = entitylib.getEntityColor(ent) or color
 		end
 	end
-
-	local ind = table.find(mainapi.HeldKeybinds, inputObj.KeyCode.Name)
-	if ind then
-		table.remove(mainapi.HeldKeybinds, ind)
-	end
-end))
-
-
--- まず既存のVapeV4ロード（最初の長いコード）を実行してから、これを追加
-
--- ========== RaycastUtilモジュール ==========
-local Workspace = game:GetService("Workspace")
-local RaycastUtil = {}
-
-local function getHeadPosition(model)
-	if not model then return nil end
-	local head = model:FindFirstChild("Head")
-	if not head or not head:IsA("BasePart") then return nil end
-	return head.Position
-end
-
-function RaycastUtil.isUnblocked(caster, targetWrapper)
-	local casterModel = caster
-	local targetModel = targetWrapper:getInstance()
-	local casterHead = getHeadPosition(casterModel)
-	local targetHead = getHeadPosition(targetModel)
-
-	if not casterHead or not targetHead then return false end
-
-	local offsets = {
-		Vector3.new(0, 0, 0),
-		Vector3.new(0, 2.5, 0),
-		Vector3.new(0, -2.5, 0),
-	}
-
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Blacklist
-	params.FilterDescendantsInstances = {casterModel, targetModel}
-	params.IgnoreWater = true
-
-	for _, offset in ipairs(offsets) do
-		local fromPos = casterHead + offset
-		local toPos = targetHead + offset
-		local direction = toPos - fromPos
-		local result = Workspace:Raycast(fromPos, direction, params)
-		if result then return false end
-	end
-
-	return true
-end
-
--- TargetWrapper
-local TargetWrapper = {}
-TargetWrapper.__index = TargetWrapper
-
-function TargetWrapper.new(character)
-	local self = setmetatable({}, TargetWrapper)
-	self.character = character
-	return self
-end
-
-function TargetWrapper:getInstance()
-	return self.character
-end
-
--- ========== グローバル変数 ==========
-local RunService = game:GetService("RunService")
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-
--- ========== Killaura変数 ==========
-local killAuraState = {
-	isAttacking = false,
-	lastClickTime = 0,
-	clickTimes = {},
-	killAuraLoop = nil,
-	highlightBox = nil,
-	fovCircle = nil,
-	lastValidTarget = nil,
-	lastTargetCheckTime = 0,
-	fovUpdateLoop = nil,
-	attackStateLoop = nil
-}
-
--- ========== Aimbot変数 ==========
-local aimbotState = {
-	targetIndicator = nil,
-	aimBotLoop = nil
-}
-
--- ========== 共通関数 ==========
-local function isTeammate(player, killaura)
-	local mod = killaura and mainapi.Modules.Killaura or mainapi.Modules.AimAssist
-	if not mod or not mod.Options then return false end
-
-	local ignoreTeam = mod.Options["Ignore teammates"]
-	if not ignoreTeam or not ignoreTeam.Enabled then return false end
-
-	return LocalPlayer.Team and player.Team == LocalPlayer.Team
-end
-
-local function getCurrentCPS()
-	local currentTime = tick()
-	local validClicks = {}
-	for i, time in ipairs(killAuraState.clickTimes) do
-		if currentTime - time <= 1 then
-			table.insert(validClicks, time)
-		end
-	end
-	killAuraState.clickTimes = validClicks
-	return #killAuraState.clickTimes
-end
-
-local function getScreenCenterDistance(targetPos)
-	local screenPos, onScreen = Camera:WorldToScreenPoint(targetPos)
-	if not onScreen then return math.huge end
-
-	local viewportSize = Camera.ViewportSize
-	local screenCenter = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
-	local targetScreenPos = Vector2.new(screenPos.X, screenPos.Y)
-
-	return (targetScreenPos - screenCenter).Magnitude
-end
-
--- ========== Killaura関数 ==========
-local function isInKillAuraFOV(targetPos)
-	local mod = mainapi.Modules.Killaura
-	if not mod then return false end
-
-	local fovRadius = mod.Options["FOV Radius"] and mod.Options["FOV Radius"].Value or 150
-
-	local screenPos, onScreen = Camera:WorldToScreenPoint(targetPos)
-	if not onScreen then return false end
-
-	local mousePos = UserInputService:GetMouseLocation()
-	local screenTarget = Vector2.new(screenPos.X, screenPos.Y)
-	local distance = (screenTarget - mousePos).Magnitude
-
-	return distance <= fovRadius
-end
-
-local function canSeeTargetKillAura(targetChar)
-	local mod = mainapi.Modules.Killaura
-	if not mod then return true end
-
-	local wallCheck = mod.Options["Wall Check"]
-	if not wallCheck or not wallCheck.Enabled then return true end
-
-	local myCharacter = LocalPlayer.Character
-	if not myCharacter then return false end
-
-	local wrapper = TargetWrapper.new(targetChar)
-	return RaycastUtil.isUnblocked(myCharacter, wrapper)
-end
-
-local function isBodyFacingTarget(targetPos)
-	local mod = mainapi.Modules.Killaura
-	if not mod then return true end
-
-	local bodyCheck = mod.Options["Body Direction Check"]
-	if not bodyCheck or not bodyCheck.Enabled then return true end
-
-	local myCharacter = LocalPlayer.Character
-	if not myCharacter then return false end
-
-	local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return false end
-
-	local threshold = mod.Options["Body Direction Threshold"] and mod.Options["Body Direction Threshold"].Value or 0.5
-
-	local bodyLookVector = myRoot.CFrame.LookVector
-	local directionToTarget = (targetPos - myRoot.Position).Unit
-	local dotProduct = bodyLookVector:Dot(directionToTarget)
-
-	return dotProduct >= (threshold * 2 - 1)
-end
-
-local function isWithinMaxAngle(targetPos)
-	local mod = mainapi.Modules.Killaura
-	if not mod then return true end
-
-	local normalRaycast = mod.Options["Normal Raycast"]
-	local maxAngle = mod.Options["Max Angle"]
-
-	if not maxAngle then return true end
-	if maxAngle.Value >= 360 then return true end
-
-	local myCharacter = LocalPlayer.Character
-	if not myCharacter then return false end
-
-	local lookVector
-	if normalRaycast and normalRaycast.Enabled then
-		local head = myCharacter:FindFirstChild("Head")
-		if not head then return false end
-		lookVector = head.CFrame.LookVector
-	else
-		local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
-		if not myRoot then return false end
-		lookVector = myRoot.CFrame.LookVector
-	end
-
-	local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return false end
-
-	local directionToTarget = (targetPos - myRoot.Position).Unit
-	local dotProduct = lookVector:Dot(directionToTarget)
-	local angle = math.deg(math.acos(math.clamp(dotProduct, -1, 1)))
-
-	return angle <= maxAngle.Value / 2
-end
-
-local function findKillAuraTarget()
-	local mod = mainapi.Modules.Killaura
-	if not mod then return nil end
-
-	local myCharacter = LocalPlayer.Character
-	if not myCharacter then return nil end
-
-	local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
-	local myHumanoid = myCharacter:FindFirstChildOfClass("Humanoid")
-
-	if not myRoot or not myHumanoid or myHumanoid.Health <= 0 then
-		return nil
-	end
-
-	local range = mod.Options.Range and mod.Options.Range.Value or 14
-	local ignoreInvis = mod.Options["Ignore Invisible"] and mod.Options["Ignore Invisible"].Enabled or false
-	local minHealth = mod.Options["Min Health Threshold"] and mod.Options["Min Health Threshold"].Value or 0
-
-	local validTargets = {}
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and not isTeammate(player, true) then
-			local character = player.Character
-			if character then
-				local humanoid = character:FindFirstChildOfClass("Humanoid")
-				local rootPart = character:FindFirstChild("HumanoidRootPart")
-
-				if humanoid and rootPart and humanoid.Health > 0 then
-					if ignoreInvis then
-						local head = character:FindFirstChild("Head")
-						if head and head.Transparency >= 0.9 then
-							continue
-						end
-					end
-
-					if minHealth > 0 and humanoid.Health > minHealth then
-						continue
-					end
-
-					local distance = (myRoot.Position - rootPart.Position).Magnitude
-
-					if distance < range then
-						local targetPos = rootPart.Position
-
-						if isInKillAuraFOV(targetPos) and isBodyFacingTarget(targetPos) and isWithinMaxAngle(targetPos) and canSeeTargetKillAura(character) then
-							local centerDistance = getScreenCenterDistance(targetPos)
-							table.insert(validTargets, {
-								character = character,
-								distance = distance,
-								health = humanoid.Health,
-								centerDistance = centerDistance
-							})
-						end
-					end
-				end
-			end
-		end
-	end
-
-	if #validTargets == 0 then return nil end
-
-	table.sort(validTargets, function(a, b)
-		return a.centerDistance < b.centerDistance
-	end)
-
-	return validTargets[1].character
-end
-
-local function getEquippedWeapon()
-	local inventory = ReplicatedStorage:FindFirstChild("Inventories")
-	if not inventory then return nil end
-
-	local playerInv = inventory:FindFirstChild(LocalPlayer.Name)
-	if not playerInv then return nil end
-
-	for _, item in ipairs(playerInv:GetChildren()) do
-		if item.Name:lower():find("sword") then
-			return item
-		end
-	end
-
-	return nil
-end
-
-local function updateHighlight(target)
-	local mod = mainapi.Modules.Killaura
-	if not mod then return end
-
-	local visualize = mod.Options.Visualize and mod.Options.Visualize.Enabled or false
-
-	if not visualize then
-		if killAuraState.highlightBox then
-			killAuraState.highlightBox:Destroy()
-			killAuraState.highlightBox = nil
-		end
-		return
-	end
-
-	if target then
-		if not killAuraState.highlightBox then
-			killAuraState.highlightBox = Instance.new("Part")
-			killAuraState.highlightBox.Name = "KillAuraHighlight"
-			killAuraState.highlightBox.Transparency = 0.5
-			killAuraState.highlightBox.CanCollide = false
-			killAuraState.highlightBox.CanQuery = false
-			killAuraState.highlightBox.Anchored = true
-			killAuraState.highlightBox.Material = Enum.Material.Neon
-			killAuraState.highlightBox.Size = Vector3.new(4, 6, 4)
-			killAuraState.highlightBox.Color = Color3.fromRGB(255, 0, 0)
-			killAuraState.highlightBox.Parent = workspace
-		end
-
-		local targetRoot = target:FindFirstChild("HumanoidRootPart")
-		if targetRoot then
-			killAuraState.highlightBox.CFrame = targetRoot.CFrame
-		end
-	else
-		if killAuraState.highlightBox then
-			killAuraState.highlightBox:Destroy()
-			killAuraState.highlightBox = nil
-		end
-	end
-end
-
-local function updateFOVCircle()
-	local mod = mainapi.Modules.Killaura
-	if not mod then return end
-
-	local showFOV = mod.Options["Show FOV"] and mod.Options["Show FOV"].Enabled or false
-	local fovRadius = mod.Options["FOV Radius"] and mod.Options["FOV Radius"].Value or 150
-
-	if not showFOV then
-		if killAuraState.fovCircle then
-			killAuraState.fovCircle:Destroy()
-			killAuraState.fovCircle = nil
-		end
-		return
-	end
-
-	if not killAuraState.fovCircle then
-		local gui = Instance.new("ScreenGui")
-		gui.Name = "FOVCircle"
-		gui.IgnoreGuiInset = true
-		gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-		local frame = Instance.new("Frame")
-		frame.Name = "Circle"
-		frame.AnchorPoint = Vector2.new(0.5, 0.5)
-		frame.BackgroundTransparency = 1
-		frame.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
-		frame.Parent = gui
-
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(1, 0)
-		corner.Parent = frame
-
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(255, 255, 255)
-		stroke.Thickness = 2
-		stroke.Transparency = 0.5
-		stroke.Parent = frame
-
-		killAuraState.fovCircle = gui
-	end
-
-	local mousePos = UserInputService:GetMouseLocation()
-	local frame = killAuraState.fovCircle:FindFirstChild("Circle")
-	if frame then
-		frame.Position = UDim2.new(0, mousePos.X, 0, mousePos.Y)
-		frame.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
-	end
-end
-
-local function attackTarget(target)
-	local mod = mainapi.Modules.Killaura
-	if not mod then return end
-
-	local myCharacter = LocalPlayer.Character
-	if not myCharacter then return end
-
-	local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
-	local targetRoot = target:FindFirstChild("HumanoidRootPart")
-
-	if not myRoot or not targetRoot then return end
-
-	local range = mod.Options.Range and mod.Options.Range.Value or 14
-	local currentDistance = (myRoot.Position - targetRoot.Position).Magnitude
-	if currentDistance > range then
-		return
-	end
-
-	local targetPos = targetRoot.Position
-
-	if not canSeeTargetKillAura(target) then return end
-	if not isInKillAuraFOV(targetPos) then return end
-	if not isBodyFacingTarget(targetPos) then return end
-	if not isWithinMaxAngle(targetPos) then return end  
-
-	local autoRotate = mod.Options["Auto Rotate"] and mod.Options["Auto Rotate"].Enabled or false
-	local rotationSpeed = mod.Options["Rotation Speed"] and mod.Options["Rotation Speed"].Value or 0.3
-
-	if autoRotate then
-		local lookVector = (targetPos - myRoot.Position).Unit
-		local currentCFrame = myRoot.CFrame
-		local targetCFrame = CFrame.new(myRoot.Position, myRoot.Position + lookVector)
-
-		myRoot.CFrame = currentCFrame:Lerp(targetCFrame, rotationSpeed)
-	end
-
-	local weapon = getEquippedWeapon()
-	if not weapon then return end
-
-	local myPos = myRoot.Position
-	local direction = (targetPos - Camera.CFrame.Position).Unit
-
-	local swordHitRemote = ReplicatedStorage:FindFirstChild("rbxts_include")
-	if swordHitRemote then
-		swordHitRemote = swordHitRemote:FindFirstChild("node_modules")
-		if swordHitRemote then
-			swordHitRemote = swordHitRemote:FindFirstChild("@rbxts")
-			if swordHitRemote then
-				swordHitRemote = swordHitRemote:FindFirstChild("net")
-				if swordHitRemote then
-					swordHitRemote = swordHitRemote:FindFirstChild("out")
-					if swordHitRemote then
-						swordHitRemote = swordHitRemote:FindFirstChild("_NetManaged")
-						if swordHitRemote then
-							swordHitRemote = swordHitRemote:FindFirstChild("SwordHit")
-						end
-					end
-				end
-			end
-		end
-	end
-
-	if not swordHitRemote then return end
-
-	local attackDelay = mod.Options["Attack Delay"] and mod.Options["Attack Delay"].Value or 0.01
-	local currentTime = tick()
-	if not mod._lastAttackTime then
-		mod._lastAttackTime = 0
-	end
-
-	if currentTime - mod._lastAttackTime < attackDelay then return end
-
-	mod._lastAttackTime = currentTime
-
-	pcall(function()
-		local finalDistance = (myRoot.Position - targetRoot.Position).Magnitude
-		if finalDistance > range then
-			return
-		end
-
-		swordHitRemote:FireServer({
-			chargedAttack = { chargeRatio = 0 },
-			entityInstance = target,
-			validate = {
-				raycast = {
-					cameraPosition = { value = Camera.CFrame.Position },
-					cursorDirection = { value = direction }
-				},
-				targetPosition = { value = targetPos },
-				selfPosition = { value = myPos }
-			},
-			weapon = weapon
-		})
-	end)
-end
-
-local function startKillAura()
-	if killAuraState.killAuraLoop then killAuraState.killAuraLoop:Disconnect() end
-
-	local mod = mainapi.Modules.Killaura
-	if not mod then return end
-
-	local requiredCPS = mod.Options["Required CPS"] and mod.Options["Required CPS"].Value or 14
-
-	killAuraState.killAuraLoop = RunService.Heartbeat:Connect(function()
-		if not mod.Enabled then
-			updateHighlight(nil)
-			killAuraState.lastValidTarget = nil
-			return
-		end
-
-		if not killAuraState.isAttacking then
-			updateHighlight(nil)
-			killAuraState.lastValidTarget = nil
-			return
-		end
-
-		local currentTime = tick()
-		local target = findKillAuraTarget()
-
-		if target and killAuraState.lastValidTarget == target and (currentTime - killAuraState.lastTargetCheckTime) < 0.1 then
-			if not canSeeTargetKillAura(target) then
-				target = nil
-				killAuraState.lastValidTarget = nil
-			end
-		else
-			killAuraState.lastValidTarget = target
-			killAuraState.lastTargetCheckTime = currentTime
-		end
-
-		if target then
-			updateHighlight(target)
-
-			if getCurrentCPS() >= requiredCPS then
-				if canSeeTargetKillAura(target) then
-					attackTarget(target)
-				end
-			end
-		else
-			updateHighlight(nil)
-			killAuraState.lastValidTarget = nil
-		end
-	end)
-
-	if killAuraState.fovUpdateLoop then killAuraState.fovUpdateLoop:Disconnect() end
-	killAuraState.fovUpdateLoop = RunService.RenderStepped:Connect(function()
-		updateFOVCircle()
-	end)
-
-	if killAuraState.attackStateLoop then killAuraState.attackStateLoop:Disconnect() end
-	killAuraState.attackStateLoop = RunService.Heartbeat:Connect(function()
-		if killAuraState.isAttacking then
-			local currentTime = tick()
-			local cps = getCurrentCPS()
-
-			if cps < requiredCPS or 
-				(currentTime - killAuraState.lastClickTime) > (1 / requiredCPS) then
-				killAuraState.isAttacking = false
-				killAuraState.lastValidTarget = nil
-			end
-		end
-	end)
-end
-
-local function stopKillAura()
-	if killAuraState.killAuraLoop then
-		killAuraState.killAuraLoop:Disconnect()
-		killAuraState.killAuraLoop = nil
-	end
-
-	if killAuraState.fovUpdateLoop then
-		killAuraState.fovUpdateLoop:Disconnect()
-		killAuraState.fovUpdateLoop = nil
-	end
-
-	if killAuraState.attackStateLoop then
-		killAuraState.attackStateLoop:Disconnect()
-		killAuraState.attackStateLoop = nil
-	end
-
-	if killAuraState.highlightBox then
-		killAuraState.highlightBox:Destroy()
-		killAuraState.highlightBox = nil
-	end
-
-	if killAuraState.fovCircle then
-		killAuraState.fovCircle:Destroy()
-		killAuraState.fovCircle = nil
-	end
-
-	killAuraState.isAttacking = false
-	killAuraState.lastValidTarget = nil
-end
-
--- ========== Aimbot関数 ==========
-local function isInAimbotFOV(targetPos)
-	local mod = mainapi.Modules.AimAssist
-	if not mod then return false end
-
-	local fov = mod.Options.FOV and mod.Options.FOV.Value or 90
-
-	local screenPos, onScreen = Camera:WorldToScreenPoint(targetPos)
-	if not onScreen then return false end
-
-	local angle = math.deg(math.acos(
-		(Camera.CFrame.LookVector):Dot((targetPos - Camera.CFrame.Position).Unit)
-		))
-
-	return angle <= fov / 2
-end
-
-local function canSeeTargetAimbot(targetPart)
-	local mod = mainapi.Modules.AimAssist
-	if not mod then return true end
-
-	local wallCheck = mod.Options["Wall Check"]
-	if not wallCheck or not wallCheck.Enabled then return true end
-
-	local myCharacter = LocalPlayer.Character
-	if not myCharacter then return false end
-
-	local wrapper = TargetWrapper.new(targetPart.Parent)
-	return RaycastUtil.isUnblocked(myCharacter, wrapper)
-end
-
-local function getClosestEnemy()
-	local mod = mainapi.Modules.AimAssist
-	if not mod then return nil end
-
-	local maxDistance = mod.Options["Max Distance"] and mod.Options["Max Distance"].Value or 50
-	local targetPart = mod.Options["Target Part"] and mod.Options["Target Part"].Value or "Head"
-	local ignoreFOV = mod.Options["Ignore FOV Attack Nearest"] and mod.Options["Ignore FOV Attack Nearest"].Enabled or false
-
-	if ignoreFOV then
-		local closestPlayer = nil
-		local shortestDistance = maxDistance
-
-		for _, player in pairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer and player.Character and not isTeammate(player, false) then
-				local character = player.Character
-				local humanoid = character:FindFirstChild("Humanoid")
-				local part = character:FindFirstChild(targetPart)
-
-				if humanoid and humanoid.Health > 0 and part then
-					local distance = (part.Position - Camera.CFrame.Position).Magnitude
-
-					if distance < shortestDistance then
-						closestPlayer = player
-						shortestDistance = distance
-					end
-				end
-			end
-		end
-
-		return closestPlayer
-	end
-
-	local validEnemies = {}
-
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and not isTeammate(player, false) then
-			local character = player.Character
-			local humanoid = character:FindFirstChild("Humanoid")
-			local part = character:FindFirstChild(targetPart)
-
-			if humanoid and humanoid.Health > 0 and part then
-				local distance = (part.Position - Camera.CFrame.Position).Magnitude
-
-				if distance < maxDistance and isInAimbotFOV(part.Position) and canSeeTargetAimbot(part) then
-					local centerDistance = getScreenCenterDistance(part.Position)
-					table.insert(validEnemies, {
-						player = player,
-						distance = distance,
-						centerDistance = centerDistance
-					})
-				end
-			end
-		end
-	end
-
-	if #validEnemies == 0 then return nil end
-
-	table.sort(validEnemies, function(a, b)
-		return a.centerDistance < b.centerDistance
-	end)
-
-	return validEnemies[1].player
-end
-
-local function createIndicator()
-	if aimbotState.targetIndicator then aimbotState.targetIndicator:Destroy() end
-
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "AimIndicator"
-	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(0, 40, 0, 40)
-	frame.AnchorPoint = Vector2.new(0.5, 0.5)
-	frame.BackgroundTransparency = 1
-	frame.Parent = gui
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(1, 0)
-	corner.Parent = frame
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(255, 0, 0)
-	stroke.Thickness = 2
-	stroke.Parent = frame
-
-	aimbotState.targetIndicator = gui
-end
-
-local function aimAt(target)
-	local mod = mainapi.Modules.AimAssist
-	if not mod or not target or not target.Character then return end
-
-	local targetPart = mod.Options["Target Part"] and mod.Options["Target Part"].Value or "Head"
-	local part = target.Character:FindFirstChild(targetPart)
-	if not part then return end
-
-	local smoothness = mod.Options.Smoothness and mod.Options.Smoothness.Value or 0.15
-	local showIndicator = mod.Options["Show Indicator"] and mod.Options["Show Indicator"].Enabled or false
-
-	local targetPos = part.Position
-	local currentCFrame = Camera.CFrame
-	local targetCFrame = CFrame.new(currentCFrame.Position, targetPos)
-
-	Camera.CFrame = currentCFrame:Lerp(targetCFrame, smoothness)
-
-	if showIndicator and aimbotState.targetIndicator then
-		local screenPos = Camera:WorldToScreenPoint(targetPos)
-		local frame = aimbotState.targetIndicator:FindFirstChildOfClass("Frame")
-		if frame then
-			frame.Position = UDim2.new(0, screenPos.X, 0, screenPos.Y)
-			frame.Visible = true
-		end
-	end
-end
-
-local function startAimbot()
-	if aimbotState.aimBotLoop then aimbotState.aimBotLoop:Disconnect() end
-
-	aimbotState.aimBotLoop = RunService.RenderStepped:Connect(function()
-		local mod = mainapi.Modules.AimAssist
-		if mod and mod.Enabled then
-			local target = getClosestEnemy()
-			if target then
-				aimAt(target)
-			elseif aimbotState.targetIndicator then
-				local frame = aimbotState.targetIndicator:FindFirstChildOfClass("Frame")
-				if frame then frame.Visible = false end
-			end
-		end
-	end)
-end
-
-local function stopAimbot()
-	if aimbotState.aimBotLoop then
-		aimbotState.aimBotLoop:Disconnect()
-		aimbotState.aimBotLoop = nil
-	end
-
-	if aimbotState.targetIndicator then
-		aimbotState.targetIndicator:Destroy()
-		aimbotState.targetIndicator = nil
-	end
-end
-
--- ========== マウスクリック検知 ==========
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		killAuraState.lastClickTime = tick()
-		table.insert(killAuraState.clickTimes, killAuraState.lastClickTime)
-
-		local mod = mainapi.Modules.Killaura
-		if mod then
-			local requiredCPS = mod.Options["Required CPS"] and mod.Options["Required CPS"].Value or 14
-			if getCurrentCPS() >= requiredCPS then
-				killAuraState.isAttacking = true
-			end
-		end
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		local mod = mainapi.Modules.Killaura
-		if mod then
-			local requiredCPS = mod.Options["Required CPS"] and mod.Options["Required CPS"].Value or 14
-			task.wait(1 / requiredCPS)
-			if tick() - killAuraState.lastClickTime > (1 / requiredCPS) then
-				killAuraState.isAttacking = false
-				killAuraState.lastValidTarget = nil
-			end
-		end
-	end
-end)
-
--- ========== Killauraモジュール ==========
-local Killaura = mainapi.Categories.Blatant:CreateModule({
-	Name = "Killaura",
-	Function = function(callback)
-		if callback then
-			startKillAura()
-		else
-			stopKillAura()
-		end
-	end,
-	Tooltip = "自動攻撃システム"
-})
-
-Killaura:CreateSlider({
-	Name = "Range",
-	Min = 1,
-	Max = 30,
-	Default = 14,
-	Tooltip = "攻撃範囲"
-})
-
-Killaura:CreateSlider({
-	Name = "FOV Radius",
-	Min = 50,
-	Max = 500,
-	Default = 250,
-	Tooltip = "視野範囲（ピクセル）"
-})
-
-Killaura:CreateSlider({
-	Name = "Required CPS",
-	Min = 1,
-	Max = 20,
-	Default = 7,
-	Tooltip = "必要クリック速度"
-})
-
-Killaura:CreateSlider({
-	Name = "Attack Delay",
-	Min = 0.01,
-	Max = 0.5,
-	Default = 0.25,
-	Decimal = 100,
-	Tooltip = "攻撃間隔"
-})
-
-Killaura:CreateToggle({
-	Name = "Visualize",
-	Default = false,
-	Tooltip = "ターゲットを可視化"
-})
-
-Killaura:CreateToggle({
-	Name = "Wall Check",
-	Default = true,
-	Tooltip = "壁越しの攻撃を防ぐ"
-})
-
-Killaura:CreateToggle({
-	Name = "Auto Rotate",
-	Default = false,
-	Tooltip = "自動でターゲットに向く"
-})
-
-Killaura:CreateSlider({
-	Name = "Rotation Speed",
-	Min = 0.1,
-	Max = 1,
-	Default = 0.3,
-	Decimal = 10,
-	Tooltip = "回転速度"
-})
-
-Killaura:CreateToggle({
-	Name = "Ignore Invisible",
-	Default = false,
-	Tooltip = "透明プレイヤーを無視"
-})
-
-Killaura:CreateSlider({
-	Name = "Min Health Threshold",
-	Min = 0,
-	Max = 100,
-	Default = 0,
-	Tooltip = "最小体力閾値"
-})
-
-Killaura:CreateToggle({
-	Name = "Body Direction Check",
-	Default = true,
-	Tooltip = "体の向きチェック"
-})
-
-Killaura:CreateSlider({
-	Name = "Body Direction Threshold",
-	Min = 0,
-	Max = 1,
-	Default = 0.2,
-	Decimal = 10,
-	Tooltip = "体向き閾値"
-})
-
-Killaura:CreateToggle({
-	Name = "Show FOV",
-	Default = false,
-	Tooltip = "FOV円を表示"
-})
-
-Killaura:CreateToggle({
-	Name = "Ignore teammates",
-	Default = true,
-	Tooltip = "チームメイトを無視"
-})
-
--- 1300行目くらい、他のCreateSliderの後
-Killaura:CreateSlider({
-	Name = "Max Angle",
-	Min = 0,
-	Max = 360,
-	Default = 120,
-	Tooltip = "攻撃範囲の角度（0-360度）"
-})
-
-Killaura:CreateToggle({
-	Name = "Normal Raycast",
-	Default = false,
-	Tooltip = "頭からまっすぐのレイキャストを使用"
-})
-
--- ========== AimAssistモジュール ==========
-local AimAssist = mainapi.Categories.Combat:CreateModule({
-	Name = "AimAssist",
-	Function = function(callback)
-		if callback then
-			-- モジュールが有効化された後にオプションを参照
-			task.spawn(function()
-				local mod = mainapi.Modules.AimAssist
-				if mod then
-					local showIndicator = mod.Options["Show Indicator"]
-					if showIndicator and showIndicator.Enabled then
-						createIndicator()
-					end
-				end
-			end)
-			startAimbot()
-		else
-			stopAimbot()
-		end
-	end,
-	Tooltip = "自動エイム補助"
-})
-
-AimAssist:CreateSlider({
-	Name = "Max Distance",
-	Min = 10,
-	Max = 200,
-	Default = 50,
-	Tooltip = "最大距離"
-})
-
-AimAssist:CreateSlider({
-	Name = "Smoothness",
-	Min = 0.01,
-	Max = 1,
-	Default = 0.15,
-	Decimal = 100,
-	Tooltip = "スムーズネス"
-})
-
-AimAssist:CreateDropdown({
-	Name = "Target Part",
-	List = {"Head", "Torso", "HumanoidRootPart"},
-	Tooltip = "狙う部位"
-})
-
-AimAssist:CreateSlider({
-	Name = "FOV",
-	Min = 10,
-	Max = 180,
-	Default = 90,
-	Tooltip = "視野角"
-})
-
-AimAssist:CreateToggle({
-	Name = "Ignore teammates",
-	Default = true,
-	Tooltip = "チームメイトを無視"
-})
-
-AimAssist:CreateToggle({
-	Name = "Wall Check",
-	Default = true,
-	Tooltip = "壁越しを無視"
-})
-
-AimAssist:CreateToggle({
-	Name = "Show Indicator",
-	Default = true,
-	Tooltip = "ターゲット表示"
-})
-
-AimAssist:CreateToggle({
-	Name = "Ignore FOV Attack Nearest",
-	Default = true,
-	Tooltip = "FOV無視で最も近い敵を狙う"
-})
-
--- ========== Velocity変数 ==========
-local velocityState = {
-	connection = nil,
-	oldProperties = {}
-}
-
--- ========== Velocity関数 ==========
-local function applyKnockbackReduction()
-	local mod = mainapi.Modules.Velocity
-	if not mod or not mod.Enabled then return end
-
-	local myCharacter = LocalPlayer.Character
-	if not myCharacter then return end
-
-	local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return end
-
-	local horizontal = mod.Options["Horizontal"] and mod.Options["Horizontal"].Value or 100
-	local vertical = mod.Options["Vertical"] and mod.Options["Vertical"].Value or 100
-	local chance = mod.Options["Chance"] and mod.Options["Chance"].Value or 100
-	local onlyDamage = mod.Options["Only Take Damage"] and mod.Options["Only Take Damage"].Enabled or false
-
-	-- 確率判定
-	if math.random(1, 100) > chance then
-		return
-	end
-
-	-- ダメージ受けた時のみモードの場合はここでは何もしない
-	if onlyDamage then
-		return
-	end
-
-	-- 水平・垂直の倍率（パーセントを小数に変換）
-	local hMult = horizontal / 100
-	local vMult = vertical / 100
-
-	-- 現在の速度を取得して調整
-	local currentVel = myRoot.AssemblyLinearVelocity
-	local newVel = Vector3.new(
-		currentVel.X * hMult,
-		currentVel.Y * vMult,
-		currentVel.Z * hMult
-	)
-
-	myRoot.AssemblyLinearVelocity = newVel
-end
-
-local function onHealthChanged(humanoid)
-	local mod = mainapi.Modules.Velocity
-	if not mod or not mod.Enabled then return end
-
-	local onlyDamage = mod.Options["Only Take Damage"] and mod.Options["Only Take Damage"].Enabled or false
-	if not onlyDamage then return end
-
-	local chance = mod.Options["Chance"] and mod.Options["Chance"].Value or 100
-
-	-- 確率判定
-	if math.random(1, 100) > chance then
-		return
-	end
-
-	local myCharacter = LocalPlayer.Character
-	if not myCharacter then return end
-
-	local myRoot = myCharacter:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return end
-
-	local horizontal = mod.Options["Horizontal"] and mod.Options["Horizontal"].Value or 100
-	local vertical = mod.Options["Vertical"] and mod.Options["Vertical"].Value or 100
-
-	-- 水平・垂直の倍率
-	local hMult = horizontal / 100
-	local vMult = vertical / 100
-
-	-- 速度調整を少し遅らせて適用（被ダメ直後のノックバックをキャッチするため）
-	task.spawn(function()
-		task.wait(0.01)
-		if myRoot and myRoot.Parent then
-			local currentVel = myRoot.AssemblyLinearVelocity
-			local newVel = Vector3.new(
-				currentVel.X * hMult,
-				currentVel.Y * vMult,
-				currentVel.Z * hMult
-			)
-			myRoot.AssemblyLinearVelocity = newVel
-		end
-	end)
-end
-
-local function startVelocity()
-	local mod = mainapi.Modules.Velocity
-	if not mod then return end
-
-	-- 既存の接続をクリーンアップ
-	if velocityState.connection then
-		velocityState.connection:Disconnect()
-		velocityState.connection = nil
-	end
-
-	-- Heartbeatループで常時監視
-	velocityState.connection = RunService.Heartbeat:Connect(function()
-		if not mod.Enabled then return end
-
-		local onlyDamage = mod.Options["Only Take Damage"] and mod.Options["Only Take Damage"].Enabled or false
-
-		-- Only Take Damageがオフの場合は常時適用
-		if not onlyDamage then
-			applyKnockbackReduction()
-		end
-
-		-- HealthChanged接続の設定
-		local myCharacter = LocalPlayer.Character
-		if myCharacter then
-			local humanoid = myCharacter:FindFirstChildOfClass("Humanoid")
-			if humanoid and not velocityState._healthConnection then
-				velocityState._healthConnection = humanoid.HealthChanged:Connect(function(health)
-					onHealthChanged(humanoid)
-				end)
-			end
-		end
-	end)
-
-	-- キャラクター再生成時の処理
-	if not velocityState._charConnection then
-		velocityState._charConnection = LocalPlayer.CharacterAdded:Connect(function()
-			if velocityState._healthConnection then
-				velocityState._healthConnection:Disconnect()
-				velocityState._healthConnection = nil
-			end
-		end)
-	end
-end
-
-local function stopVelocity()
-	if velocityState.connection then
-		velocityState.connection:Disconnect()
-		velocityState.connection = nil
-	end
-
-	if velocityState._healthConnection then
-		velocityState._healthConnection:Disconnect()
-		velocityState._healthConnection = nil
-	end
-
-	if velocityState._charConnection then
-		velocityState._charConnection:Disconnect()
-		velocityState._charConnection = nil
-	end
-end
-
--- ========== Velocityモジュール ==========
-local Velocity = mainapi.Categories.Combat:CreateModule({
-	Name = "Velocity",
-	Function = function(callback)
-		if callback then
-			startVelocity()
-		else
-			stopVelocity()
-		end
-	end,
-	Tooltip = "ノックバック軽減"
-})
-
-Velocity:CreateSlider({
-	Name = "Horizontal",
-	Min = 0,
-	Max = 100,
-	Default = 0,
-	Suffix = "%",
-	Tooltip = "水平ノックバック（0=完全無効、100=通常）"
-})
-
-Velocity:CreateSlider({
-	Name = "Vertical",
-	Min = 0,
-	Max = 100,
-	Default = 0,
-	Suffix = "%",
-	Tooltip = "垂直ノックバック（0=完全無効、100=通常）"
-})
-
-Velocity:CreateSlider({
-	Name = "Chance",
-	Min = 1,
-	Max = 100,
-	Default = 100,
-	Suffix = "%",
-	Tooltip = "発動確率（バレ防止用）"
-})
-
-Velocity:CreateToggle({
-	Name = "Only Take Damage",
-	Default = true,
-	Tooltip = "ダメージ受けた時だけ発動"
-})
-
-print("Velocity module loaded!")
-
--- ========== ESP変数 ==========
-local espState = {
-	espObjects = {},
-	updateLoop = nil,
-	connections = {}
-}
-
--- ========== ESP関数 ==========
-local function createESPBox(player)
-	local mod = mainapi.Modules.ESP
-	if not mod then return end
-
-	if espState.espObjects[player] then
-		return espState.espObjects[player]
-	end
-
-	local espData = {
-		player = player,
-		box = nil,
-		nameLabel = nil,
-		healthBar = nil,
-		distanceLabel = nil
-	}
-
-	-- ボックス作成
-	local box = Drawing.new("Square")
-	box.Visible = false
-	box.Color = Color3.fromRGB(255, 255, 255)
-	box.Thickness = 2
-	box.Transparency = 1
-	box.Filled = false
-	espData.box = box
-
-	-- 名前ラベル作成
-	local nameLabel = Drawing.new("Text")
-	nameLabel.Visible = false
-	nameLabel.Color = Color3.fromRGB(255, 255, 255)
-	nameLabel.Size = 14
-	nameLabel.Center = true
-	nameLabel.Outline = true
-	nameLabel.Text = player.Name
-	espData.nameLabel = nameLabel
-
-	-- 体力バー作成
-	local healthBar = Drawing.new("Square")
-	healthBar.Visible = false
-	healthBar.Color = Color3.fromRGB(0, 255, 0)
-	healthBar.Thickness = 1
-	healthBar.Transparency = 1
-	healthBar.Filled = true
-	espData.healthBar = healthBar
-
-	-- 距離ラベル作成
-	local distanceLabel = Drawing.new("Text")
-	distanceLabel.Visible = false
-	distanceLabel.Color = Color3.fromRGB(255, 255, 255)
-	distanceLabel.Size = 12
-	distanceLabel.Center = true
-	distanceLabel.Outline = true
-	distanceLabel.Text = "0m"
-	espData.distanceLabel = distanceLabel
-
-	espState.espObjects[player] = espData
-	return espData
-end
-
-local function removeESP(player)
-	local espData = espState.espObjects[player]
-	if not espData then return end
-
-	if espData.box then espData.box:Remove() end
-	if espData.nameLabel then espData.nameLabel:Remove() end
-	if espData.healthBar then espData.healthBar:Remove() end
-	if espData.distanceLabel then espData.distanceLabel:Remove() end
-
-	espState.espObjects[player] = nil
-end
-
-local function updateESP()
-	local mod = mainapi.Modules.ESP
-	if not mod or not mod.Enabled then return end
-
-	local showBox = mod.Options["Show Box"] and mod.Options["Show Box"].Enabled or false
-	local showName = mod.Options["Show Name"] and mod.Options["Show Name"].Enabled or false
-	local showHealth = mod.Options["Show Health"] and mod.Options["Show Health"].Enabled or false
-	local showDistance = mod.Options["Show Distance"] and mod.Options["Show Distance"].Enabled or false
-	local maxDistance = mod.Options["Max Distance"] and mod.Options["Max Distance"].Value or 1000
-	local teamCheck = mod.Options["Ignore Teammates"] and mod.Options["Ignore Teammates"].Enabled or false
-
-	for _, player in pairs(Players:GetPlayers()) do
-		if player == LocalPlayer then continue end
-
-		-- チームチェック
-		if teamCheck and LocalPlayer.Team and player.Team == LocalPlayer.Team then
-			if espState.espObjects[player] then
-				removeESP(player)
-			end
-			continue
-		end
-
-		local character = player.Character
-		if not character then
-			if espState.espObjects[player] then
-				local espData = espState.espObjects[player]
-				espData.box.Visible = false
-				espData.nameLabel.Visible = false
-				espData.healthBar.Visible = false
-				espData.distanceLabel.Visible = false
-			end
-			continue
-		end
-
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		local rootPart = character:FindFirstChild("HumanoidRootPart")
-
-		if not humanoid or not rootPart or humanoid.Health <= 0 then
-			if espState.espObjects[player] then
-				local espData = espState.espObjects[player]
-				espData.box.Visible = false
-				espData.nameLabel.Visible = false
-				espData.healthBar.Visible = false
-				espData.distanceLabel.Visible = false
-			end
-			continue
-		end
-
-		-- 距離チェック
-		local myChar = LocalPlayer.Character
-		if myChar then
-			local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-			if myRoot then
-				local distance = (myRoot.Position - rootPart.Position).Magnitude
-				if distance > maxDistance then
-					if espState.espObjects[player] then
-						local espData = espState.espObjects[player]
-						espData.box.Visible = false
-						espData.nameLabel.Visible = false
-						espData.healthBar.Visible = false
-						espData.distanceLabel.Visible = false
-					end
+	
+	local function Loop()
+		for ent, arrow in Reference do
+			if Distance.Enabled then
+				local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
+				if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+					arrow.Visible = false
 					continue
 				end
 			end
+	
+			local _, rootVis = gameCamera:WorldToScreenPoint(ent.RootPart.Position)
+			arrow.Visible = not rootVis
+			if rootVis then continue end
+	
+			local dir = CFrame.lookAlong(gameCamera.CFrame.Position, gameCamera.CFrame.LookVector * Vector3.new(1, 0, 1)):PointToObjectSpace(ent.RootPart.Position)
+			arrow.Rotation = math.deg(math.atan2(dir.Z, dir.X))
 		end
-
-		-- ESP作成
-		local espData = createESPBox(player)
-
-		-- ボックスの座標計算
-		local headPos = character:FindFirstChild("Head") and character.Head.Position or rootPart.Position + Vector3.new(0, 2, 0)
-		local legPos = rootPart.Position - Vector3.new(0, 3, 0)
-
-		local headScreen, headOnScreen = Camera:WorldToViewportPoint(headPos)
-		local legScreen, legOnScreen = Camera:WorldToViewportPoint(legPos)
-
-		if headOnScreen and legOnScreen then
-			local height = math.abs(headScreen.Y - legScreen.Y)
-			local width = height * 0.5
-
-			local boxX = headScreen.X - width / 2
-			local boxY = headScreen.Y
-
-			-- ボックス表示
-			if showBox then
-				espData.box.Size = Vector2.new(width, height)
-				espData.box.Position = Vector2.new(boxX, boxY)
-				espData.box.Visible = true
-			else
-				espData.box.Visible = false
-			end
-
-			-- 名前表示
-			if showName then
-				espData.nameLabel.Position = Vector2.new(headScreen.X, boxY - 15)
-				espData.nameLabel.Text = player.Name
-				espData.nameLabel.Visible = true
-			else
-				espData.nameLabel.Visible = false
-			end
-
-			-- 体力バー表示
-			if showHealth then
-				local healthPercent = humanoid.Health / humanoid.MaxHealth
-				local barHeight = height * healthPercent
-				local barWidth = 3
-
-				espData.healthBar.Size = Vector2.new(barWidth, barHeight)
-				espData.healthBar.Position = Vector2.new(boxX - barWidth - 2, boxY + (height - barHeight))
-
-				-- 体力に応じて色変更
-				if healthPercent > 0.5 then
-					espData.healthBar.Color = Color3.fromRGB(0, 255, 0)
-				elseif healthPercent > 0.25 then
-					espData.healthBar.Color = Color3.fromRGB(255, 255, 0)
-				else
-					espData.healthBar.Color = Color3.fromRGB(255, 0, 0)
+	end
+	
+	Arrows = vape.Categories.Render:CreateModule({
+		Name = 'Arrows',
+		Function = function(callback)
+			if callback then
+				Arrows:Clean(entitylib.Events.EntityRemoved:Connect(Removed))
+				for _, v in entitylib.List do
+					if Reference[v] then Removed(v) end
+					Added(v)
 				end
-
-				espData.healthBar.Visible = true
+				Arrows:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
+					if Reference[ent] then Removed(ent) end
+					Added(ent)
+				end))
+				Arrows:Clean(vape.Categories.Friends.ColorUpdate.Event:Connect(function()
+					ColorFunc(Color.Hue, Color.Sat, Color.Value)
+				end))
+				Arrows:Clean(runService.RenderStepped:Connect(Loop))
 			else
-				espData.healthBar.Visible = false
+				for i in Reference do
+					Removed(i)
+				end
 			end
-
-			-- 距離表示
-			if showDistance and myChar then
-				local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-				if myRoot then
-					local distance = math.floor((myRoot.Position - rootPart.Position).Magnitude)
-					espData.distanceLabel.Position = Vector2.new(headScreen.X, boxY + height + 5)
-					espData.distanceLabel.Text = distance.."m"
-					espData.distanceLabel.Visible = true
-				else
-					espData.distanceLabel.Visible = false
+		end,
+		Tooltip = 'Draws arrows on screen when entities\nare out of your field of view.'
+	})
+	Targets = Arrows:CreateTargets({
+		Players = true,
+		Function = function()
+			if Arrows.Enabled then
+				Arrows:Toggle()
+				Arrows:Toggle()
+			end
+		end
+	})
+	Color = Arrows:CreateColorSlider({
+		Name = 'Player Color',
+		Function = function(hue, sat, val)
+			if Arrows.Enabled then
+				ColorFunc(hue, sat, val)
+			end
+		end,
+	})
+	Teammates = Arrows:CreateToggle({
+		Name = 'Priority Only',
+		Function = function()
+			if Arrows.Enabled then
+				Arrows:Toggle()
+				Arrows:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Hides teammates & non targetable entities'
+	})
+	Distance = Arrows:CreateToggle({
+		Name = 'Distance Check',
+		Function = function(callback)
+			DistanceLimit.Object.Visible = callback
+		end
+	})
+	DistanceLimit = Arrows:CreateTwoSlider({
+		Name = 'Player Distance',
+		Min = 0,
+		Max = 256,
+		DefaultMin = 0,
+		DefaultMax = 64,
+		Darker = true,
+		Visible = false
+	})
+end)
+	
+run(function()
+	local Chams
+	local Targets
+	local Mode
+	local FillColor
+	local OutlineColor
+	local FillTransparency
+	local OutlineTransparency
+	local Teammates
+	local Walls
+	local Reference = {}
+	local Folder = Instance.new('Folder')
+	Folder.Parent = vape.gui
+	
+	local function Added(ent)
+		if not Targets.Players.Enabled and ent.Player then return end
+		if not Targets.NPCs.Enabled and ent.NPC then return end
+		if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+		if vape.ThreadFix then
+			setthreadidentity(8)
+		end
+	
+		if Mode.Value == 'Highlight' then
+			local cham = Instance.new('Highlight')
+			cham.Adornee = ent.Character
+			cham.DepthMode = Enum.HighlightDepthMode[Walls.Enabled and 'AlwaysOnTop' or 'Occluded']
+			cham.FillColor = entitylib.getEntityColor(ent) or Color3.fromHSV(FillColor.Hue, FillColor.Sat, FillColor.Value)
+			cham.OutlineColor = Color3.fromHSV(OutlineColor.Hue, OutlineColor.Sat, OutlineColor.Value)
+			cham.FillTransparency = FillTransparency.Value
+			cham.OutlineTransparency = OutlineTransparency.Value
+			cham.Parent = Folder
+			Reference[ent] = cham
+		else
+			local chams = {}
+			for _, v in ent.Character:GetChildren() do
+				if v:IsA('BasePart') and (ent.NPC or v.Name:find('Arm') or v.Name:find('Leg') or v.Name:find('Hand') or v.Name:find('Feet') or v.Name:find('Torso') or v.Name == 'Head') then
+					local box = Instance.new(v.Name == 'Head' and 'SphereHandleAdornment' or 'BoxHandleAdornment')
+					if v.Name == 'Head' then
+						box.Radius = 0.75
+					else
+						box.Size = v.Size
+					end
+					box.AlwaysOnTop = Walls.Enabled
+					box.Adornee = v
+					box.ZIndex = 0
+					box.Transparency = FillTransparency.Value
+					box.Color3 = entitylib.getEntityColor(ent) or Color3.fromHSV(FillColor.Hue, FillColor.Sat, FillColor.Value)
+					box.Parent = Folder
+					table.insert(chams, box)
+				end
+			end
+			Reference[ent] = chams
+		end
+	end
+	
+	local function Removed(ent)
+		if Reference[ent] then
+			if vape.ThreadFix then
+				setthreadidentity(8)
+			end
+			if type(Reference[ent]) == 'table' then
+				for _, v in Reference[ent] do
+					v:Destroy()
+				end
+				table.clear(Reference[ent])
+			else
+				Reference[ent]:Destroy()
+			end
+			Reference[ent] = nil
+		end
+	end
+	
+	Chams = vape.Categories.Render:CreateModule({
+		Name = 'Chams',
+		Function = function(callback)
+			if callback then
+				Chams:Clean(entitylib.Events.EntityRemoved:Connect(Removed))
+				Chams:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
+					if Reference[ent] then
+						Removed(ent)
+					end
+					Added(ent)
+				end))
+				Chams:Clean(vape.Categories.Friends.ColorUpdate.Event:Connect(function()
+					for i, v in Reference do
+						local color = entitylib.getEntityColor(i) or Color3.fromHSV(FillColor.Hue, FillColor.Sat, FillColor.Value)
+						if type(v) == 'table' then
+							for _, v2 in v do v2.Color3 = color end
+						else
+							v.FillColor = color
+						end
+					end
+				end))
+				for _, v in entitylib.List do
+					if Reference[v] then
+						Removed(v)
+					end
+					Added(v)
 				end
 			else
-				espData.distanceLabel.Visible = false
+				for i in Reference do
+					Removed(i)
+				end
 			end
-		else
-			espData.box.Visible = false
-			espData.nameLabel.Visible = false
-			espData.healthBar.Visible = false
-			espData.distanceLabel.Visible = false
+		end,
+		Tooltip = 'Render players through walls'
+	})
+	Targets = Chams:CreateTargets({
+		Players = true,
+		Function = function()
+			if Chams.Enabled then
+				Chams:Toggle()
+				Chams:Toggle()
+			end
 		end
-	end
-end
-
-local function startESP()
-	if espState.updateLoop then
-		espState.updateLoop:Disconnect()
-	end
-
-	espState.updateLoop = RunService.RenderStepped:Connect(function()
-		updateESP()
-	end)
-
-	-- プレイヤー退出時のクリーンアップ
-	if not espState.connections.playerRemoving then
-		espState.connections.playerRemoving = Players.PlayerRemoving:Connect(function(player)
-			removeESP(player)
-		end)
-	end
-end
-
-local function stopESP()
-	if espState.updateLoop then
-		espState.updateLoop:Disconnect()
-		espState.updateLoop = nil
-	end
-
-	-- 全ESPを削除
-	for player, _ in pairs(espState.espObjects) do
-		removeESP(player)
-	end
-
-	-- 接続をクリーンアップ
-	for _, connection in pairs(espState.connections) do
-		if connection then
-			connection:Disconnect()
+		})
+	Mode = Chams:CreateDropdown({
+		Name = 'Mode',
+		List = {'Highlight', 'BoxHandles'},
+		Function = function(val)
+			OutlineColor.Object.Visible = val == 'Highlight'
+			OutlineTransparency.Object.Visible = val == 'Highlight'
+			if Chams.Enabled then
+				Chams:Toggle()
+				Chams:Toggle()
+			end
 		end
-	end
-	table.clear(espState.connections)
-end
-
--- ========== ESPモジュール ==========
-local ESP = mainapi.Categories.Render:CreateModule({
-	Name = "ESP",
-	Function = function(callback)
-		if callback then
-			startESP()
-		else
-			stopESP()
+	})
+	FillColor = Chams:CreateColorSlider({
+		Name = 'Color',
+		Function = function(hue, sat, val)
+			for i, v in Reference do
+				local color = entitylib.getEntityColor(i) or Color3.fromHSV(hue, sat, val)
+				if type(v) == 'table' then
+					for _, v2 in v do v2.Color3 = color end
+				else
+					v.FillColor = color
+				end
+			end
 		end
-	end,
-	Tooltip = "プレイヤーを可視化"
-})
-
-ESP:CreateToggle({
-	Name = "Show Box",
-	Default = true,
-	Tooltip = "ボックスを表示"
-})
-
-ESP:CreateToggle({
-	Name = "Show Name",
-	Default = true,
-	Tooltip = "名前を表示"
-})
-
-ESP:CreateToggle({
-	Name = "Show Health",
-	Default = true,
-	Tooltip = "体力バーを表示"
-})
-
-ESP:CreateToggle({
-	Name = "Show Distance",
-	Default = true,
-	Tooltip = "距離を表示"
-})
-
-ESP:CreateSlider({
-	Name = "Max Distance",
-	Min = 100,
-	Max = 5000,
-	Default = 1000,
-	Suffix = "m",
-	Tooltip = "ESP表示の最大距離"
-})
-
-ESP:CreateToggle({
-	Name = "Ignore Teammates",
-	Default = true,
-	Tooltip = "チームメイトを非表示"
-})
-
-print("ESP module loaded!")
-
--- ========== KitESP変数 ==========
-local kitESPState = {
-	espObjects = {},
-	updateLoop = nil,
-	scanLoop = nil,
-	scannedObjects = {},
-	isEnabled = false
-}
-
--- ========== KitESP関数 ==========
-local function createKitESP(object, displayName)
-	if kitESPState.espObjects[object] then
-		return kitESPState.espObjects[object]
+	})
+	OutlineColor = Chams:CreateColorSlider({
+		Name = 'Outline Color',
+		DefaultSat = 0,
+		Function = function(hue, sat, val)
+			for i, v in Reference do
+				if type(v) ~= 'table' then
+					v.OutlineColor = entitylib.getEntityColor(i) or Color3.fromHSV(hue, sat, val)
+				end
+			end
+		end,
+		Darker = true
+	})
+	FillTransparency = Chams:CreateSlider({
+		Name = 'Transparency',
+		Min = 0,
+		Max = 1,
+		Default = 0.5,
+		Function = function(val)
+			for _, v in Reference do
+				if type(v) == 'table' then
+					for _, v2 in v do v2.Transparency = val end
+				else
+					v.FillTransparency = val
+				end
+			end
+		end,
+		Decimal = 10
+	})
+	OutlineTransparency = Chams:CreateSlider({
+		Name = 'Outline Transparency',
+		Min = 0,
+		Max = 1,
+		Default = 0.5,
+		Function = function(val)
+			for _, v in Reference do
+				if type(v) ~= 'table' then
+					v.OutlineTransparency = val
+				end
+			end
+		end,
+		Decimal = 10,
+		Darker = true
+	})
+	Walls = Chams:CreateToggle({
+		Name = 'Render Walls',
+		Function = function(callback)
+			for _, v in Reference do
+				if type(v) == 'table' then
+					for _, v2 in v do
+						v2.AlwaysOnTop = callback
+					end
+				else
+					v.DepthMode = Enum.HighlightDepthMode[callback and 'AlwaysOnTop' or 'Occluded']
+				end
+			end
+		end,
+		Default = true
+	})
+	Teammates = Chams:CreateToggle({
+		Name = 'Priority Only',
+		Function = function()
+			if Chams.Enabled then
+				Chams:Toggle()
+				Chams:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Hides teammates & non targetable entities'
+	})
+end)
+	
+run(function()
+	local ESP
+	local Targets
+	local Color
+	local Method
+	local BoundingBox
+	local Filled
+	local HealthBar
+	local Name
+	local DisplayName
+	local Background
+	local Teammates
+	local Distance
+	local DistanceLimit
+	local Reference = {}
+	local methodused
+	
+	local function ESPWorldToViewport(pos)
+		local newpos = gameCamera:WorldToViewportPoint(gameCamera.CFrame:pointToWorldSpace(gameCamera.CFrame:PointToObjectSpace(pos)))
+		return Vector2.new(newpos.X, newpos.Y)
 	end
-
-	local espData = {
-		object = object,
-		box = Drawing.new("Square"),
-		nameLabel = Drawing.new("Text")
+	
+	local ESPAdded = {
+		Drawing2D = function(ent)
+			if not Targets.Players.Enabled and ent.Player then return end
+			if not Targets.NPCs.Enabled and ent.NPC then return end
+			if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+			if vape.ThreadFix then
+				setthreadidentity(8)
+			end
+			local EntityESP = {}
+			EntityESP.Main = Drawing.new('Square')
+			EntityESP.Main.Transparency = BoundingBox.Enabled and 1 or 0
+			EntityESP.Main.ZIndex = 2
+			EntityESP.Main.Filled = false
+			EntityESP.Main.Thickness = 1
+			EntityESP.Main.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+	
+			if BoundingBox.Enabled then
+				EntityESP.Border = Drawing.new('Square')
+				EntityESP.Border.Transparency = 0.35
+				EntityESP.Border.ZIndex = 1
+				EntityESP.Border.Thickness = 1
+				EntityESP.Border.Filled = false
+				EntityESP.Border.Color = Color3.new()
+				EntityESP.Border2 = Drawing.new('Square')
+				EntityESP.Border2.Transparency = 0.35
+				EntityESP.Border2.ZIndex = 1
+				EntityESP.Border2.Thickness = 1
+				EntityESP.Border2.Filled = Filled.Enabled
+				EntityESP.Border2.Color = Color3.new()
+			end
+	
+			if HealthBar.Enabled then
+				EntityESP.HealthLine = Drawing.new('Line')
+				EntityESP.HealthLine.Thickness = 1
+				EntityESP.HealthLine.ZIndex = 2
+				EntityESP.HealthLine.Color = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
+				EntityESP.HealthBorder = Drawing.new('Line')
+				EntityESP.HealthBorder.Thickness = 3
+				EntityESP.HealthBorder.Transparency = 0.35
+				EntityESP.HealthBorder.ZIndex = 1
+				EntityESP.HealthBorder.Color = Color3.new()
+			end
+			
+			if Name.Enabled then
+				if Background.Enabled then
+					EntityESP.TextBKG = Drawing.new('Square')
+					EntityESP.TextBKG.Transparency = 0.35
+					EntityESP.TextBKG.ZIndex = 0
+					EntityESP.TextBKG.Thickness = 1
+					EntityESP.TextBKG.Filled = true
+					EntityESP.TextBKG.Color = Color3.new()
+				end
+				EntityESP.Drop = Drawing.new('Text')
+				EntityESP.Drop.Color = Color3.new()
+				EntityESP.Drop.Text = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+				EntityESP.Drop.ZIndex = 1
+				EntityESP.Drop.Center = true
+				EntityESP.Drop.Size = 20
+				EntityESP.Text = Drawing.new('Text')
+				EntityESP.Text.Text = EntityESP.Drop.Text
+				EntityESP.Text.ZIndex = 2
+				EntityESP.Text.Color = EntityESP.Main.Color
+				EntityESP.Text.Center = true
+				EntityESP.Text.Size = 20
+			end
+			Reference[ent] = EntityESP
+		end,
+		Drawing3D = function(ent)
+			if not Targets.Players.Enabled and ent.Player then return end
+			if not Targets.NPCs.Enabled and ent.NPC then return end
+			if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+			if vape.ThreadFix then
+				setthreadidentity(8)
+			end
+			local EntityESP = {}
+			EntityESP.Line1 = Drawing.new('Line')
+			EntityESP.Line2 = Drawing.new('Line')
+			EntityESP.Line3 = Drawing.new('Line')
+			EntityESP.Line4 = Drawing.new('Line')
+			EntityESP.Line5 = Drawing.new('Line')
+			EntityESP.Line6 = Drawing.new('Line')
+			EntityESP.Line7 = Drawing.new('Line')
+			EntityESP.Line8 = Drawing.new('Line')
+			EntityESP.Line9 = Drawing.new('Line')
+			EntityESP.Line10 = Drawing.new('Line')
+			EntityESP.Line11 = Drawing.new('Line')
+			EntityESP.Line12 = Drawing.new('Line')
+	
+			local color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+			for _, v in EntityESP do
+				v.Thickness = 1
+				v.Color = color
+			end
+	
+			Reference[ent] = EntityESP
+		end,
+		DrawingSkeleton = function(ent)
+			if not Targets.Players.Enabled and ent.Player then return end
+			if not Targets.NPCs.Enabled and ent.NPC then return end
+			if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+			if vape.ThreadFix then
+				setthreadidentity(8)
+			end
+			local EntityESP = {}
+			EntityESP.Head = Drawing.new('Line')
+			EntityESP.HeadFacing = Drawing.new('Line')
+			EntityESP.Torso = Drawing.new('Line')
+			EntityESP.UpperTorso = Drawing.new('Line')
+			EntityESP.LowerTorso = Drawing.new('Line')
+			EntityESP.LeftArm = Drawing.new('Line')
+			EntityESP.RightArm = Drawing.new('Line')
+			EntityESP.LeftLeg = Drawing.new('Line')
+			EntityESP.RightLeg = Drawing.new('Line')
+	
+			local color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+			for _, v in EntityESP do
+				v.Thickness = 2
+				v.Color = color
+			end
+	
+			Reference[ent] = EntityESP
+		end
 	}
-
-	-- 色設定（種類によって変える）
-	local color = Color3.fromRGB(255, 215, 0) -- デフォルト: 金色
-	if displayName == "CritStar" then
-		color = Color3.fromRGB(255, 0, 0) -- 赤
-	elseif displayName == "VitalityStar" then
-		color = Color3.fromRGB(0, 255, 0) -- 緑
-	elseif displayName == "TreeOrb" then
-		color = Color3.fromRGB(139, 69, 19) -- 茶色
-	end
-
-	-- ボックス設定
-	espData.box.Visible = false
-	espData.box.Color = color
-	espData.box.Thickness = 2
-	espData.box.Transparency = 1
-	espData.box.Filled = false
-
-	-- 名前ラベル設定
-	espData.nameLabel.Visible = false
-	espData.nameLabel.Color = color
-	espData.nameLabel.Size = 14
-	espData.nameLabel.Center = true
-	espData.nameLabel.Outline = true
-	espData.nameLabel.Text = displayName or object.Name
-
-	kitESPState.espObjects[object] = espData
-	return espData
-end
-
-local function removeKitESP(object)
-	local espData = kitESPState.espObjects[object]
-	if not espData then return end
-
-	espData.box:Remove()
-	espData.nameLabel:Remove()
-	kitESPState.espObjects[object] = nil
-end
-
--- スキャン処理
-local function scanWorkspace()
-	if not kitESPState.isEnabled then return end
-
-	local currentObjects = {}
-
-	for _, obj in ipairs(workspace:GetDescendants()) do
-		local targetObject = nil
-		local labelName = ""
-
-		-- Metal検出
-		if obj:IsA("ProximityPrompt") and obj.Name == "hidden-metal-prompt" then
-			targetObject = obj.Parent:IsA("Model") and obj.Parent or obj.Parent:FindFirstAncestorOfClass("Model") or obj.Parent
-			labelName = "Metal"
-
-			-- TreeOrb検出
-		elseif (obj:IsA("Model") or obj:IsA("BasePart")) and obj.Name == "TreeOrb" then
-			targetObject = obj
-			labelName = "TreeOrb"
-
-			-- CritStar検出（star_mesh.001を探す）
-		elseif obj:IsA("MeshPart") and obj.Name == "star_mesh.001" then
-			local parent = obj.Parent
-			if parent and parent:IsA("Model") then
-				if parent.Name == "CritStar" then
-					targetObject = obj
-					labelName = "CritStar"
-				elseif parent.Name == "VitalityStar" then
-					targetObject = obj
-					labelName = "VitalityStar"
+	
+	local ESPRemoved = {
+		Drawing2D = function(ent)
+			local EntityESP = Reference[ent]
+			if EntityESP then
+				if vape.ThreadFix then
+					setthreadidentity(8)
+				end
+				Reference[ent] = nil
+				for _, v in EntityESP do
+					pcall(function()
+						v.Visible = false
+						v:Remove()
+					end)
 				end
 			end
 		end
-
-		if targetObject then
-			currentObjects[targetObject] = true
-			if not kitESPState.scannedObjects[targetObject] then
-				kitESPState.scannedObjects[targetObject] = true
-				createKitESP(targetObject, labelName)
+	}
+	ESPRemoved.Drawing3D = ESPRemoved.Drawing2D
+	ESPRemoved.DrawingSkeleton = ESPRemoved.Drawing2D
+	
+	local ESPUpdated = {
+		Drawing2D = function(ent)
+			local EntityESP = Reference[ent]
+			if EntityESP then
+				if vape.ThreadFix then
+					setthreadidentity(8)
+				end
+				
+				if EntityESP.HealthLine then
+					EntityESP.HealthLine.Color = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
+				end
+	
+				if EntityESP.Text then
+					EntityESP.Text.Text = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+					EntityESP.Drop.Text = EntityESP.Text.Text
+				end
 			end
 		end
-	end
-
-	-- 存在しなくなったオブジェクトのクリーンアップ
-	for object, _ in pairs(kitESPState.scannedObjects) do
-		if not currentObjects[object] or not object.Parent then
-			kitESPState.scannedObjects[object] = nil
-			removeKitESP(object)
-		end
-	end
-end
-
--- 描画更新
-local function updateKitESP()
-	for object, espData in pairs(kitESPState.espObjects) do
-		if not object or not object.Parent then continue end
-
-		local position, size
-		if object:IsA("Model") then
-			local cf, s = object:GetBoundingBox()
-			position = cf.Position
-			size = s
-		else
-			position = object.Position
-			size = object.Size
-		end
-
-		local screenPos, onScreen = Camera:WorldToViewportPoint(position)
-
-		if onScreen then
-			local topPos = position + Vector3.new(0, size.Y / 2, 0)
-			local bottomPos = position - Vector3.new(0, size.Y / 2, 0)
-			local topScreen = Camera:WorldToViewportPoint(topPos)
-			local bottomScreen = Camera:WorldToViewportPoint(bottomPos)
-
-			local height = math.abs(topScreen.Y - bottomScreen.Y)
-			local width = height * 0.7
-
-			espData.box.Size = Vector2.new(width, height)
-			espData.box.Position = Vector2.new(screenPos.X - width / 2, screenPos.Y - height / 2)
-			espData.box.Visible = true
-
-			espData.nameLabel.Position = Vector2.new(screenPos.X, screenPos.Y - (height / 2) - 15)
-			espData.nameLabel.Visible = true
-		else
-			espData.box.Visible = false
-			espData.nameLabel.Visible = false
-		end
-	end
-end
-
--- ========== 制御関数 ==========
-local function startKitESP()
-	kitESPState.isEnabled = true
-
-	task.spawn(function()
-		while kitESPState.isEnabled do
-			scanWorkspace()
-			task.wait(5)
-		end
-	end)
-
-	if not kitESPState.updateLoop then
-		kitESPState.updateLoop = RunService.RenderStepped:Connect(updateKitESP)
-	end
-end
-
-local function stopKitESP()
-	kitESPState.isEnabled = false
-	if kitESPState.updateLoop then
-		kitESPState.updateLoop:Disconnect()
-		kitESPState.updateLoop = nil
-	end
-
-	for object, _ in pairs(kitESPState.espObjects) do
-		removeKitESP(object)
-	end
-	table.clear(kitESPState.scannedObjects)
-end
-
--- ========== KitESPモジュール ==========
-local KitESP = mainapi.Categories.Render:CreateModule({
-	Name = "KitESP",
-	Function = function(callback)
-		if callback then
-			startKitESP()
-		else
-			stopKitESP()
-		end
-	end,
-	Tooltip = "Metal、TreeOrb、CritStar、VitalityStarを可視化\nCritStar=赤、VitalityStar=緑"
-})
-
-print("KitESP loaded (CritStar & VitalityStar support)")
-
--- ========== HitBox変数 ==========
-local hitBoxState = {
-	hitBoxParts = {},
-	updateLoop = nil,
-	visualObjects = {}
-}
-
--- ========== HitBox関数 ==========
-local function createVisualBox(head)
-	if hitBoxState.visualObjects[head] then
-		return hitBoxState.visualObjects[head]
-	end
-
-	-- 可視化用のパート作成
-	local visualPart = Instance.new("Part")
-	visualPart.Name = "HitBoxVisual"
-	visualPart.Anchored = true
-	visualPart.CanCollide = false
-	visualPart.CanQuery = false
-	visualPart.Material = Enum.Material.ForceField
-	visualPart.Color = Color3.fromRGB(255, 0, 0)
-	visualPart.Transparency = 0.5
-	visualPart.Parent = workspace
-
-	hitBoxState.visualObjects[head] = visualPart
-	return visualPart
-end
-
-local function removeVisualBox(head)
-	local visualPart = hitBoxState.visualObjects[head]
-	if visualPart then
-		visualPart:Destroy()
-		hitBoxState.visualObjects[head] = nil
-	end
-end
-
-local function createHitBoxPart(head, expandSize)
-	if hitBoxState.hitBoxParts[head] then
-		return hitBoxState.hitBoxParts[head]
-	end
-
-	-- 透明な当たり判定用パート作成
-	local hitBoxPart = Instance.new("Part")
-	hitBoxPart.Name = "HitBoxExpander"
-	hitBoxPart.Size = head.Size + Vector3.new(expandSize, expandSize, expandSize)
-	hitBoxPart.CFrame = head.CFrame
-	hitBoxPart.Transparency = 1
-	hitBoxPart.CanCollide = false
-	hitBoxPart.CanQuery = false
-	hitBoxPart.Massless = true
-	hitBoxPart.Anchored = false
-	hitBoxPart.Parent = workspace.CurrentCamera
-
-	-- Weldで頭に固定
-	local weld = Instance.new("Weld")
-	weld.Part0 = head
-	weld.Part1 = hitBoxPart
-	weld.C0 = CFrame.new()
-	weld.C1 = CFrame.new()
-	weld.Parent = hitBoxPart
-
-	hitBoxState.hitBoxParts[head] = hitBoxPart
-	return hitBoxPart
-end
-
-local function removeHitBoxPart(head)
-	local hitBoxPart = hitBoxState.hitBoxParts[head]
-	if hitBoxPart then
-		hitBoxPart:Destroy()
-		hitBoxState.hitBoxParts[head] = nil
-	end
-end
-
-local function updateHitBoxes()
-	local mod = mainapi.Modules.HitBox
-	if not mod or not mod.Enabled then return end
-
-	local expandSize = mod.Options["Expand Size"] and mod.Options["Expand Size"].Value or 2
-	local visualize = mod.Options["Visualize"] and mod.Options["Visualize"].Enabled or false
-	local teamCheck = mod.Options["Ignore Teammates"] and mod.Options["Ignore Teammates"].Enabled or false
-
-	local currentHeads = {}
-
-	for _, player in pairs(Players:GetPlayers()) do
-		if player == LocalPlayer then continue end
-
-		-- チームチェック
-		if teamCheck and LocalPlayer.Team and player.Team == LocalPlayer.Team then
-			continue
-		end
-
-		local character = player.Character
-		if not character then continue end
-
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		local head = character:FindFirstChild("Head")
-
-		if humanoid and head and humanoid.Health > 0 then
-			currentHeads[head] = true
-
-			-- HitBox拡張パート作成・更新
-			local hitBoxPart = createHitBoxPart(head, expandSize)
-			if hitBoxPart then
-				hitBoxPart.Size = head.Size + Vector3.new(expandSize, expandSize, expandSize)
+	}
+	
+	local ColorFunc = {
+		Drawing2D = function(hue, sat, val)
+			local color = Color3.fromHSV(hue, sat, val)
+			for i, v in Reference do
+				v.Main.Color = entitylib.getEntityColor(i) or color
+				if v.Text then
+					v.Text.Color = v.Main.Color
+				end
 			end
-
-			-- 可視化
-			if visualize then
-				local visualPart = createVisualBox(head)
-				visualPart.Size = head.Size + Vector3.new(expandSize, expandSize, expandSize)
-				visualPart.CFrame = head.CFrame
-			else
-				removeVisualBox(head)
+		end,
+		Drawing3D = function(hue, sat, val)
+			local color = Color3.fromHSV(hue, sat, val)
+			for i, v in Reference do
+				local playercolor = entitylib.getEntityColor(i) or color
+				for _, v2 in v do
+					v2.Color = playercolor
+				end
 			end
 		end
-	end
-
-	-- もう存在しない頭のパーツを削除
-	for head, _ in pairs(hitBoxState.hitBoxParts) do
-		if not currentHeads[head] or not head.Parent then
-			removeHitBoxPart(head)
-			removeVisualBox(head)
-		end
-	end
-end
-
-local function startHitBox()
-	if hitBoxState.updateLoop then
-		hitBoxState.updateLoop:Disconnect()
-	end
-
-	hitBoxState.updateLoop = RunService.Heartbeat:Connect(function()
-		updateHitBoxes()
-	end)
-end
-
-local function stopHitBox()
-	if hitBoxState.updateLoop then
-		hitBoxState.updateLoop:Disconnect()
-		hitBoxState.updateLoop = nil
-	end
-
-	-- 全てのHitBoxパーツを削除
-	for head, _ in pairs(hitBoxState.hitBoxParts) do
-		removeHitBoxPart(head)
-	end
-
-	-- 全ての可視化オブジェクトを削除
-	for head, _ in pairs(hitBoxState.visualObjects) do
-		removeVisualBox(head)
-	end
-
-	table.clear(hitBoxState.hitBoxParts)
-end
-
--- ========== HitBoxモジュール ==========
-local HitBox = mainapi.Categories.Blatant:CreateModule({
-	Name = "HitBox",
-	Function = function(callback)
-		if callback then
-			startHitBox()
-		else
-			stopHitBox()
-		end
-	end,
-	Tooltip = "敵の頭のヒットボックスを拡張"
-})
-
-HitBox:CreateSlider({
-	Name = "Expand Size",
-	Min = 0,
-	Max = 10,
-	Default = 2,
-	Decimal = 10,
-	Tooltip = "頭のサイズをどれだけ拡張するか"
-})
-
-HitBox:CreateToggle({
-	Name = "Visualize",
-	Default = false,
-	Tooltip = "拡張されたヒットボックスを可視化"
-})
-
-HitBox:CreateToggle({
-	Name = "Ignore Teammates",
-	Default = true,
-	Tooltip = "チームメイトを無視"
-})
-
-local Combat = mainapi.Categories.Combat
-local RunService = game:GetService("RunService")
-
-local MyModule = Combat:CreateModule({
-	Name = "MouseSystem",
-	Function = function() end
-})
-
-local connection
-
-MyModule:CreateToggle({
-	Name = "Triggerbot",
-	Default = false,
-	Function = function(enabled)
-
-		if enabled then
-			local player = game.Players.LocalPlayer
-			local mouse = player:GetMouse()
-
-			connection = RunService.RenderStepped:Connect(function()
-
-				if mouse.Target and mouse.Target.Parent then
-					local model = mouse.Target.Parent
-
-					if model:FindFirstChild("Humanoid") then
-						mouse1click()
+	}
+	ColorFunc.DrawingSkeleton = ColorFunc.Drawing3D
+	
+	local ESPLoop = {
+		Drawing2D = function()
+			for ent, EntityESP in Reference do
+				if Distance.Enabled then
+					local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
+					if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+						for _, obj in EntityESP do
+							obj.Visible = false
+						end
+						continue
 					end
 				end
-
-			end)
-
-		else
-			if connection then
-				connection:Disconnect()
-				connection = nil
+	
+				local rootPos, rootVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position)
+				for _, obj in EntityESP do
+					obj.Visible = rootVis
+				end
+				if not rootVis then continue end
+	
+				local topPos = gameCamera:WorldToViewportPoint((CFrame.lookAlong(ent.RootPart.Position, gameCamera.CFrame.LookVector) * CFrame.new(2, ent.HipHeight, 0)).p)
+				local bottomPos = gameCamera:WorldToViewportPoint((CFrame.lookAlong(ent.RootPart.Position, gameCamera.CFrame.LookVector) * CFrame.new(-2, -ent.HipHeight - 1, 0)).p)
+				local sizex, sizey = topPos.X - bottomPos.X, topPos.Y - bottomPos.Y
+				local posx, posy = (rootPos.X - sizex / 2),  ((rootPos.Y - sizey / 2))
+				EntityESP.Main.Position = Vector2.new(posx, posy) // 1
+				EntityESP.Main.Size = Vector2.new(sizex, sizey) // 1
+				if EntityESP.Border then
+					EntityESP.Border.Position = Vector2.new(posx - 1, posy + 1) // 1
+					EntityESP.Border.Size = Vector2.new(sizex + 2, sizey - 2) // 1
+					EntityESP.Border2.Position = Vector2.new(posx + 1, posy - 1) // 1
+					EntityESP.Border2.Size = Vector2.new(sizex - 2, sizey + 2) // 1
+				end
+	
+				if EntityESP.HealthLine then
+					local healthposy = sizey * math.clamp(ent.Health / ent.MaxHealth, 0, 1)
+					EntityESP.HealthLine.Visible = ent.Health > 0
+					EntityESP.HealthLine.From = Vector2.new(posx - 6, posy + (sizey - (sizey - healthposy))) // 1
+					EntityESP.HealthLine.To = Vector2.new(posx - 6, posy) // 1
+					EntityESP.HealthBorder.From = Vector2.new(posx - 6, posy + 1) // 1
+					EntityESP.HealthBorder.To = Vector2.new(posx - 6, (posy + sizey) - 1) // 1
+				end
+	
+				if EntityESP.Text then
+					EntityESP.Text.Position = Vector2.new(posx + (sizex / 2), posy + (sizey - 28)) // 1
+					EntityESP.Drop.Position = EntityESP.Text.Position + Vector2.new(1, 1)
+					if EntityESP.TextBKG then
+						EntityESP.TextBKG.Size = EntityESP.Text.TextBounds + Vector2.new(8, 4)
+						EntityESP.TextBKG.Position = EntityESP.Text.Position - Vector2.new(4 + (EntityESP.Text.TextBounds.X / 2), 0)
+					end
+				end
+			end
+		end,
+		Drawing3D = function()
+			for ent, EntityESP in Reference do
+				if Distance.Enabled then
+					local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
+					if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+						for _, obj in EntityESP do
+							obj.Visible = false
+						end
+						continue
+					end
+				end
+	
+				local _, rootVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position)
+				for _, obj in EntityESP do
+					obj.Visible = rootVis
+				end
+				if not rootVis then continue end
+	
+				local point1 = ESPWorldToViewport(ent.RootPart.Position + Vector3.new(1.5, ent.HipHeight, 1.5))
+				local point2 = ESPWorldToViewport(ent.RootPart.Position + Vector3.new(1.5, -ent.HipHeight, 1.5))
+				local point3 = ESPWorldToViewport(ent.RootPart.Position + Vector3.new(-1.5, ent.HipHeight, 1.5))
+				local point4 = ESPWorldToViewport(ent.RootPart.Position + Vector3.new(-1.5, -ent.HipHeight, 1.5))
+				local point5 = ESPWorldToViewport(ent.RootPart.Position + Vector3.new(1.5, ent.HipHeight, -1.5))
+				local point6 = ESPWorldToViewport(ent.RootPart.Position + Vector3.new(1.5, -ent.HipHeight, -1.5))
+				local point7 = ESPWorldToViewport(ent.RootPart.Position + Vector3.new(-1.5, ent.HipHeight, -1.5))
+				local point8 = ESPWorldToViewport(ent.RootPart.Position + Vector3.new(-1.5, -ent.HipHeight, -1.5))
+				EntityESP.Line1.From = point1
+				EntityESP.Line1.To = point2
+				EntityESP.Line2.From = point3
+				EntityESP.Line2.To = point4
+				EntityESP.Line3.From = point5
+				EntityESP.Line3.To = point6
+				EntityESP.Line4.From = point7
+				EntityESP.Line4.To = point8
+				EntityESP.Line5.From = point1
+				EntityESP.Line5.To = point3
+				EntityESP.Line6.From = point1
+				EntityESP.Line6.To = point5
+				EntityESP.Line7.From = point5
+				EntityESP.Line7.To = point7
+				EntityESP.Line8.From = point7
+				EntityESP.Line8.To = point3
+				EntityESP.Line9.From = point2
+				EntityESP.Line9.To = point4
+				EntityESP.Line10.From = point2
+				EntityESP.Line10.To = point6
+				EntityESP.Line11.From = point6
+				EntityESP.Line11.To = point8
+				EntityESP.Line12.From = point8
+				EntityESP.Line12.To = point4
+			end
+		end,
+		DrawingSkeleton = function()
+			for ent, EntityESP in Reference do
+				if Distance.Enabled then
+					local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
+					if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+						for _, obj in EntityESP do
+							obj.Visible = false
+						end
+						continue
+					end
+				end
+	
+				local _, rootVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position)
+				for _, obj in EntityESP do
+					obj.Visible = rootVis
+				end
+				if not rootVis then continue end
+				
+				local rigcheck = ent.Humanoid.RigType == Enum.HumanoidRigType.R6
+				pcall(function()
+					local offset = rigcheck and CFrame.new(0, -0.8, 0) or CFrame.identity
+					local head = ESPWorldToViewport((ent.Head.CFrame).p)
+					local headfront = ESPWorldToViewport((ent.Head.CFrame * CFrame.new(0, 0, -0.5)).p)
+					local toplefttorso = ESPWorldToViewport((ent.Character[(rigcheck and 'Torso' or 'UpperTorso')].CFrame * CFrame.new(-1.5, 0.8, 0)).p)
+					local toprighttorso = ESPWorldToViewport((ent.Character[(rigcheck and 'Torso' or 'UpperTorso')].CFrame * CFrame.new(1.5, 0.8, 0)).p)
+					local toptorso = ESPWorldToViewport((ent.Character[(rigcheck and 'Torso' or 'UpperTorso')].CFrame * CFrame.new(0, 0.8, 0)).p)
+					local bottomtorso = ESPWorldToViewport((ent.Character[(rigcheck and 'Torso' or 'UpperTorso')].CFrame * CFrame.new(0, -0.8, 0)).p)
+					local bottomlefttorso = ESPWorldToViewport((ent.Character[(rigcheck and 'Torso' or 'UpperTorso')].CFrame * CFrame.new(-0.5, -0.8, 0)).p)
+					local bottomrighttorso = ESPWorldToViewport((ent.Character[(rigcheck and 'Torso' or 'UpperTorso')].CFrame * CFrame.new(0.5, -0.8, 0)).p)
+					local leftarm = ESPWorldToViewport((ent.Character[(rigcheck and 'Left Arm' or 'LeftHand')].CFrame * offset).p)
+					local rightarm = ESPWorldToViewport((ent.Character[(rigcheck and 'Right Arm' or 'RightHand')].CFrame * offset).p)
+					local leftleg = ESPWorldToViewport((ent.Character[(rigcheck and 'Left Leg' or 'LeftFoot')].CFrame * offset).p)
+					local rightleg = ESPWorldToViewport((ent.Character[(rigcheck and 'Right Leg' or 'RightFoot')].CFrame * offset).p)
+					EntityESP.Head.From = toptorso
+					EntityESP.Head.To = head
+					EntityESP.HeadFacing.From = head
+					EntityESP.HeadFacing.To = headfront
+					EntityESP.UpperTorso.From = toplefttorso
+					EntityESP.UpperTorso.To = toprighttorso
+					EntityESP.Torso.From = toptorso
+					EntityESP.Torso.To = bottomtorso
+					EntityESP.LowerTorso.From = bottomlefttorso
+					EntityESP.LowerTorso.To = bottomrighttorso
+					EntityESP.LeftArm.From = toplefttorso
+					EntityESP.LeftArm.To = leftarm
+					EntityESP.RightArm.From = toprighttorso
+					EntityESP.RightArm.To = rightarm
+					EntityESP.LeftLeg.From = bottomlefttorso
+					EntityESP.LeftLeg.To = leftleg
+					EntityESP.RightLeg.From = bottomrighttorso
+					EntityESP.RightLeg.To = rightleg
+				end)
 			end
 		end
-
+	}
+	
+	ESP = vape.Categories.Render:CreateModule({
+		Name = 'ESP',
+		Function = function(callback)
+			if callback then
+				methodused = 'Drawing'..Method.Value
+				if ESPRemoved[methodused] then
+					ESP:Clean(entitylib.Events.EntityRemoved:Connect(ESPRemoved[methodused]))
+				end
+				if ESPAdded[methodused] then
+					for _, v in entitylib.List do
+						if Reference[v] then
+							ESPRemoved[methodused](v)
+						end
+						ESPAdded[methodused](v)
+					end
+					ESP:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
+						if Reference[ent] then
+							ESPRemoved[methodused](ent)
+						end
+						ESPAdded[methodused](ent)
+					end))
+				end
+				if ESPUpdated[methodused] then
+					ESP:Clean(entitylib.Events.EntityUpdated:Connect(ESPUpdated[methodused]))
+					for _, v in entitylib.List do
+						ESPUpdated[methodused](v)
+					end
+				end
+				if ColorFunc[methodused] then
+					ESP:Clean(vape.Categories.Friends.ColorUpdate.Event:Connect(function()
+						ColorFunc[methodused](Color.Hue, Color.Sat, Color.Value)
+					end))
+				end
+				if ESPLoop[methodused] then
+					ESP:Clean(runService.RenderStepped:Connect(ESPLoop[methodused]))
+				end
+			else
+				if ESPRemoved[methodused] then
+					for i in Reference do
+						ESPRemoved[methodused](i)
+					end
+				end
+			end
+		end,
+		Tooltip = 'Extra Sensory Perception\nRenders an ESP on players.'
+	})
+	Targets = ESP:CreateTargets({
+		Players = true,
+		Function = function()
+			if ESP.Enabled then
+				ESP:Toggle()
+				ESP:Toggle()
+			end
+		end
+	})
+	Method = ESP:CreateDropdown({
+		Name = 'Mode',
+		List = {'2D', '3D', 'Skeleton'},
+		Function = function(val)
+			if ESP.Enabled then
+				ESP:Toggle()
+				ESP:Toggle()
+			end
+			BoundingBox.Object.Visible = (val == '2D')
+			Filled.Object.Visible = (val == '2D')
+			HealthBar.Object.Visible = (val == '2D')
+			Name.Object.Visible = (val == '2D')
+			DisplayName.Object.Visible = Name.Object.Visible and Name.Enabled
+			Background.Object.Visible = Name.Object.Visible and Name.Enabled
+		end,
+	})
+	Color = ESP:CreateColorSlider({
+		Name = 'Player Color',
+		Function = function(hue, sat, val)
+			if ESP.Enabled and ColorFunc[methodused] then
+				ColorFunc[methodused](hue, sat, val)
+			end
+		end
+	})
+	BoundingBox = ESP:CreateToggle({
+		Name = 'Bounding Box',
+		Function = function()
+			if ESP.Enabled then
+				ESP:Toggle()
+				ESP:Toggle()
+			end
+		end,
+		Default = true,
+		Darker = true
+	})
+	Filled = ESP:CreateToggle({
+		Name = 'Filled',
+		Function = function()
+			if ESP.Enabled then
+				ESP:Toggle()
+				ESP:Toggle()
+			end
+		end,
+		Darker = true
+	})
+	HealthBar = ESP:CreateToggle({
+		Name = 'Health Bar',
+		Function = function()
+			if ESP.Enabled then
+				ESP:Toggle()
+				ESP:Toggle()
+			end
+		end,
+		Darker = true
+	})
+	Name = ESP:CreateToggle({
+		Name = 'Name',
+		Function = function(callback)
+			if ESP.Enabled then
+				ESP:Toggle()
+				ESP:Toggle()
+			end
+			DisplayName.Object.Visible = callback
+			Background.Object.Visible = callback
+		end,
+		Darker = true
+	})
+	DisplayName = ESP:CreateToggle({
+		Name = 'Use Displayname',
+		Function = function()
+			if ESP.Enabled then
+				ESP:Toggle()
+				ESP:Toggle()
+			end
+		end,
+		Default = true,
+		Darker = true
+	})
+	Background = ESP:CreateToggle({
+		Name = 'Show Background',
+		Function = function()
+			if ESP.Enabled then
+				ESP:Toggle()
+				ESP:Toggle()
+			end
+		end,
+		Darker = true
+	})
+	Teammates = ESP:CreateToggle({
+		Name = 'Priority Only',
+		Function = function()
+			if ESP.Enabled then
+				ESP:Toggle()
+				ESP:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Hides teammates & non targetable entities'
+	})
+	Distance = ESP:CreateToggle({
+		Name = 'Distance Check',
+		Function = function(callback)
+			DistanceLimit.Object.Visible = callback
+		end
+	})
+	DistanceLimit = ESP:CreateTwoSlider({
+		Name = 'Player Distance',
+		Min = 0,
+		Max = 256,
+		DefaultMin = 0,
+		DefaultMax = 64,
+		Darker = true,
+		Visible = false
+	})
+end)
+	
+run(function()
+	local GamingChair = {Enabled = false}
+	local Color
+	local wheelpositions = {
+		Vector3.new(-0.8, -0.6, -0.18),
+		Vector3.new(0.1, -0.6, -0.88),
+		Vector3.new(0, -0.6, 0.7)
+	}
+	local chairhighlight
+	local currenttween
+	local movingsound
+	local flyingsound
+	local chairanim
+	local chair
+	
+	GamingChair = vape.Categories.Render:CreateModule({
+		Name = 'GamingChair',
+		Function = function(callback)
+			if callback then
+				if vape.ThreadFix then
+					setthreadidentity(8)
+				end
+				chair = Instance.new('MeshPart')
+				chair.Color = Color3.fromRGB(21, 21, 21)
+				chair.Size = Vector3.new(2.16, 3.6, 2.3) / Vector3.new(12.37, 20.636, 13.071)
+				chair.CanCollide = false
+				chair.Massless = true
+				chair.MeshId = 'rbxassetid://12972961089'
+				chair.Material = Enum.Material.SmoothPlastic
+				chair.Parent = workspace
+				movingsound = Instance.new('Sound')
+				--movingsound.SoundId = downloadVapeAsset('vape/assets/ChairRolling.mp3')
+				movingsound.Volume = 0.4
+				movingsound.Looped = true
+				movingsound.Parent = workspace
+				flyingsound = Instance.new('Sound')
+				--flyingsound.SoundId = downloadVapeAsset('vape/assets/ChairFlying.mp3')
+				flyingsound.Volume = 0.4
+				flyingsound.Looped = true
+				flyingsound.Parent = workspace
+				local chairweld = Instance.new('WeldConstraint')
+				chairweld.Part0 = chair
+				chairweld.Parent = chair
+				if entitylib.isAlive then
+					chair.CFrame = entitylib.character.RootPart.CFrame * CFrame.Angles(0, math.rad(-90), 0)
+					chairweld.Part1 = entitylib.character.RootPart
+				end
+				chairhighlight = Instance.new('Highlight')
+				chairhighlight.FillTransparency = 1
+				chairhighlight.OutlineColor = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+				chairhighlight.DepthMode = Enum.HighlightDepthMode.Occluded
+				chairhighlight.OutlineTransparency = 0.2
+				chairhighlight.Parent = chair
+				local chairarms = Instance.new('MeshPart')
+				chairarms.Color = chair.Color
+				chairarms.Size = Vector3.new(1.39, 1.345, 2.75) / Vector3.new(97.13, 136.216, 234.031)
+				chairarms.CFrame = chair.CFrame * CFrame.new(-0.169, -1.129, -0.013)
+				chairarms.MeshId = 'rbxassetid://12972673898'
+				chairarms.CanCollide = false
+				chairarms.Parent = chair
+				local chairarmsweld = Instance.new('WeldConstraint')
+				chairarmsweld.Part0 = chairarms
+				chairarmsweld.Part1 = chair
+				chairarmsweld.Parent = chair
+				local chairlegs = Instance.new('MeshPart')
+				chairlegs.Color = chair.Color
+				chairlegs.Name = 'Legs'
+				chairlegs.Size = Vector3.new(1.8, 1.2, 1.8) / Vector3.new(10.432, 8.105, 9.488)
+				chairlegs.CFrame = chair.CFrame * CFrame.new(0.047, -2.324, 0)
+				chairlegs.MeshId = 'rbxassetid://13003181606'
+				chairlegs.CanCollide = false
+				chairlegs.Parent = chair
+				local chairfan = Instance.new('MeshPart')
+				chairfan.Color = chair.Color
+				chairfan.Name = 'Fan'
+				chairfan.Size = Vector3.zero
+				chairfan.CFrame = chair.CFrame * CFrame.new(0, -1.873, 0)
+				chairfan.MeshId = 'rbxassetid://13004977292'
+				chairfan.CanCollide = false
+				chairfan.Parent = chair
+				local trails = {}
+				for _, v in wheelpositions do
+					local attachment = Instance.new('Attachment')
+					attachment.Position = v
+					attachment.Parent = chairlegs
+					local attachment2 = Instance.new('Attachment')
+					attachment2.Position = v + Vector3.new(0, 0, 0.18)
+					attachment2.Parent = chairlegs
+					local trail = Instance.new('Trail')
+					trail.Texture = 'http://www.roblox.com/asset/?id=13005168530'
+					trail.TextureMode = Enum.TextureMode.Static
+					trail.Transparency = NumberSequence.new(0.5)
+					trail.Color = ColorSequence.new(Color3.new(0.5, 0.5, 0.5))
+					trail.Attachment0 = attachment
+					trail.Attachment1 = attachment2
+					trail.Lifetime = 20
+					trail.MaxLength = 60
+					trail.MinLength = 0.1
+					trail.Parent = chairlegs
+					table.insert(trails, trail)
+				end
+				GamingChair:Clean(chair)
+				GamingChair:Clean(movingsound)
+				GamingChair:Clean(flyingsound)
+				chairanim = {Stop = function() end}
+				local oldmoving = false
+				local oldflying = false
+				repeat
+					if entitylib.isAlive and entitylib.character.Humanoid.Health > 0 then
+						if not chairanim.IsPlaying then
+							local temp2 = Instance.new('Animation')
+							temp2.AnimationId = entitylib.character.Humanoid.RigType == Enum.HumanoidRigType.R15 and 'http://www.roblox.com/asset/?id=2506281703' or 'http://www.roblox.com/asset/?id=178130996'
+							chairanim = entitylib.character.Humanoid:LoadAnimation(temp2)
+							chairanim.Priority = Enum.AnimationPriority.Movement
+							chairanim.Looped = true
+							chairanim:Play()
+						end
+						chair.CFrame = entitylib.character.RootPart.CFrame * CFrame.Angles(0, math.rad(-90), 0)
+						chairweld.Part1 = entitylib.character.RootPart
+						chairlegs.Velocity = Vector3.zero
+						chairlegs.CFrame = chair.CFrame * CFrame.new(0.047, -2.324, 0)
+						chairfan.Velocity = Vector3.zero
+						chairfan.CFrame = chair.CFrame * CFrame.new(0.047, -1.873, 0) * CFrame.Angles(0, math.rad(tick() * 180 % 360), math.rad(180))
+						local moving = entitylib.character.Humanoid:GetState() == Enum.HumanoidStateType.Running and entitylib.character.Humanoid.MoveDirection ~= Vector3.zero
+						local flying = vape.Modules.Fly and vape.Modules.Fly.Enabled or vape.Modules.LongJump and vape.Modules.LongJump.Enabled or vape.Modules.InfiniteFly and vape.Modules.InfiniteFly.Enabled
+						if movingsound.TimePosition > 1.9 then
+							movingsound.TimePosition = 0.2
+						end
+						movingsound.PlaybackSpeed = (entitylib.character.RootPart.Velocity * Vector3.new(1, 0, 1)).Magnitude / 16
+						for _, v in trails do
+							v.Enabled = not flying and moving
+							v.Color = ColorSequence.new(movingsound.PlaybackSpeed > 1.5 and Color3.new(1, 0.5, 0) or Color3.new())
+						end
+						if moving ~= oldmoving then
+							if movingsound.IsPlaying then
+								if not moving then
+									movingsound:Stop()
+								end
+							else
+								if not flying and moving then
+									movingsound:Play()
+								end
+							end
+							oldmoving = moving
+						end
+						if flying ~= oldflying then
+							if flying then
+								if movingsound.IsPlaying then
+									movingsound:Stop()
+								end
+								if not flyingsound.IsPlaying then
+									flyingsound:Play()
+								end
+								if currenttween then
+									currenttween:Cancel()
+								end
+								tween = tweenService:Create(chairlegs, TweenInfo.new(0.15), {
+									Size = Vector3.zero
+								})
+								tween.Completed:Connect(function(state)
+									if state == Enum.PlaybackState.Completed then
+										chairfan.Transparency = 0
+										chairlegs.Transparency = 1
+										tween = tweenService:Create(chairfan, TweenInfo.new(0.15), {
+											Size = Vector3.new(1.534, 0.328, 1.537) / Vector3.new(791.138, 168.824, 792.027)
+										})
+										tween:Play()
+									end
+								end)
+								tween:Play()
+							else
+								if flyingsound.IsPlaying then
+									flyingsound:Stop()
+								end
+								if not movingsound.IsPlaying and moving then
+									movingsound:Play()
+								end
+								if currenttween then currenttween:Cancel() end
+								tween = tweenService:Create(chairfan, TweenInfo.new(0.15), {
+									Size = Vector3.zero
+								})
+								tween.Completed:Connect(function(state)
+									if state == Enum.PlaybackState.Completed then
+										chairfan.Transparency = 1
+										chairlegs.Transparency = 0
+										tween = tweenService:Create(chairlegs, TweenInfo.new(0.15), {
+											Size = Vector3.new(1.8, 1.2, 1.8) / Vector3.new(10.432, 8.105, 9.488)
+										})
+										tween:Play()
+									end
+								end)
+								tween:Play()
+							end
+							oldflying = flying
+						end
+					else
+						chair.Anchored = true
+						chairlegs.Anchored = true
+						chairfan.Anchored = true
+						repeat task.wait() until entitylib.isAlive and entitylib.character.Humanoid.Health > 0
+						chair.Anchored = false
+						chairlegs.Anchored = false
+						chairfan.Anchored = false
+						chairanim:Stop()
+					end
+					task.wait()
+				until not GamingChair.Enabled
+			else
+				if chairanim then
+					chairanim:Stop()
+				end
+			end
+		end,
+		Tooltip = 'Sit in the best gaming chair known to mankind.'
+	})
+	Color = GamingChair:CreateColorSlider({
+		Name = 'Color',
+		Function = function(h, s, v)
+			if chairhighlight then
+				chairhighlight.OutlineColor = Color3.fromHSV(h, s, v)
+			end
+		end
+	})
+end)
+	
+run(function()
+	local Health
+	
+	Health = vape.Categories.Render:CreateModule({
+		Name = 'Health',
+		Function = function(callback)
+			if callback then
+				local label = Instance.new('TextLabel')
+				label.Size = UDim2.fromOffset(100, 20)
+				label.Position = UDim2.new(0.5, 6, 0.5, 30)
+				label.AnchorPoint = Vector2.new(0.5, 0)
+				label.BackgroundTransparency = 1
+				label.Text = '100 ❤️'
+				label.TextSize = 18
+				label.Font = Enum.Font.Arial
+				label.Parent = vape.gui
+				Health:Clean(label)
+				
+				repeat
+					label.Text = entitylib.isAlive and math.round(entitylib.character.Humanoid.Health)..' ❤️' or ''
+					label.TextColor3 = entitylib.isAlive and Color3.fromHSV((entitylib.character.Humanoid.Health / entitylib.character.Humanoid.MaxHealth) / 2.8, 0.86, 1) or Color3.new()
+					task.wait()
+				until not Health.Enabled
+			end
+		end,
+		Tooltip = 'Displays your health in the center of your screen.'
+	})
+end)
+	
+run(function()
+	local NameTags
+	local Targets
+	local Color
+	local Background
+	local DisplayName
+	local Health
+	local Distance
+	local DrawingToggle
+	local Scale
+	local FontOption
+	local Teammates
+	local DistanceCheck
+	local DistanceLimit
+	local Strings, Sizes, Reference = {}, {}, {}
+	local Folder = Instance.new('Folder')
+	Folder.Parent = vape.gui
+	local methodused
+	
+	local Added = {
+		Normal = function(ent)
+			if not Targets.Players.Enabled and ent.Player then return end
+			if not Targets.NPCs.Enabled and ent.NPC then return end
+			if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+			if vape.ThreadFix then
+				setthreadidentity(8)
+			end
+	
+			Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+	
+			if Health.Enabled then
+				local healthColor = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
+				Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255))..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
+			end
+	
+			if Distance.Enabled then
+				Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
+			end
+	
+			local nametag = Instance.new('TextLabel')
+			nametag.TextSize = 14 * Scale.Value
+			nametag.FontFace = FontOption.Value
+			local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+			nametag.Name = ent.Player and ent.Player.Name or ent.Character.Name
+			nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
+			nametag.AnchorPoint = Vector2.new(0.5, 1)
+			nametag.BackgroundColor3 = Color3.new()
+			nametag.BackgroundTransparency = Background.Value
+			nametag.BorderSizePixel = 0
+			nametag.Visible = false
+			nametag.Text = Strings[ent]
+			nametag.TextColor3 = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+			nametag.RichText = true
+			nametag.Parent = Folder
+			Reference[ent] = nametag
+		end,
+		Drawing = function(ent)
+			if not Targets.Players.Enabled and ent.Player then return end
+			if not Targets.NPCs.Enabled and ent.NPC then return end
+			if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+	
+			local nametag = {}
+			nametag.BG = Drawing.new('Square')
+			nametag.BG.Filled = true
+			nametag.BG.Transparency = 1 - Background.Value
+			nametag.BG.Color = Color3.new()
+			nametag.BG.ZIndex = 1
+			nametag.Text = Drawing.new('Text')
+			nametag.Text.Size = 15 * Scale.Value
+			nametag.Text.Font = 0
+			nametag.Text.ZIndex = 2
+			Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+	
+			if Health.Enabled then
+				Strings[ent] = Strings[ent]..' '..math.round(ent.Health)
+			end
+	
+			if Distance.Enabled then
+				Strings[ent] = '[%s] '..Strings[ent]
+			end
+	
+			nametag.Text.Text = Strings[ent]
+			nametag.Text.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+			nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
+			Reference[ent] = nametag
+		end
+	}
+	
+	local Removed = {
+		Normal = function(ent)
+			local v = Reference[ent]
+			if v then
+				if vape.ThreadFix then
+					setthreadidentity(8)
+				end
+				Reference[ent] = nil
+				Strings[ent] = nil
+				Sizes[ent] = nil
+				v:Destroy()
+			end
+		end,
+		Drawing = function(ent)
+			local v = Reference[ent]
+			if v then
+				if vape.ThreadFix then
+					setthreadidentity(8)
+				end
+				Reference[ent] = nil
+				Strings[ent] = nil
+				Sizes[ent] = nil
+				for _, obj in v do
+					pcall(function()
+						obj.Visible = false
+						obj:Remove()
+					end)
+				end
+			end
+		end
+	}
+	
+	local Updated = {
+		Normal = function(ent)
+			local nametag = Reference[ent]
+			if nametag then
+				if vape.ThreadFix then
+					setthreadidentity(8)
+				end
+				Sizes[ent] = nil
+				Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+	
+				if Health.Enabled then
+					local color = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
+					Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(color.R * 255))..','..tostring(math.floor(color.G * 255))..','..tostring(math.floor(color.B * 255))..')">'..math.round(ent.Health)..'</font>'
+				end
+	
+				if Distance.Enabled then
+					Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
+				end
+	
+				local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+				nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
+				nametag.Text = Strings[ent]
+			end
+		end,
+		Drawing = function(ent)
+			local nametag = Reference[ent]
+			if nametag then
+				if vape.ThreadFix then
+					setthreadidentity(8)
+				end
+				Sizes[ent] = nil
+				Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+	
+				if Health.Enabled then
+					Strings[ent] = Strings[ent]..' '..math.round(ent.Health)
+				end
+	
+				if Distance.Enabled then
+					Strings[ent] = '[%s] '..Strings[ent]
+					nametag.Text.Text = entitylib.isAlive and string.format(Strings[ent], math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude)) or Strings[ent]
+				else
+					nametag.Text.Text = Strings[ent]
+				end
+	
+				nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
+				nametag.Text.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+			end
+		end
+	}
+	
+	local ColorFunc = {
+		Normal = function(hue, sat, val)
+			local color = Color3.fromHSV(hue, sat, val)
+			for i, v in Reference do
+				v.TextColor3 = entitylib.getEntityColor(i) or color
+			end
+		end,
+		Drawing = function(hue, sat, val)
+			local color = Color3.fromHSV(hue, sat, val)
+			for i, v in Reference do
+				v.Text.Color = entitylib.getEntityColor(i) or color
+			end
+		end
+	}
+	
+	local Loop = {
+		Normal = function()
+			for ent, nametag in Reference do
+				if DistanceCheck.Enabled then
+					local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
+					if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+						nametag.Visible = false
+						continue
+					end
+				end
+	
+				local headPos, headVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position + Vector3.new(0, ent.HipHeight + 1, 0))
+				nametag.Visible = headVis
+				if not headVis then
+					continue
+				end
+	
+				if Distance.Enabled then
+					local mag = entitylib.isAlive and math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude) or 0
+					if Sizes[ent] ~= mag then
+						nametag.Text = string.format(Strings[ent], mag)
+						local ize = getfontsize(removeTags(nametag.Text), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+						nametag.Size = UDim2.fromOffset(ize.X + 8, ize.Y + 7)
+						Sizes[ent] = mag
+					end
+				end
+				nametag.Position = UDim2.fromOffset(headPos.X, headPos.Y)
+			end
+		end,
+		Drawing = function()
+			for ent, nametag in Reference do
+				if DistanceCheck.Enabled then
+					local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
+					if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+						nametag.Text.Visible = false
+						nametag.BG.Visible = false
+						continue
+					end
+				end
+	
+				local headPos, headVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position + Vector3.new(0, ent.HipHeight + 1, 0))
+				nametag.Text.Visible = headVis
+				nametag.BG.Visible = headVis
+				if not headVis then
+					continue
+				end
+	
+				if Distance.Enabled then
+					local mag = entitylib.isAlive and math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude) or 0
+					if Sizes[ent] ~= mag then
+						nametag.Text.Text = string.format(Strings[ent], mag)
+						nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
+						Sizes[ent] = mag
+					end
+				end
+				nametag.BG.Position = Vector2.new(headPos.X - (nametag.BG.Size.X / 2), headPos.Y - nametag.BG.Size.Y)
+				nametag.Text.Position = nametag.BG.Position + Vector2.new(4, 3)
+			end
+		end
+	}
+	
+	NameTags = vape.Categories.Render:CreateModule({
+		Name = 'NameTags',
+		Function = function(callback)
+			if callback then
+				methodused = DrawingToggle.Enabled and 'Drawing' or 'Normal'
+				if Removed[methodused] then
+					NameTags:Clean(entitylib.Events.EntityRemoved:Connect(Removed[methodused]))
+				end
+				if Added[methodused] then
+					for _, v in entitylib.List do
+						if Reference[v] then
+							Removed[methodused](v)
+						end
+						Added[methodused](v)
+					end
+					NameTags:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
+						if Reference[ent] then
+							Removed[methodused](ent)
+						end
+						Added[methodused](ent)
+					end))
+				end
+				if Updated[methodused] then
+					NameTags:Clean(entitylib.Events.EntityUpdated:Connect(Updated[methodused]))
+					for _, v in entitylib.List do
+						Updated[methodused](v)
+					end
+				end
+				if ColorFunc[methodused] then
+					NameTags:Clean(vape.Categories.Friends.ColorUpdate.Event:Connect(function()
+						ColorFunc[methodused](Color.Hue, Color.Sat, Color.Value)
+					end))
+				end
+				if Loop[methodused] then
+					NameTags:Clean(runService.RenderStepped:Connect(Loop[methodused]))
+				end
+			else
+				if Removed[methodused] then
+					for i in Reference do
+						Removed[methodused](i)
+					end
+				end
+			end
+		end,
+		Tooltip = 'Renders nametags on entities through walls.'
+	})
+	Targets = NameTags:CreateTargets({
+		Players = true,
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end
+	})
+	FontOption = NameTags:CreateFont({
+		Name = 'Font',
+		Blacklist = 'Arial',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end
+	})
+	Color = NameTags:CreateColorSlider({
+		Name = 'Player Color',
+		Function = function(hue, sat, val)
+			if NameTags.Enabled and ColorFunc[methodused] then
+				ColorFunc[methodused](hue, sat, val)
+			end
+		end
+	})
+	Scale = NameTags:CreateSlider({
+		Name = 'Scale',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end,
+		Default = 1,
+		Min = 0.1,
+		Max = 1.5,
+		Decimal = 10
+	})
+	Background = NameTags:CreateSlider({
+		Name = 'Transparency',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end,
+		Default = 0.5,
+		Min = 0,
+		Max = 1,
+		Decimal = 10
+	})
+	Health = NameTags:CreateToggle({
+		Name = 'Health',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end
+	})
+	Distance = NameTags:CreateToggle({
+		Name = 'Distance',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end
+	})
+	DisplayName = NameTags:CreateToggle({
+		Name = 'Use Displayname',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end,
+		Default = true
+	})
+	Teammates = NameTags:CreateToggle({
+		Name = 'Priority Only',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Hides teammates & non targetable entities'
+	})
+	DrawingToggle = NameTags:CreateToggle({
+		Name = 'Drawing',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end
+	})
+	DistanceCheck = NameTags:CreateToggle({
+		Name = 'Distance Check',
+		Function = function(callback)
+			DistanceLimit.Object.Visible = callback
+		end
+	})
+	DistanceLimit = NameTags:CreateTwoSlider({
+		Name = 'Player Distance',
+		Min = 0,
+		Max = 256,
+		DefaultMin = 0,
+		DefaultMax = 64,
+		Darker = true,
+		Visible = false
+	})
+end)
+	
+run(function()
+	local PlayerModel
+	local Scale
+	local Local
+	local Mesh
+	local Texture
+	local Rots = {}
+	local models = {}
+	
+	local function addMesh(ent)
+		if vape.ThreadFix then 
+			setthreadidentity(8)
+		end
+		local root = ent.RootPart
+		local part = Instance.new('Part')
+		part.Size = Vector3.new(3, 3, 3)
+		part.CFrame = root.CFrame * CFrame.Angles(math.rad(Rots[1].Value), math.rad(Rots[2].Value), math.rad(Rots[3].Value))
+		part.CanCollide = false
+		part.CanQuery = false
+		part.Massless = true
+		part.Parent = workspace
+		local meshd = Instance.new('SpecialMesh')
+		meshd.MeshId = Mesh.Value
+		meshd.TextureId = Texture.Value
+		meshd.Scale = Vector3.one * Scale.Value
+		meshd.Parent = part
+		local weld = Instance.new('WeldConstraint')
+		weld.Part0 = part
+		weld.Part1 = root
+		weld.Parent = part
+		models[root] = part
 	end
-})
-
-
-print("HitBox module loaded!")
-
-
--- ========== 終了処理 ==========
-print("Killaura & AimAssist loaded!")
-return mainapi
+	
+	local function removeMesh(ent)
+		if models[ent.RootPart] then 
+			models[ent.RootPart]:Destroy()
+			models[ent.RootPart] = nil
+		end
+	end
+	
+	PlayerModel = vape.Categories.Render:CreateModule({
+		Name = 'PlayerModel',
+		Function = function(callback)
+			if callback then 
+				if Local.Enabled then 
+					PlayerModel:Clean(entitylib.Events.LocalAdded:Connect(addMesh))
+					PlayerModel:Clean(entitylib.Events.LocalRemoved:Connect(removeMesh))
+					if entitylib.isAlive then 
+						task.spawn(addMesh, entitylib.character)
+					end
+				end
+				PlayerModel:Clean(entitylib.Events.EntityAdded:Connect(addMesh))
+				PlayerModel:Clean(entitylib.Events.EntityRemoved:Connect(removeMesh))
+				for _, ent in entitylib.List do 
+					task.spawn(addMesh, ent)
+				end
+			else
+				for _, part in models do 
+					part:Destroy()
+				end
+				table.clear(models)
+			end
+		end,
+		Tooltip = 'Change the player models to a Mesh'
+	})
+	Scale = PlayerModel:CreateSlider({
+		Name = 'Scale',
+		Min = 0,
+		Max = 2,
+		Default = 1,
+		Decimal = 100,
+		Function = function(val)
+			for _, part in models do 
+				part.Mesh.Scale = Vector3.one * val
+			end
+		end
+	})
+	for _, name in {'Rotation X', 'Rotation Y', 'Rotation Z'} do 
+		table.insert(Rots, PlayerModel:CreateSlider({
+			Name = name,
+			Min = 0,
+			Max = 360,
+			Function = function(val)
+				for root, part in models do 
+					part.WeldConstraint.Enabled = false
+					part.CFrame = root.CFrame * CFrame.Angles(math.rad(Rots[1].Value), math.rad(Rots[2].Value), math.rad(Rots[3].Value))
+					part.WeldConstraint.Enabled = true
+				end
+			end
+		}))
+	end
+	Local = PlayerModel:CreateToggle({
+		Name = 'Local',
+		Function = function()
+			if PlayerModel.Enabled then 
+				PlayerModel:Toggle()
+				PlayerModel:Toggle()
+			end
+		end
+	})
+	Mesh = PlayerModel:CreateTextBox({
+		Name = 'Mesh',
+		Placeholder = 'mesh id',
+		Function = function()
+			for _, part in models do 
+				part.Mesh.MeshId = Mesh.Value
+			end
+		end
+	})
+	Texture = PlayerModel:CreateTextBox({
+		Name = 'Texture',
+		Placeholder = 'texture id',
+		Function = function()
+			for _, part in models do 
+				part.Mesh.TextureId = Texture.Value
+			end
+		end
+	})
+	
+end)
+	
+run(function()
+	local Radar
+	local Targets
+	local DotStyle
+	local PlayerColor
+	local Clamp
+	local Reference = {}
+	local bkg
+	
+	local function Added(ent)
+		if not Targets.Players.Enabled and ent.Player then return end
+		if not Targets.NPCs.Enabled and ent.NPC then return end
+		if (not ent.Targetable) and (not ent.Friend) then return end
+		if vape.ThreadFix then
+			setthreadidentity(8)
+		end
+	
+		local dot = Instance.new('Frame')
+		dot.Size = UDim2.fromOffset(4, 4)
+		dot.AnchorPoint = Vector2.new(0.5, 0.5)
+		dot.BackgroundColor3 = entitylib.getEntityColor(ent) or Color3.fromHSV(PlayerColor.Hue, PlayerColor.Sat, PlayerColor.Value)
+		dot.Parent = bkg
+		local corner = Instance.new('UICorner')
+		corner.CornerRadius = UDim.new(DotStyle.Value == 'Circles' and 1 or 0, 0)
+		corner.Parent = dot
+		local stroke = Instance.new('UIStroke')
+		stroke.Color = Color3.new()
+		stroke.Thickness = 1
+		stroke.Transparency = 0.8
+		stroke.Parent = dot
+		Reference[ent] = dot
+	end
+	
+	local function Removed(ent)
+		local v = Reference[ent]
+		if v then
+			if vape.ThreadFix then
+				setthreadidentity(8)
+			end
+			Reference[ent] = nil
+			v:Destroy()
+		end
+	end
+	
+	Radar = vape:CreateOverlay({
+		Name = 'Radar',
+		Icon = getcustomasset('newvape/assets/new/radaricon.png'),
+		Size = UDim2.fromOffset(14, 14),
+		Position = UDim2.fromOffset(12, 13),
+		Function = function(callback)
+			if callback then
+				Radar:Clean(entitylib.Events.EntityRemoved:Connect(Removed))
+				for _, v in entitylib.List do
+					if Reference[v] then
+						Removed(v)
+					end
+					Added(v)
+				end
+				Radar:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
+					if Reference[ent] then
+						Removed(ent)
+					end
+					Added(ent)
+				end))
+				Radar:Clean(vape.Categories.Friends.ColorUpdate.Event:Connect(function()
+					for ent, dot in Reference do
+						dot.BackgroundColor3 = entitylib.getEntityColor(ent) or Color3.fromHSV(PlayerColor.Hue, PlayerColor.Sat, PlayerColor.Value)
+					end
+				end))
+				Radar:Clean(runService.RenderStepped:Connect(function()
+					for ent, dot in Reference do
+						if entitylib.isAlive then
+							local dt = CFrame.lookAlong(entitylib.character.RootPart.Position, gameCamera.CFrame.LookVector * Vector3.new(1, 0, 1)):PointToObjectSpace(ent.RootPart.Position)
+							dot.Position = UDim2.fromOffset(Clamp.Enabled and math.clamp(108 + dt.X, 2, 214) or 108 + dt.X, Clamp.Enabled and math.clamp(108 + dt.Z, 8, 214) or 108 + dt.Z)
+						end
+					end
+				end))
+			else
+				for ent in Reference do
+					Removed(ent)
+				end
+			end
+		end
+	})
+	Targets = Radar:CreateTargets({
+		Players = true,
+		Function = function()
+			if Radar.Button.Enabled then
+				Radar.Button:Toggle()
+				Radar.Button:Toggle()
+			end
+		end
+	})
+	DotStyle = Radar:CreateDropdown({
+		Name = 'Dot Style',
+		List = {'Circles', 'Squares'},
+		Function = function(val)
+			for _, dot in Reference do
+				dot.UICorner.CornerRadius = UDim.new(val == 'Circles' and 1 or 0, 0)
+			end
+		end
+	})
+	PlayerColor = Radar:CreateColorSlider({
+		Name = 'Player Color',
+		Function = function(hue, sat, val)
+			for ent, dot in Reference do
+				dot.BackgroundColor3 = entitylib.getEntityColor(ent) or Color3.fromHSV(hue, sat, val)
+			end
+		end
+	})
+	bkg = Instance.new('Frame')
+	bkg.Size = UDim2.fromOffset(216, 216)
+	bkg.Position = UDim2.fromOffset(2, 2)
+	bkg.BackgroundColor3 = Color3.new()
+	bkg.BackgroundTransparency = 0.5
+	bkg.ClipsDescendants = true
+	bkg.Parent = Radar.Children
+	local corner = Instance.new('UICorner')
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = bkg
+	local stroke = Instance.new('UIStroke')
+	stroke.Thickness = 2
+	stroke.Color = Color3.new()
+	stroke.Transparency = 0.4
+	stroke.Parent = bkg
+	local line1 = Instance.new('Frame')
+	line1.Size = UDim2.new(0, 2, 1, 0)
+	line1.Position = UDim2.fromScale(0.5, 0.5)
+	line1.AnchorPoint = Vector2.new(0.5, 0.5)
+	line1.ZIndex = 0
+	line1.BackgroundColor3 = Color3.new(1, 1, 1)
+	line1.BackgroundTransparency = 0.5
+	line1.BorderSizePixel = 0
+	line1.Parent = bkg
+	local line2 = line1:Clone()
+	line2.Size = UDim2.new(1, 0, 0, 2)
+	line2.Parent = bkg
+	local bar = Instance.new('Frame')
+	bar.Size = UDim2.new(1, -6, 0, 4)
+	bar.Position = UDim2.fromOffset(3, 0)
+	bar.BackgroundColor3 = Color3.fromHSV(0.44, 1, 1)
+	bar.Parent = bkg
+	local barcorner = Instance.new('UICorner')
+	barcorner.CornerRadius = UDim.new(0, 8)
+	barcorner.Parent = bar
+	Radar:CreateColorSlider({
+		Name = 'Bar Color',
+		Function = function(hue, sat, val)
+			bar.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+		end
+	})
+	Radar:CreateToggle({
+		Name = 'Show Background',
+		Default = true,
+		Function = function(callback)
+			bkg.BackgroundTransparency = callback and 0.5 or 1
+			bar.BackgroundTransparency = callback and 0 or 1
+			stroke.Transparency = callback and 0.4 or 1
+		end
+	})
+	Radar:CreateToggle({
+		Name = 'Show Cross',
+		Default = true,
+		Function = function(callback)
+			line1.BackgroundTransparency = callback and 0.5 or 1
+			line2.BackgroundTransparency = callback and 0.5 or 1
+		end
+	})
+	Clamp = Radar:CreateToggle({
+		Name = 'Clamp Radar',
+		Default = true
+	})
+end)
+	
+run(function()
+	local Search
+	local List
+	local Color
+	local FillTransparency
+	local Reference = {}
+	local Folder = Instance.new('Folder')
+	Folder.Parent = vape.gui
+	
+	local function Add(v)
+		if not table.find(List.ListEnabled, v.Name) then return end
+		if v:IsA('BasePart') or v:IsA('Model') then
+			local box = Instance.new('BoxHandleAdornment')
+			box.AlwaysOnTop = true
+			box.Adornee = v
+			box.Size = v:IsA('Model') and v:GetExtentsSize() or v.Size
+			box.ZIndex = 0
+			box.Transparency = FillTransparency.Value
+			box.Color3 = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+			box.Parent = Folder
+			Reference[v] = box
+		end
+	end
+	
+	Search = vape.Categories.Render:CreateModule({
+		Name = 'Search',
+		Function = function(callback)
+			if callback then
+				Search:Clean(workspace.DescendantAdded:Connect(Add))
+				Search:Clean(workspace.DescendantRemoving:Connect(function(v)
+					if Reference[v] then
+						Reference[v]:Destroy()
+						Reference[v] = nil
+					end
+				end))
+				
+				for _, v in workspace:GetDescendants() do
+					Add(v)
+				end
+			else
+				Folder:ClearAllChildren()
+				table.clear(Reference)
+			end
+		end,
+		Tooltip = 'Draws box around selected parts\nAdd parts in Search frame'
+	})
+	List = Search:CreateTextList({
+		Name = 'Parts',
+		Function = function()
+			if Search.Enabled then
+				Search:Toggle()
+				Search:Toggle()
+			end
+		end
+	})
+	Color = Search:CreateColorSlider({
+		Name = 'Color',
+		Function = function(hue, sat, val)
+			for _, v in Reference do
+				v.Color3 = Color3.fromHSV(hue, sat, val)
+			end
+		end
+	})
+	FillTransparency = Search:CreateSlider({
+		Name = 'Transparency',
+		Min = 0,
+		Max = 1,
+		Function = function(val)
+			for _, v in Reference do
+				v.Transparency = val
+			end
+		end,
+		Decimal = 10
+	})
+end)
+	
+run(function()
+	local SessionInfo
+	local FontOption
+	local Hide
+	local TextSize
+	local BorderColor
+	local Title
+	local TitleOffset = {}
+	local Custom
+	local CustomBox
+	local infoholder
+	local infolabel
+	local infostroke
+	
+	SessionInfo = vape:CreateOverlay({
+		Name = 'Session Info',
+		Icon = getcustomasset('newvape/assets/new/textguiicon.png'),
+		Size = UDim2.fromOffset(16, 12),
+		Position = UDim2.fromOffset(12, 14),
+		Function = function(callback)
+			if callback then
+				local teleportedServers
+				SessionInfo:Clean(playersService.LocalPlayer.OnTeleport:Connect(function()
+					if not teleportedServers then
+						teleportedServers = true
+						queue_on_teleport("shared.vapesessioninfo = '"..httpService:JSONEncode(vape.Libraries.sessioninfo.Objects).."'")
+					end
+				end))
+	
+				if shared.vapesessioninfo then
+					for i, v in httpService:JSONDecode(shared.vapesessioninfo) do
+						if vape.Libraries.sessioninfo.Objects[i] and v.Saved then
+							vape.Libraries.sessioninfo.Objects[i].Value = v.Value
+						end
+					end
+				end
+	
+				repeat
+					if vape.Libraries.sessioninfo then
+						local stuff = {''}
+						if Title.Enabled then
+							stuff[1] = TitleOffset.Enabled and '<b>Session Info</b>\n<font size="4"> </font>' or '<b>Session Info</b>'
+						end
+	
+						for i, v in vape.Libraries.sessioninfo.Objects do
+							stuff[v.Index] = not table.find(Hide.ListEnabled, i) and i..': '..v.Function(v.Value) or false
+						end
+	
+						if #Hide.ListEnabled > 0 then
+							local key, val
+							repeat
+								local oldkey = key
+								key, val = next(stuff, key)
+								if val == false then
+									table.remove(stuff, key)
+									key = oldkey
+								end
+							until not key
+						end
+	
+						if Custom.Enabled then
+							table.insert(stuff, CustomBox.Value)
+						end
+	
+						if not Title.Enabled then
+							table.remove(stuff, 1)
+						end
+						infolabel.Text = table.concat(stuff, '\n')
+						infolabel.FontFace = FontOption.Value
+						infolabel.TextSize = TextSize.Value
+						local size = getfontsize(removeTags(infolabel.Text), infolabel.TextSize, infolabel.FontFace)
+						infoholder.Size = UDim2.fromOffset(size.X + 16, size.Y + (Title.Enabled and TitleOffset.Enabled and 4 or 16))
+					end
+					task.wait(1)
+				until not SessionInfo.Button or not SessionInfo.Button.Enabled
+			end
+		end
+	})
+	FontOption = SessionInfo:CreateFont({
+		Name = 'Font',
+		Blacklist = 'Arial'
+	})
+	Hide = SessionInfo:CreateTextList({
+		Name = 'Blacklist',
+		Tooltip = 'Name of entry to hide.',
+		Icon = getcustomasset('newvape/assets/new/blockedicon.png'),
+		Tab = getcustomasset('newvape/assets/new/blockedtab.png'),
+		TabSize = UDim2.fromOffset(21, 16),
+		Color = Color3.fromRGB(250, 50, 56)
+	})
+	SessionInfo:CreateColorSlider({
+		Name = 'Background Color',
+		DefaultValue = 0,
+		DefaultOpacity = 0.5,
+		Function = function(hue, sat, val, opacity)
+			infoholder.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+			infoholder.BackgroundTransparency = 1 - opacity
+		end
+	})
+	BorderColor = SessionInfo:CreateColorSlider({
+		Name = 'Border Color',
+		Function = function(hue, sat, val, opacity)
+			infostroke.Color = Color3.fromHSV(hue, sat, val)
+			infostroke.Transparency = 1 - opacity
+		end,
+		Darker = true,
+		Visible = false
+	})
+	TextSize = SessionInfo:CreateSlider({
+		Name = 'Text Size',
+		Min = 1,
+		Max = 30,
+		Default = 16
+	})
+	Title = SessionInfo:CreateToggle({
+		Name = 'Title',
+		Function = function(callback)
+			if TitleOffset.Object then
+				TitleOffset.Object.Visible = callback
+			end
+		end,
+		Default = true
+	})
+	TitleOffset = SessionInfo:CreateToggle({
+		Name = 'Offset',
+		Default = true,
+		Darker = true
+	})
+	SessionInfo:CreateToggle({
+		Name = 'Border',
+		Function = function(callback)
+			infostroke.Enabled = callback
+			BorderColor.Object.Visible = callback
+		end
+	})
+	Custom = SessionInfo:CreateToggle({
+		Name = 'Add custom text',
+		Function = function(enabled)
+			CustomBox.Object.Visible = enabled
+		end
+	})
+	CustomBox = SessionInfo:CreateTextBox({
+		Name = 'Custom text',
+		Darker = true,
+		Visible = false
+	})
+	infoholder = Instance.new('Frame')
+	infoholder.BackgroundColor3 = Color3.new()
+	infoholder.BackgroundTransparency = 0.5
+	infoholder.Parent = SessionInfo.Children
+	vape:Clean(SessionInfo.Children:GetPropertyChangedSignal('AbsolutePosition'):Connect(function()
+		if vape.ThreadFix then
+			setthreadidentity(8)
+		end
+		local newside = SessionInfo.Children.AbsolutePosition.X > (vape.gui.AbsoluteSize.X / 2)
+		infoholder.Position = UDim2.fromScale(newside and 1 or 0, 0)
+		infoholder.AnchorPoint = Vector2.new(newside and 1 or 0, 0)
+	end))
+	local sessioninfocorner = Instance.new('UICorner')
+	sessioninfocorner.CornerRadius = UDim.new(0, 5)
+	sessioninfocorner.Parent = infoholder
+	infolabel = Instance.new('TextLabel')
+	infolabel.Size = UDim2.new(1, -16, 1, -16)
+	infolabel.Position = UDim2.fromOffset(8, 8)
+	infolabel.BackgroundTransparency = 1
+	infolabel.TextXAlignment = Enum.TextXAlignment.Left
+	infolabel.TextYAlignment = Enum.TextYAlignment.Top
+	infolabel.TextSize = 16
+	infolabel.TextColor3 = Color3.new(1, 1, 1)
+	infolabel.TextStrokeColor3 = Color3.new()
+	infolabel.TextStrokeTransparency = 0.8
+	infolabel.Font = Enum.Font.Arial
+	infolabel.RichText = true
+	infolabel.Parent = infoholder
+	infostroke = Instance.new('UIStroke')
+	infostroke.Enabled = false
+	infostroke.Color = Color3.fromHSV(0.44, 1, 1)
+	infostroke.Parent = infoholder
+	addBlur(infoholder)
+	vape.Libraries.sessioninfo = {
+		Objects = {},
+		AddItem = function(self, name, startvalue, func, saved)
+			func, saved = func or function(val) return val end, saved == nil or saved
+			self.Objects[name] = {Function = func, Saved = saved, Value = startvalue or 0, Index = getTableSize(self.Objects) + 2}
+			return {
+				Increment = function(_, val)
+					self.Objects[name].Value += (val or 1)
+				end,
+				Get = function()
+					return self.Objects[name].Value
+				end
+			}
+		end
+	}
+	vape.Libraries.sessioninfo:AddItem('Time Played', os.clock(), function(value)
+		return os.date('!%X', math.floor(os.clock() - value))
+	end)
+end)
+	
+run(function()
+	local Tracers
+	local Targets
+	local Color
+	local Transparency
+	local StartPosition
+	local EndPosition
+	local Teammates
+	local DistanceColor
+	local Distance
+	local DistanceLimit
+	local Behind
+	local Reference = {}
+	
+	local function Added(ent)
+		if not Targets.Players.Enabled and ent.Player then return end
+		if not Targets.NPCs.Enabled and ent.NPC then return end
+		if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+		if vape.ThreadFix then
+			setthreadidentity(8)
+		end
+	
+		local EntityTracer = Drawing.new('Line')
+		EntityTracer.Thickness = 1
+		EntityTracer.Transparency = 1 - Transparency.Value
+		EntityTracer.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+		Reference[ent] = EntityTracer
+	end
+	
+	local function Removed(ent)
+		local v = Reference[ent]
+		if v then
+			if vape.ThreadFix then
+				setthreadidentity(8)
+			end
+			Reference[ent] = nil
+			pcall(function()
+				v.Visible = false
+				v:Remove()
+			end)
+		end
+	end
+	
+	local function ColorFunc(hue, sat, val)
+		if DistanceColor.Enabled then return end
+		local tracerColor = Color3.fromHSV(hue, sat, val)
+		for ent, EntityTracer in Reference do
+			EntityTracer.Color = entitylib.getEntityColor(ent) or tracerColor
+		end
+	end
+	
+	local function Loop()
+		local screenSize = vape.gui.AbsoluteSize
+		local startVector = StartPosition.Value == 'Mouse' and inputService:GetMouseLocation() or Vector2.new(screenSize.X / 2, (StartPosition.Value == 'Middle' and screenSize.Y / 2 or screenSize.Y))
+	
+		for ent, EntityTracer in Reference do
+			local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude
+			if Distance.Enabled and distance then
+				if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+					EntityTracer.Visible = false
+					continue
+				end
+			end
+	
+			local pos = ent[EndPosition.Value == 'Torso' and 'RootPart' or 'Head'].Position
+			local rootPos, rootVis = gameCamera:WorldToViewportPoint(pos)
+			if not rootVis and Behind.Enabled then
+				local tempPos = gameCamera.CFrame:PointToObjectSpace(pos)
+				tempPos = CFrame.Angles(0, 0, (math.atan2(tempPos.Y, tempPos.X) + math.pi)):VectorToWorldSpace((CFrame.Angles(0, math.rad(89.9), 0):VectorToWorldSpace(Vector3.new(0, 0, -1))))
+				rootPos = gameCamera:WorldToViewportPoint(gameCamera.CFrame:pointToWorldSpace(tempPos))
+				rootVis = true
+			end
+	
+			local endVector = Vector2.new(rootPos.X, rootPos.Y)
+			EntityTracer.Visible = rootVis
+			EntityTracer.From = startVector
+			EntityTracer.To = endVector
+			if DistanceColor.Enabled and distance then
+				EntityTracer.Color = Color3.fromHSV(math.min((distance / 128) / 2.8, 0.4), 0.89, 0.75)
+			end
+		end
+	end
+	
+	Tracers = vape.Categories.Render:CreateModule({
+		Name = 'Tracers',
+		Function = function(callback)
+			if callback then
+				Tracers:Clean(entitylib.Events.EntityRemoved:Connect(Removed))
+				for _, v in entitylib.List do
+					if Reference[v] then
+						Removed(v)
+					end
+					Added(v)
+				end
+				Tracers:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
+					if Reference[ent] then
+						Removed(ent)
+					end
+					Added(ent)
+				end))
+				Tracers:Clean(vape.Categories.Friends.ColorUpdate.Event:Connect(function()
+					ColorFunc(Color.Hue, Color.Sat, Color.Value)
+				end))
+				Tracers:Clean(runService.RenderStepped:Connect(Loop))
+			else
+				for i in Reference do
+					Removed(i)
+				end
+			end
+		end,
+		Tooltip = 'Renders tracers on players.'
+	})
+	Targets = Tracers:CreateTargets({
+		Players = true,
+		Function = function()
+			if Tracers.Enabled then
+				Tracers:Toggle()
+				Tracers:Toggle()
+			end
+		end
+	})
+	StartPosition = Tracers:CreateDropdown({
+		Name = 'Start Position',
+		List = {'Middle', 'Bottom', 'Mouse'},
+		Function = function()
+			if Tracers.Enabled then
+				Tracers:Toggle()
+				Tracers:Toggle()
+			end
+		end
+	})
+	EndPosition = Tracers:CreateDropdown({
+		Name = 'End Position',
+		List = {'Head', 'Torso'},
+		Function = function()
+			if Tracers.Enabled then
+				Tracers:Toggle()
+				Tracers:Toggle()
+			end
+		end
+	})
+	Color = Tracers:CreateColorSlider({
+		Name = 'Player Color',
+		Function = function(hue, sat, val)
+			if Tracers.Enabled then
+				ColorFunc(hue, sat, val)
+			end
+		end
+	})
+	Transparency = Tracers:CreateSlider({
+		Name = 'Transparency',
+		Min = 0,
+		Max = 1,
+		Function = function(val)
+			for _, tracer in Reference do
+				tracer.Transparency = 1 - val
+			end
+		end,
+		Decimal = 10
+	})
+	DistanceColor = Tracers:CreateToggle({
+		Name = 'Color by distance',
+		Function = function()
+			if Tracers.Enabled then
+				Tracers:Toggle()
+				Tracers:Toggle()
+			end
+		end
+	})
+	Distance = Tracers:CreateToggle({
+		Name = 'Distance Check',
+		Function = function(callback)
+			DistanceLimit.Object.Visible = callback
+		end
+	})
+	DistanceLimit = Tracers:CreateTwoSlider({
+		Name = 'Player Distance',
+		Min = 0,
+		Max = 256,
+		DefaultMin = 0,
+		DefaultMax = 64,
+		Darker = true,
+		Visible = false
+	})
+	Behind = Tracers:CreateToggle({
+		Name = 'Behind',
+		Default = true
+	})
+	Teammates = Tracers:CreateToggle({
+		Name = 'Priority Only',
+		Function = function()
+			if Tracers.Enabled then
+				Tracers:Toggle()
+				Tracers:Toggle()
+			end
+		end,
+		Default = true,
+		Tooltip = 'Hides teammates & non targetable entities'
+	})
+end)
+	
+run(function()
+	local Waypoints
+	local FontOption
+	local List
+	local Color
+	local Scale
+	local Background
+	WaypointFolder = Instance.new('Folder')
+	WaypointFolder.Parent = vape.gui
+	
+	Waypoints = vape.Categories.Render:CreateModule({
+		Name = 'Waypoints',
+		Function = function(callback)
+			if callback then
+				for _, v in List.ListEnabled do
+					local split = v:split('/')
+					local tagSize = getfontsize(removeTags(split[2]), 14 * Scale.Value, FontOption.Value, Vector2.new(100000, 100000))
+					local billboard = Instance.new('BillboardGui')
+					billboard.Size = UDim2.fromOffset(tagSize.X + 8, tagSize.Y + 7)
+					billboard.StudsOffsetWorldSpace = Vector3.new(unpack(split[1]:split(',')))
+					billboard.AlwaysOnTop = true
+					billboard.Parent = WaypointFolder
+					local tag = Instance.new('TextLabel')
+					tag.BackgroundColor3 = Color3.new()
+					tag.BorderSizePixel = 0
+					tag.Visible = true
+					tag.RichText = true
+					tag.FontFace = FontOption.Value
+					tag.TextSize = 14 * Scale.Value
+					tag.BackgroundTransparency = Background.Value
+					tag.Size = billboard.Size
+					tag.Text = split[2]
+					tag.TextColor3 = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+					tag.Parent = billboard
+				end
+			else
+				WaypointFolder:ClearAllChildren()
+			end
+		end,
+		Tooltip = 'Mark certain spots with a visual indicator'
+	})
+	FontOption = Waypoints:CreateFont({
+		Name = 'Font',
+		Blacklist = 'Arial',
+		Function = function()
+			if Waypoints.Enabled then
+				Waypoints:Toggle()
+				Waypoints:Toggle()
+			end
+		end,
+	})
+	List = Waypoints:CreateTextList({
+		Name = 'Points',
+		Placeholder = 'x, y, z/name',
+		Function = function()
+			if Waypoints.Enabled then
+				Waypoints:Toggle()
+				Waypoints:Toggle()
+			end
+		end
+	})
+	Waypoints:CreateButton({
+		Name = 'Add current position',
+		Function = function()
+			if entitylib.isAlive then
+				local pos = entitylib.character.RootPart.Position // 1
+				List:ChangeValue(pos.X..','..pos.Y..','..pos.Z..'/Waypoint '..(#List.List + 1))
+			end
+		end
+	})
+	Color = Waypoints:CreateColorSlider({
+		Name = 'Color',
+		Function = function(hue, sat, val)
+			for _, v in WaypointFolder:GetChildren() do
+				v.TextLabel.TextColor3 = Color3.fromHSV(hue, sat, val)
+			end
+		end
+	})
+	Scale = Waypoints:CreateSlider({
+		Name = 'Scale',
+		Function = function()
+			if Waypoints.Enabled then
+				Waypoints:Toggle()
+				Waypoints:Toggle()
+			end
+		end,
+		Default = 1,
+		Min = 0.1,
+		Max = 1.5,
+		Decimal = 10
+	})
+	Background = Waypoints:CreateSlider({
+		Name = 'Transparency',
+		Function = function()
+			if Waypoints.Enabled then
+				Waypoints:Toggle()
+				Waypoints:Toggle()
+			end
+		end,
+		Default = 0.5,
+		Min = 0,
+		Max = 1,
+		Decimal = 10
+	})
+	
+end)
+	
+run(function()
+	local AnimationPlayer
+	local IDBox
+	local Priority
+	local Speed
+	local anim, animobject
+	
+	local function playAnimation(char)
+		local animcheck = anim
+		if animcheck then
+			anim = nil
+			animcheck:Stop()
+		end
+	
+		local suc, res = pcall(function()
+			anim = char.Humanoid.Animator:LoadAnimation(animobject)
+		end)
+	
+		if suc then
+			local currentanim = anim
+			anim.Priority = Enum.AnimationPriority[Priority.Value]
+			anim:Play()
+			anim:AdjustSpeed(Speed.Value)
+			AnimationPlayer:Clean(anim.Stopped:Connect(function()
+				if currentanim == anim then
+					anim:Play()
+				end
+			end))
+		else
+			notif('AnimationPlayer', 'failed to load anim : '..(res or 'invalid animation id'), 5, 'warning')
+		end
+	end
+	
+	AnimationPlayer = vape.Categories.Utility:CreateModule({
+		Name = 'AnimationPlayer',
+		Function = function(callback)
+			if callback then
+				animobject = Instance.new('Animation')
+				local suc, id = pcall(function()
+					return string.match(game:GetObjects('rbxassetid://'..IDBox.Value)[1].AnimationId, '%?id=(%d+)')
+				end)
+				animobject.AnimationId = 'rbxassetid://'..(suc and id or IDBox.Value)
+	
+				if entitylib.isAlive then
+					playAnimation(entitylib.character)
+				end
+				AnimationPlayer:Clean(entitylib.Events.LocalAdded:Connect(playAnimation))
+				AnimationPlayer:Clean(animobject)
+			else
+				if anim then
+					anim:Stop()
+				end
+			end
+		end,
+		Tooltip = 'Plays a specific animation of your choosing at a certain speed'
+	})
+	IDBox = AnimationPlayer:CreateTextBox({
+		Name = 'Animation',
+		Placeholder = 'anim (num only)',
+		Function = function(enter)
+			if enter and AnimationPlayer.Enabled then
+				AnimationPlayer:Toggle()
+				AnimationPlayer:Toggle()
+			end
+		end
+	})
+	local prio = {'Action4'}
+	for _, v in Enum.AnimationPriority:GetEnumItems() do
+		if v.Name ~= 'Action4' then
+			table.insert(prio, v.Name)
+		end
+	end
+	Priority = AnimationPlayer:CreateDropdown({
+		Name = 'Priority',
+		List = prio,
+		Function = function(val)
+			if anim then
+				anim.Priority = Enum.AnimationPriority[val]
+			end
+		end
+	})
+	Speed = AnimationPlayer:CreateSlider({
+		Name = 'Speed',
+		Function = function(val)
+			if anim then
+				anim:AdjustSpeed(val)
+			end
+		end,
+		Min = 0.1,
+		Max = 2,
+		Decimal = 10
+	})
+end)
+	
+run(function()
+	local AntiRagdoll
+	
+	AntiRagdoll = vape.Categories.Utility:CreateModule({
+		Name = 'AntiRagdoll',
+		Function = function(callback)
+			if entitylib.isAlive then
+				entitylib.character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, not callback)
+			end
+	
+			if callback then
+				AntiRagdoll:Clean(entitylib.Events.LocalAdded:Connect(function(char)
+					char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+				end))
+			end
+		end,
+		Tooltip = 'Prevents you from getting knocked down in a ragdoll state'
+	})
+end)
+	
+run(function()
+	local AutoRejoin
+	local Sort
+	
+	AutoRejoin = vape.Categories.Utility:CreateModule({
+		Name = 'AutoRejoin',
+		Function = function(callback)
+			if callback then
+				local check
+				AutoRejoin:Clean(guiService.ErrorMessageChanged:Connect(function(str)
+					if (not check or guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectLuaKick) and guiService:GetErrorCode() ~= Enum.ConnectionError.DisconnectConnectionLost and not str:lower():find('ban') then
+						check = true
+						serverHop(nil, Sort.Value)
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Automatically rejoins into a new server if you get disconnected / kicked'
+	})
+	Sort = AutoRejoin:CreateDropdown({
+		Name = 'Sort',
+		List = {'Descending', 'Ascending'},
+		Tooltip = 'Descending - Prefers full servers\nAscending - Prefers empty servers'
+	})
+end)
+	
+run(function()
+	local Blink
+	local Type
+	local AutoSend
+	local AutoSendLength
+	local oldphys, oldsend
+	
+	Blink = vape.Categories.Utility:CreateModule({
+		Name = 'Blink',
+		Function = function(callback)
+			if callback then
+				local teleported
+				Blink:Clean(lplr.OnTeleport:Connect(function()
+					setfflag('PhysicsSenderMaxBandwidthBps', '38760')
+					setfflag('DataSenderRate', '60')
+					teleported = true
+				end))
+	
+				repeat
+					local physicsrate, senderrate = '0', Type.Value == 'All' and '-1' or '60'
+					if AutoSend.Enabled and tick() % (AutoSendLength.Value + 0.1) > AutoSendLength.Value then
+						physicsrate, senderrate = '38760', '60'
+					end
+	
+					if physicsrate ~= oldphys or senderrate ~= oldsend then
+						setfflag('PhysicsSenderMaxBandwidthBps', physicsrate)
+						setfflag('DataSenderRate', senderrate)
+						oldphys, oldsend = physicsrate, senderrate
+					end
+	
+					task.wait(0.03)
+				until (not Blink.Enabled and not teleported)
+			else
+				if setfflag then
+					setfflag('PhysicsSenderMaxBandwidthBps', '38760')
+					setfflag('DataSenderRate', '60')
+				end
+				oldphys, oldsend = nil, nil
+			end
+		end,
+		Tooltip = 'Chokes packets until disabled.'
+	})
+	Type = Blink:CreateDropdown({
+		Name = 'Type',
+		List = {'Movement Only', 'All'},
+		Tooltip = 'Movement Only - Only chokes movement packets\nAll - Chokes remotes & movement'
+	})
+	AutoSend = Blink:CreateToggle({
+		Name = 'Auto send',
+		Function = function(callback)
+			AutoSendLength.Object.Visible = callback
+		end,
+		Tooltip = 'Automatically send packets in intervals'
+	})
+	AutoSendLength = Blink:CreateSlider({
+		Name = 'Send threshold',
+		Min = 0,
+		Max = 1,
+		Decimal = 100,
+		Darker = true,
+		Visible = false,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+end)
+	
+run(function()
+	local ChatSpammer
+	local Lines
+	local Mode
+	local Delay
+	local Hide
+	local oldchat
+	
+	ChatSpammer = vape.Categories.Utility:CreateModule({
+		Name = 'ChatSpammer',
+		Function = function(callback)
+			if callback then
+				if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+					if Hide.Enabled and coreGui:FindFirstChild('ExperienceChat') then
+						ChatSpammer:Clean(coreGui.ExperienceChat:FindFirstChild('RCTScrollContentView', true).ChildAdded:Connect(function(msg)
+							if msg.Name:sub(1, 2) == '0-' and msg.ContentText == 'You must wait before sending another message.' then
+								msg.Visible = false
+							end
+						end))
+					end
+				elseif replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
+					if Hide.Enabled then
+						oldchat = hookfunction(getconnections(replicatedStorage.DefaultChatSystemChatEvents.OnNewSystemMessage.OnClientEvent)[1].Function, function(data, ...)
+							if data.Message:find('ChatFloodDetector') then return end
+							return oldchat(data, ...)
+						end)
+					end
+				else
+					notif('ChatSpammer', 'unsupported chat', 5, 'warning')
+					ChatSpammer:Toggle()
+					return
+				end
+				
+				local ind = 1
+				repeat
+					local message = (#Lines.ListEnabled > 0 and Lines.ListEnabled[math.random(1, #Lines.ListEnabled)] or 'vxpe on top')
+					if Mode.Value == 'Order' and #Lines.ListEnabled > 0 then
+						message = Lines.ListEnabled[ind] or Lines.ListEnabled[1]
+						ind = (ind % #Lines.ListEnabled) + 1
+					end
+	
+					if textChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+						textChatService.ChatInputBarConfiguration.TargetTextChannel:SendAsync(message)
+					else
+						replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(message, 'All')
+					end
+	
+					task.wait(Delay.Value)
+				until not ChatSpammer.Enabled
+			else
+				if oldchat then
+					hookfunction(getconnections(replicatedStorage.DefaultChatSystemChatEvents.OnNewSystemMessage.OnClientEvent)[1].Function, oldchat)
+				end
+			end
+		end,
+		Tooltip = 'Automatically types in chat'
+	})
+	Lines = ChatSpammer:CreateTextList({Name = 'Lines'})
+	Mode = ChatSpammer:CreateDropdown({
+		Name = 'Mode',
+		List = {'Random', 'Order'}
+	})
+	Delay = ChatSpammer:CreateSlider({
+		Name = 'Delay',
+		Min = 0.1,
+		Max = 10,
+		Default = 1,
+		Decimal = 10,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	Hide = ChatSpammer:CreateToggle({
+		Name = 'Hide Flood Message',
+		Default = true,
+		Function = function()
+			if ChatSpammer.Enabled then
+				ChatSpammer:Toggle()
+				ChatSpammer:Toggle()
+			end
+		end
+	})
+end)
+	
+run(function()
+	local Disabler
+	
+	local function characterAdded(char)
+		for _, v in getconnections(char.RootPart:GetPropertyChangedSignal('CFrame')) do
+			hookfunction(v.Function, function() end)
+		end
+		for _, v in getconnections(char.RootPart:GetPropertyChangedSignal('Velocity')) do
+			hookfunction(v.Function, function() end)
+		end
+	end
+	
+	Disabler = vape.Categories.Utility:CreateModule({
+		Name = 'Disabler',
+		Function = function(callback)
+			if callback then
+				Disabler:Clean(entitylib.Events.LocalAdded:Connect(characterAdded))
+				if entitylib.isAlive then
+					characterAdded(entitylib.character)
+				end
+			end
+		end,
+		Tooltip = 'Disables GetPropertyChangedSignal detections for movement'
+	})
+end)
+	
+run(function()
+	vape.Categories.Utility:CreateModule({
+		Name = 'Panic',
+		Function = function(callback)
+			if callback then
+				for _, v in vape.Modules do
+					if v.Enabled then
+						v:Toggle()
+					end
+				end
+			end
+		end,
+		Tooltip = 'Disables all currently enabled modules'
+	})
+end)
+	
+run(function()
+	local Rejoin
+	
+	Rejoin = vape.Categories.Utility:CreateModule({
+		Name = 'Rejoin',
+		Function = function(callback)
+			if callback then
+				notif('Rejoin', 'Rejoining...', 5)
+				Rejoin:Toggle()
+				if playersService.NumPlayers > 1 then
+					teleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)
+				else
+					teleportService:Teleport(game.PlaceId)
+				end
+			end
+		end,
+		Tooltip = 'Rejoins the server'
+	})
+end)
+	
+run(function()
+	local ServerHop
+	local Sort
+	
+	ServerHop = vape.Categories.Utility:CreateModule({
+		Name = 'ServerHop',
+		Function = function(callback)
+			if callback then
+				ServerHop:Toggle()
+				serverHop(nil, Sort.Value)
+			end
+		end,
+		Tooltip = 'Teleports into a unique server'
+	})
+	Sort = ServerHop:CreateDropdown({
+		Name = 'Sort',
+		List = {'Descending', 'Ascending'},
+		Tooltip = 'Descending - Prefers full servers\nAscending - Prefers empty servers'
+	})
+	ServerHop:CreateButton({
+		Name = 'Rejoin Previous Server',
+		Function = function()
+			notif('ServerHop', shared.vapeserverhopprevious and 'Rejoining previous server...' or 'Cannot find previous server', 5)
+			if shared.vapeserverhopprevious then
+				teleportService:TeleportToPlaceInstance(game.PlaceId, shared.vapeserverhopprevious)
+			end
+		end
+	})
+end)
+	
+run(function()
+	local StaffDetector
+	local Mode
+	local Profile
+	local Users
+	local Group
+	local Role
+	
+	local function getRole(plr, id)
+		local suc, res
+		for _ = 1, 3 do
+			suc, res = pcall(function()
+				return plr:GetRankInGroup(id)
+			end)
+			if suc then break end
+		end
+		return suc and res or 0
+	end
+	
+	local function getLowestStaffRole(roles)
+		local highest = math.huge
+		for _, v in roles do
+			local low = v.Name:lower()
+			if (low:find('admin') or low:find('mod') or low:find('dev')) and v.Rank < highest then
+				highest = v.Rank
+			end
+		end
+		return highest
+	end
+	
+	local function playerAdded(plr)
+		if not vape.Loaded then
+			repeat task.wait() until vape.Loaded
+		end
+	
+		local user = table.find(Users.ListEnabled, tostring(plr.UserId))
+		if user or getRole(plr, tonumber(Group.Value) or 0) >= (tonumber(Role.Value) or 1) then
+			notif('StaffDetector', 'Staff Detected ('..(user and 'blacklisted_user' or 'staff_role')..'): '..plr.Name, 60, 'alert')
+			whitelist.customtags[plr.Name] = {{text = 'GAME STAFF', color = Color3.new(1, 0, 0)}}
+	
+			if Mode.Value == 'Uninject' then
+				task.spawn(function()
+					vape:Uninject()
+				end)
+				game:GetService('StarterGui'):SetCore('SendNotification', {
+					Title = 'StaffDetector',
+					Text = 'Staff Detected\n'..plr.Name,
+					Duration = 60,
+				})
+			elseif Mode.Value == 'ServerHop' then
+				serverHop()
+			elseif Mode.Value == 'Profile' then
+				vape.Save = function() end
+				if vape.Profile ~= Profile.Value then
+					vape.Profile = Profile.Value
+					vape:Load(true, Profile.Value)
+				end
+			elseif Mode.Value == 'AutoConfig' then
+				vape.Save = function() end
+				for _, v in vape.Modules do
+					if v.Enabled then
+						v:Toggle()
+					end
+				end
+			end
+		end
+	end
+	
+	StaffDetector = vape.Categories.Utility:CreateModule({
+		Name = 'StaffDetector',
+		Function = function(callback)
+			if callback then
+				if Group.Value == '' or Role.Value == '' then
+					local placeinfo = {Creator = {CreatorTargetId = tonumber(Group.Value)}}
+					if Group.Value == '' then
+						placeinfo = marketplaceService:GetProductInfo(game.PlaceId)
+						if placeinfo.Creator.CreatorType ~= 'Group' then
+							local desc = placeinfo.Description:split('\n')
+							for _, str in desc do
+								local _, begin = str:find('roblox.com/groups/')
+								if begin then
+									local endof = str:find('/', begin + 1)
+									placeinfo = {Creator = {
+										CreatorType = 'Group',
+										CreatorTargetId = str:sub(begin + 1, endof - 1)
+									}}
+								end
+							end
+						end
+	
+						if placeinfo.Creator.CreatorType ~= 'Group' then
+							notif('StaffDetector', 'Automatic Setup Failed (no group detected)', 60, 'warning')
+							return
+						end
+					end
+	
+					local groupinfo = groupService:GetGroupInfoAsync(placeinfo.Creator.CreatorTargetId)
+					Group:SetValue(placeinfo.Creator.CreatorTargetId)
+					Role:SetValue(getLowestStaffRole(groupinfo.Roles))
+				end
+	
+				if Group.Value == '' or Role.Value == '' then
+					return
+				end
+	
+				StaffDetector:Clean(playersService.PlayerAdded:Connect(playerAdded))
+				for _, v in playersService:GetPlayers() do
+					task.spawn(playerAdded, v)
+				end
+			end
+		end,
+		Tooltip = 'Detects people with a staff rank ingame'
+	})
+	Mode = StaffDetector:CreateDropdown({
+		Name = 'Mode',
+		List = {'Uninject', 'ServerHop', 'Profile', 'AutoConfig', 'Notify'},
+		Function = function(val)
+			if Profile.Object then
+				Profile.Object.Visible = val == 'Profile'
+			end
+		end
+	})
+	Profile = StaffDetector:CreateTextBox({
+		Name = 'Profile',
+		Default = 'default',
+		Darker = true,
+		Visible = false
+	})
+	Users = StaffDetector:CreateTextList({
+		Name = 'Users',
+		Placeholder = 'player (userid)'
+	})
+	Group = StaffDetector:CreateTextBox({
+		Name = 'Group',
+		Placeholder = 'Group Id'
+	})
+	Role = StaffDetector:CreateTextBox({
+		Name = 'Role',
+		Placeholder = 'Role Rank'
+	})
+end)
+	
+run(function()
+	local connections = {}
+	
+	vape.Categories.World:CreateModule({
+		Name = 'Anti-AFK',
+		Function = function(callback)
+			if callback then
+				for _, v in getconnections(lplr.Idled) do
+					table.insert(connections, v)
+					v:Disable()
+				end
+			else
+				for _, v in connections do
+					v:Enable()
+				end
+				table.clear(connections)
+			end
+		end,
+		Tooltip = 'Lets you stay ingame without getting kicked'
+	})
+end)
+	
+run(function()
+	local Freecam
+	local Value
+	local randomkey, module, old = httpService:GenerateGUID(false)
+	
+	Freecam = vape.Categories.World:CreateModule({
+		Name = 'Freecam',
+		Function = function(callback)
+			if callback then
+				repeat
+					task.wait(0.1)
+					for _, v in getconnections(gameCamera:GetPropertyChangedSignal('CameraType')) do
+						if v.Function then
+							module = debug.getupvalue(v.Function, 1)
+						end
+					end
+				until module or not Freecam.Enabled
+	
+				if module and module.activeCameraController and Freecam.Enabled then
+					old = module.activeCameraController.GetSubjectPosition
+					local camPos = old(module.activeCameraController) or Vector3.zero
+					module.activeCameraController.GetSubjectPosition = function()
+						return camPos
+					end
+	
+					Freecam:Clean(runService.PreSimulation:Connect(function(dt)
+						if not inputService:GetFocusedTextBox() then
+							local forward = (inputService:IsKeyDown(Enum.KeyCode.W) and -1 or 0) + (inputService:IsKeyDown(Enum.KeyCode.S) and 1 or 0)
+							local side = (inputService:IsKeyDown(Enum.KeyCode.A) and -1 or 0) + (inputService:IsKeyDown(Enum.KeyCode.D) and 1 or 0)
+							local up = (inputService:IsKeyDown(Enum.KeyCode.Q) and -1 or 0) + (inputService:IsKeyDown(Enum.KeyCode.E) and 1 or 0)
+							dt = dt * (inputService:IsKeyDown(Enum.KeyCode.LeftShift) and 0.25 or 1)
+							camPos = (CFrame.lookAlong(camPos, gameCamera.CFrame.LookVector) * CFrame.new(Vector3.new(side, up, forward) * (Value.Value * dt))).Position
+						end
+					end))
+	
+					contextService:BindActionAtPriority('FreecamKeyboard'..randomkey, function()
+						return Enum.ContextActionResult.Sink
+					end, false, Enum.ContextActionPriority.High.Value,
+						Enum.KeyCode.W,
+						Enum.KeyCode.A,
+						Enum.KeyCode.S,
+						Enum.KeyCode.D,
+						Enum.KeyCode.E,
+						Enum.KeyCode.Q,
+						Enum.KeyCode.Up,
+						Enum.KeyCode.Down
+					)
+				end
+			else
+				pcall(function()
+					contextService:UnbindAction('FreecamKeyboard'..randomkey)
+				end)
+				if module and old then
+					module.activeCameraController.GetSubjectPosition = old
+					module = nil
+					old = nil
+				end
+			end
+		end,
+		Tooltip = 'Lets you fly and clip through walls freely\nwithout moving your player server-sided.'
+	})
+	Value = Freecam:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 150,
+		Default = 50,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+end)
+	
+run(function()
+	local Gravity
+	local Mode
+	local Value
+	local changed, old = false
+	
+	Gravity = vape.Categories.World:CreateModule({
+		Name = 'Gravity',
+		Function = function(callback)
+			if callback then
+				if Mode.Value == 'Workspace' then
+					old = workspace.Gravity
+					workspace.Gravity = Value.Value
+					Gravity:Clean(workspace:GetPropertyChangedSignal('Gravity'):Connect(function()
+						if changed then return end
+						changed = true
+						old = workspace.Gravity
+						workspace.Gravity = Value.Value
+						changed = false
+					end))
+				else
+					Gravity:Clean(runService.PreSimulation:Connect(function(dt)
+						if entitylib.isAlive and entitylib.character.Humanoid.FloorMaterial == Enum.Material.Air then
+							local root = entitylib.character.RootPart
+							if Mode.Value == 'Impulse' then
+								root:ApplyImpulse(Vector3.new(0, dt * (workspace.Gravity - Value.Value), 0) * root.AssemblyMass)
+							else
+								root.AssemblyLinearVelocity += Vector3.new(0, dt * (workspace.Gravity - Value.Value), 0)
+							end
+						end
+					end))
+				end
+			else
+				if old then
+					workspace.Gravity = old
+					old = nil
+				end
+			end
+		end,
+		Tooltip = 'Changes the rate you fall'
+	})
+	Mode = Gravity:CreateDropdown({
+		Name = 'Mode',
+		List = {'Workspace', 'Velocity', 'Impulse'},
+		Tooltip = 'Workspace - Adjusts the gravity for the entire game\nVelocity - Adjusts the local players gravity\nImpulse - Same as velocity while using forces instead'
+	})
+	Value = Gravity:CreateSlider({
+		Name = 'Gravity',
+		Min = 0,
+		Max = 192,
+		Function = function(val)
+			if Gravity.Enabled and Mode.Value == 'Workspace' then
+				changed = true
+				workspace.Gravity = val
+				changed = false
+			end
+		end,
+		Default = 192
+	})
+end)
+	
+run(function()
+	local Parkour
+	
+	Parkour = vape.Categories.World:CreateModule({
+		Name = 'Parkour',
+		Function = function(callback)
+			if callback then 
+				local oldfloor
+				Parkour:Clean(runService.RenderStepped:Connect(function()
+					if entitylib.isAlive then 
+						local material = entitylib.character.Humanoid.FloorMaterial
+						if material == Enum.Material.Air and oldfloor ~= Enum.Material.Air then 
+							entitylib.character.Humanoid.Jump = true
+						end
+						oldfloor = material
+					end
+				end))
+			end
+		end,
+		Tooltip = 'Automatically jumps after reaching the edge'
+	})
+end)
+	
+run(function()
+	local rayCheck = RaycastParams.new()
+	rayCheck.RespectCanCollide = true
+	local module, old
+	
+	vape.Categories.World:CreateModule({
+		Name = 'SafeWalk',
+		Function = function(callback)
+			if callback then
+				if not module then
+					local suc = pcall(function() 
+						module = require(lplr.PlayerScripts.PlayerModule).controls 
+					end)
+					if not suc then module = {} end
+				end
+				
+				old = module.moveFunction
+				module.moveFunction = function(self, vec, face)
+					if entitylib.isAlive then
+						rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+						local root = entitylib.character.RootPart
+						local movedir = root.Position + vec
+						local ray = workspace:Raycast(movedir, Vector3.new(0, -15, 0), rayCheck)
+						if not ray then
+							local check = workspace:Blockcast(root.CFrame, Vector3.new(3, 1, 3), Vector3.new(0, -(entitylib.character.HipHeight + 1), 0), rayCheck)
+							if check then
+								vec = (check.Instance:GetClosestPointOnSurface(movedir) - root.Position) * Vector3.new(1, 0, 1)
+							end
+						end
+					end
+	
+					return old(self, vec, face)
+				end
+			else
+				if module and old then
+					module.moveFunction = old
+				end
+			end
+		end,
+		Tooltip = 'Prevents you from walking off the edge of parts'
+	})
+end)
+	
+run(function()
+	local Xray
+	local List
+	local modified = {}
+	
+	local function modifyPart(v)
+		if v:IsA('BasePart') and not table.find(List.ListEnabled, v.Name) then
+			modified[v] = true
+			v.LocalTransparencyModifier = 0.5
+		end
+	end
+	
+	Xray = vape.Categories.World:CreateModule({
+		Name = 'Xray',
+		Function = function(callback)
+			if callback then
+				Xray:Clean(workspace.DescendantAdded:Connect(modifyPart))
+				for _, v in workspace:GetDescendants() do
+					modifyPart(v)
+				end
+			else
+				for i in modified do
+					i.LocalTransparencyModifier = 0
+				end
+				table.clear(modified)
+			end
+		end,
+		Tooltip = 'Renders whitelisted parts through walls.'
+	})
+	List = Xray:CreateTextList({
+		Name = 'Part',
+		Function = function()
+			if Xray.Enabled then
+				Xray:Toggle()
+				Xray:Toggle()
+			end
+		end
+	})
+end)
+	
+run(function()
+	local MurderMystery
+	local murderer, sheriff, oldtargetable, oldgetcolor
+	
+	local function itemAdded(v, plr)
+		if v:IsA('Tool') then
+			local check = v:FindFirstChild('IsGun') and 'sheriff' or v:FindFirstChild('KnifeServer') and 'murderer' or nil
+			check = check or v.Name:lower():find('knife') and 'murderer' or v.Name:lower():find('gun') and 'sheriff' or nil
+			if check == 'murderer' and plr ~= murderer then
+				murderer = plr
+				if plr.Character then
+					entitylib.refresh()
+				end
+			elseif check == 'sheriff' and plr ~= sheriff then
+				sheriff = plr
+				if plr.Character then
+					entitylib.refresh()
+				end
+			end
+		end
+	end
+	
+	local function playerAdded(plr)
+		MurderMystery:Clean(plr.DescendantAdded:Connect(function(v)
+			itemAdded(v, plr)
+		end))
+		local pack = plr:FindFirstChildWhichIsA('Backpack')
+		if pack then
+			for _, v in pack:GetChildren() do
+				itemAdded(v, plr)
+			end
+		end
+		if plr.Character then
+			for _, v in plr.Character:GetChildren() do
+				itemAdded(v, plr)
+			end
+		end
+	end
+	
+	MurderMystery = vape.Categories.Minigames:CreateModule({
+		Name = 'MurderMystery',
+		Function = function(callback)
+			if callback then
+				oldtargetable, oldgetcolor = entitylib.targetCheck, entitylib.getEntityColor
+				entitylib.getEntityColor = function(ent)
+					ent = ent.Player
+					if not (ent and vape.Categories.Main.Options['Use team color'].Enabled) then return end
+					if isFriend(ent, true) then
+						return Color3.fromHSV(vape.Categories.Friends.Options['Friends color'].Hue, vape.Categories.Friends.Options['Friends color'].Sat, vape.Categories.Friends.Options['Friends color'].Value)
+					end
+					return murderer == ent and Color3.new(1, 0.3, 0.3) or sheriff == ent and Color3.new(0, 0.5, 1) or nil
+				end
+				entitylib.targetCheck = function(ent)
+					if ent.Player and isFriend(ent.Player) then return false end
+					if murderer == lplr then return true end
+					return murderer == ent.Player or sheriff == ent.Player
+				end
+				for _, v in playersService:GetPlayers() do
+					playerAdded(v)
+				end
+				MurderMystery:Clean(playersService.PlayerAdded:Connect(playerAdded))
+				entitylib.refresh()
+			else
+				entitylib.getEntityColor = oldgetcolor
+				entitylib.targetCheck = oldtargetable
+				entitylib.refresh()
+			end
+		end,
+		Tooltip = 'Automatic murder mystery teaming based on equipped roblox tools.'
+	})
+end)
+	
+run(function()
+	local Atmosphere
+	local Toggles = {}
+	local newobjects, oldobjects = {}, {}
+	local apidump = {
+		Sky = {
+			SkyboxUp = 'Text',
+			SkyboxDn = 'Text',
+			SkyboxLf = 'Text',
+			SkyboxRt = 'Text',
+			SkyboxFt = 'Text',
+			SkyboxBk = 'Text',
+			SunTextureId = 'Text',
+			SunAngularSize = 'Number',
+			MoonTextureId = 'Text',
+			MoonAngularSize = 'Number',
+			StarCount = 'Number'
+		},
+		Atmosphere = {
+			Color = 'Color',
+			Decay = 'Color',
+			Density = 'Number',
+			Offset = 'Number',
+			Glare = 'Number',
+			Haze = 'Number'
+		},
+		BloomEffect = {
+			Intensity = 'Number',
+			Size = 'Number',
+			Threshold = 'Number'
+		},
+		DepthOfFieldEffect = {
+			FarIntensity = 'Number',
+			FocusDistance = 'Number',
+			InFocusRadius = 'Number',
+			NearIntensity = 'Number'
+		},
+		SunRaysEffect = {
+			Intensity = 'Number',
+			Spread = 'Number'
+		},
+		ColorCorrectionEffect = {
+			TintColor = 'Color',
+			Saturation = 'Number',
+			Contrast = 'Number',
+			Brightness = 'Number'
+		}
+	}
+	
+	local function removeObject(v)
+		if not table.find(newobjects, v) then
+			local toggle = Toggles[v.ClassName]
+			if toggle and toggle.Toggle.Enabled then
+				if v.Parent then
+					table.insert(oldobjects, v)
+					v.Parent = game
+				end
+			end
+		end
+	end
+	
+	Atmosphere = vape.Legit:CreateModule({
+		Name = 'Atmosphere',
+		Function = function(callback)
+			if callback then
+				for _, v in lightingService:GetChildren() do
+					removeObject(v)
+				end
+				Atmosphere:Clean(lightingService.ChildAdded:Connect(function(v)
+					task.defer(removeObject, v)
+				end))
+	
+				for i, v in Toggles do
+					if v.Toggle.Enabled then
+						local obj = Instance.new(i)
+						for i2, v2 in v.Objects do
+							if v2.Type == 'ColorSlider' then
+								obj[i2] = Color3.fromHSV(v2.Hue, v2.Sat, v2.Value)
+							else
+								obj[i2] = apidump[i][i2] ~= 'Number' and v2.Value or tonumber(v2.Value) or 0
+							end
+						end
+						obj.Parent = lightingService
+						table.insert(newobjects, obj)
+					end
+				end
+			else
+				for _, v in newobjects do
+					v:Destroy()
+				end
+				for _, v in oldobjects do
+					v.Parent = lightingService
+				end
+				table.clear(newobjects)
+				table.clear(oldobjects)
+			end
+		end,
+		Tooltip = 'Custom lighting objects'
+	})
+	for i, v in apidump do
+		Toggles[i] = {Objects = {}}
+		Toggles[i].Toggle = Atmosphere:CreateToggle({
+			Name = i,
+			Function = function(callback)
+				if Atmosphere.Enabled then
+					Atmosphere:Toggle()
+					Atmosphere:Toggle()
+				end
+				for _, toggle in Toggles[i].Objects do
+					toggle.Object.Visible = callback
+				end
+			end
+		})
+	
+		for i2, v2 in v do
+			if v2 == 'Text' or v2 == 'Number' then
+				Toggles[i].Objects[i2] = Atmosphere:CreateTextBox({
+					Name = i2,
+					Function = function(enter)
+						if Atmosphere.Enabled and enter then
+							Atmosphere:Toggle()
+							Atmosphere:Toggle()
+						end
+					end,
+					Darker = true,
+					Default = v2 == 'Number' and '0' or nil,
+					Visible = false
+				})
+			elseif v2 == 'Color' then
+				Toggles[i].Objects[i2] = Atmosphere:CreateColorSlider({
+					Name = i2,
+					Function = function()
+						if Atmosphere.Enabled then
+							Atmosphere:Toggle()
+							Atmosphere:Toggle()
+						end
+					end,
+					Darker = true,
+					Visible = false
+				})
+			end
+		end
+	end
+end)
+	
+run(function()
+	local Breadcrumbs
+	local Texture
+	local Lifetime
+	local Thickness
+	local FadeIn
+	local FadeOut
+	local trail, point, point2
+	
+	Breadcrumbs = vape.Legit:CreateModule({
+		Name = 'Breadcrumbs',
+		Function = function(callback)
+			if callback then
+				point = Instance.new('Attachment')
+				point.Position = Vector3.new(0, Thickness.Value - 2.7, 0)
+				point2 = Instance.new('Attachment')
+				point2.Position = Vector3.new(0, -Thickness.Value - 2.7, 0)
+				trail = Instance.new('Trail')
+				trail.Texture = Texture.Value == '' and 'http://www.roblox.com/asset/?id=14166981368' or Texture.Value
+				trail.TextureMode = Enum.TextureMode.Static
+				trail.Color = ColorSequence.new(Color3.fromHSV(FadeIn.Hue, FadeIn.Sat, FadeIn.Value), Color3.fromHSV(FadeOut.Hue, FadeOut.Sat, FadeOut.Value))
+				trail.Lifetime = Lifetime.Value
+				trail.Attachment0 = point
+				trail.Attachment1 = point2
+				trail.FaceCamera = true
+	
+				Breadcrumbs:Clean(trail)
+				Breadcrumbs:Clean(point)
+				Breadcrumbs:Clean(point2)
+				Breadcrumbs:Clean(entitylib.Events.LocalAdded:Connect(function(ent)
+					point.Parent = ent.HumanoidRootPart
+					point2.Parent = ent.HumanoidRootPart
+					trail.Parent = gameCamera
+				end))
+				if entitylib.isAlive then
+					point.Parent = entitylib.character.RootPart
+					point2.Parent = entitylib.character.RootPart
+					trail.Parent = gameCamera
+				end
+			else
+				trail = nil
+				point = nil
+				point2 = nil
+			end
+		end,
+		Tooltip = 'Shows a trail behind your character'
+	})
+	Texture = Breadcrumbs:CreateTextBox({
+		Name = 'Texture',
+		Placeholder = 'Texture Id',
+		Function = function(enter)
+			if enter and trail then
+				trail.Texture = Texture.Value == '' and 'http://www.roblox.com/asset/?id=14166981368' or Texture.Value
+			end
+		end
+	})
+	FadeIn = Breadcrumbs:CreateColorSlider({
+		Name = 'Fade In',
+		Function = function(hue, sat, val)
+			if trail then
+				trail.Color = ColorSequence.new(Color3.fromHSV(hue, sat, val), Color3.fromHSV(FadeOut.Hue, FadeOut.Sat, FadeOut.Value))
+			end
+		end
+	})
+	FadeOut = Breadcrumbs:CreateColorSlider({
+		Name = 'Fade Out',
+		Function = function(hue, sat, val)
+			if trail then
+				trail.Color = ColorSequence.new(Color3.fromHSV(FadeIn.Hue, FadeIn.Sat, FadeIn.Value), Color3.fromHSV(hue, sat, val))
+			end
+		end
+	})
+	Lifetime = Breadcrumbs:CreateSlider({
+		Name = 'Lifetime',
+		Min = 1,
+		Max = 5,
+		Default = 3,
+		Decimal = 10,
+		Function = function(val)
+			if trail then
+				trail.Lifetime = val
+			end
+		end,
+		Suffix = function(val)
+			return val == 1 and 'second' or 'seconds'
+		end
+	})
+	Thickness = Breadcrumbs:CreateSlider({
+		Name = 'Thickness',
+		Min = 0,
+		Max = 2,
+		Default = 0.1,
+		Decimal = 100,
+		Function = function(val)
+			if point then
+				point.Position = Vector3.new(0, val - 2.7, 0)
+			end
+			if point2 then
+				point2.Position = Vector3.new(0, -val - 2.7, 0)
+			end
+		end,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+end)
+	
+run(function()
+	local Cape
+	local Texture
+	local part, motor
+	
+	local function createMotor(char)
+		if motor then 
+			motor:Destroy() 
+		end
+		part.Parent = gameCamera
+		motor = Instance.new('Motor6D')
+		motor.MaxVelocity = 0.08
+		motor.Part0 = part
+		motor.Part1 = char.Character:FindFirstChild('UpperTorso') or char.RootPart
+		motor.C0 = CFrame.new(0, 2, 0) * CFrame.Angles(0, math.rad(-90), 0)
+		motor.C1 = CFrame.new(0, motor.Part1.Size.Y / 2, 0.45) * CFrame.Angles(0, math.rad(90), 0)
+		motor.Parent = part
+	end
+	
+	Cape = vape.Legit:CreateModule({
+		Name = 'Cape',
+		Function = function(callback)
+			if callback then
+				part = Instance.new('Part')
+				part.Size = Vector3.new(2, 4, 0.1)
+				part.CanCollide = false
+				part.CanQuery = false
+				part.Massless = true
+				part.Transparency = 0
+				part.Material = Enum.Material.SmoothPlastic
+				part.Color = Color3.new()
+				part.CastShadow = false
+				part.Parent = gameCamera
+				local capesurface = Instance.new('SurfaceGui')
+				capesurface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+				capesurface.Adornee = part
+				capesurface.Parent = part
+	
+				if Texture.Value:find('.webm') then
+					local decal = Instance.new('VideoFrame')
+					decal.Video = getcustomasset(Texture.Value)
+					decal.Size = UDim2.fromScale(1, 1)
+					decal.BackgroundTransparency = 1
+					decal.Looped = true
+					decal.Parent = capesurface
+					decal:Play()
+				else
+					local decal = Instance.new('ImageLabel')
+					decal.Image = Texture.Value ~= '' and (Texture.Value:find('rbxasset') and Texture.Value or assetfunction(Texture.Value)) or 'rbxassetid://14637958134'
+					decal.Size = UDim2.fromScale(1, 1)
+					decal.BackgroundTransparency = 1
+					decal.Parent = capesurface
+				end
+				Cape:Clean(part)
+				Cape:Clean(entitylib.Events.LocalAdded:Connect(createMotor))
+				if entitylib.isAlive then
+					createMotor(entitylib.character)
+				end
+	
+				repeat
+					if motor and entitylib.isAlive then
+						local velo = math.min(entitylib.character.RootPart.Velocity.Magnitude, 90)
+						motor.DesiredAngle = math.rad(6) + math.rad(velo) + (velo > 1 and math.abs(math.cos(tick() * 5)) / 3 or 0)
+					end
+					capesurface.Enabled = (gameCamera.CFrame.Position - gameCamera.Focus.Position).Magnitude > 0.6
+					part.Transparency = (gameCamera.CFrame.Position - gameCamera.Focus.Position).Magnitude > 0.6 and 0 or 1
+					task.wait()
+				until not Cape.Enabled
+			else
+				part = nil
+				motor = nil
+			end
+		end,
+		Tooltip = 'Add\'s a cape to your character'
+	})
+	Texture = Cape:CreateTextBox({
+		Name = 'Texture'
+	})
+end)
+	
+run(function()
+	local ChinaHat
+	local Material
+	local Color
+	local hat
+	
+	ChinaHat = vape.Legit:CreateModule({
+		Name = 'China Hat',
+		Function = function(callback)
+			if callback then
+				if vape.ThreadFix then
+					setthreadidentity(8)
+				end
+				hat = Instance.new('MeshPart')
+				hat.Size = Vector3.new(3, 0.7, 3)
+				hat.Name = 'ChinaHat'
+				hat.Material = Enum.Material[Material.Value]
+				hat.Color = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+				hat.CanCollide = false
+				hat.CanQuery = false
+				hat.Massless = true
+				hat.MeshId = 'http://www.roblox.com/asset/?id=1778999'
+				hat.Transparency = 1 - Color.Opacity
+				hat.Parent = gameCamera
+				hat.CFrame = entitylib.isAlive and entitylib.character.Head.CFrame + Vector3.new(0, 1, 0) or CFrame.identity
+				local weld = Instance.new('WeldConstraint')
+				weld.Part0 = hat
+				weld.Part1 = entitylib.isAlive and entitylib.character.Head or nil
+				weld.Parent = hat
+				ChinaHat:Clean(hat)
+				ChinaHat:Clean(entitylib.Events.LocalAdded:Connect(function(char)
+					if weld then 
+						weld:Destroy() 
+					end
+					hat.Parent = gameCamera
+					hat.CFrame = char.Head.CFrame + Vector3.new(0, 1, 0)
+					hat.Velocity = Vector3.zero
+					weld = Instance.new('WeldConstraint')
+					weld.Part0 = hat
+					weld.Part1 = char.Head
+					weld.Parent = hat
+				end))
+	
+				repeat
+					hat.LocalTransparencyModifier = ((gameCamera.CFrame.Position - gameCamera.Focus.Position).Magnitude <= 0.6 and 1 or 0)
+					task.wait()
+				until not ChinaHat.Enabled
+			else
+				hat = nil
+			end
+		end,
+		Tooltip = 'Puts a china hat on your character (ty mastadawn)'
+	})
+	local materials = {'ForceField'}
+	for _, v in Enum.Material:GetEnumItems() do
+		if v.Name ~= 'ForceField' then
+			table.insert(materials, v.Name)
+		end
+	end
+	Material = ChinaHat:CreateDropdown({
+		Name = 'Material',
+		List = materials,
+		Function = function(val)
+			if hat then
+				hat.Material = Enum.Material[val]
+			end
+		end
+	})
+	Color = ChinaHat:CreateColorSlider({
+		Name = 'Hat Color',
+		DefaultOpacity = 0.7,
+		Function = function(hue, sat, val, opacity)
+			if hat then
+				hat.Color = Color3.fromHSV(hue, sat, val)
+				hat.Transparency = 1 - opacity
+			end
+		end
+	})
+end)
+	
+run(function()
+	local Clock
+	local TwentyFourHour
+	local label
+	
+	Clock = vape.Legit:CreateModule({
+		Name = 'Clock',
+		Function = function(callback)
+			if callback then
+				repeat
+					label.Text = DateTime.now():FormatLocalTime('LT', TwentyFourHour.Enabled and 'zh-cn' or 'en-us')
+					task.wait(1)
+				until not Clock.Enabled
+			end
+		end,
+		Size = UDim2.fromOffset(100, 41),
+		Tooltip = 'Shows the current local time'
+	})
+	Clock:CreateFont({
+		Name = 'Font',
+		Blacklist = 'Gotham',
+		Function = function(val)
+			label.FontFace = val
+		end
+	})
+	Clock:CreateColorSlider({
+		Name = 'Color',
+		DefaultValue = 0,
+		DefaultOpacity = 0.5,
+		Function = function(hue, sat, val, opacity)
+			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+			label.BackgroundTransparency = 1 - opacity
+		end
+	})
+	TwentyFourHour = Clock:CreateToggle({
+		Name = '24 Hour Clock'
+	})
+	label = Instance.new('TextLabel')
+	label.Size = UDim2.new(0, 100, 0, 41)
+	label.BackgroundTransparency = 0.5
+	label.TextSize = 15
+	label.Font = Enum.Font.Gotham
+	label.Text = '0:00 PM'
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.BackgroundColor3 = Color3.new()
+	label.Parent = Clock.Children
+	local corner = Instance.new('UICorner')
+	corner.CornerRadius = UDim.new(0, 4)
+	corner.Parent = label
+end)
+	
+run(function()
+	local Disguise
+	local Mode
+	local IDBox
+	local desc
+	
+	local function itemAdded(v, manual)
+		if (not v:GetAttribute('Disguise')) and ((v:IsA('Accessory') and (not v:GetAttribute('InvItem')) and (not v:GetAttribute('ArmorSlot'))) or v:IsA('ShirtGraphic') or v:IsA('Shirt') or v:IsA('Pants') or v:IsA('BodyColors') or manual) then
+			repeat
+				task.wait()
+				v.Parent = game
+			until v.Parent == game
+			v:ClearAllChildren()
+			v:Destroy()
+		end
+	end
+	
+	local function characterAdded(char)
+		if Mode.Value == 'Character' then
+			task.wait(0.1)
+			char.Character.Archivable = true
+			local clone = char.Character:Clone()
+			repeat
+				if pcall(function()
+					desc = playersService:GetHumanoidDescriptionFromUserId(IDBox.Value == '' and 239702688 or tonumber(IDBox.Value))
+				end) and desc then break end
+				task.wait(1)
+			until not Disguise.Enabled
+			if not Disguise.Enabled then
+				clone:ClearAllChildren()
+				clone:Destroy()
+				clone = nil
+				if desc then
+					desc:Destroy()
+					desc = nil
+				end
+				return
+			end
+			clone.Parent = game
+	
+			local originalDesc = char.Humanoid:WaitForChild('HumanoidDescription', 2) or {
+				HeightScale = 1,
+				SetEmotes = function() end,
+				SetEquippedEmotes = function() end
+			}
+			originalDesc.JumpAnimation = desc.JumpAnimation
+			desc.HeightScale = originalDesc.HeightScale
+	
+			for _, v in clone:GetChildren() do
+				if v:IsA('Accessory') or v:IsA('ShirtGraphic') or v:IsA('Shirt') or v:IsA('Pants') then
+					v:ClearAllChildren()
+					v:Destroy()
+				end
+			end
+	
+			clone.Humanoid:ApplyDescriptionClientServer(desc)
+			for _, v in char.Character:GetChildren() do
+				itemAdded(v)
+			end
+			Disguise:Clean(char.Character.ChildAdded:Connect(itemAdded))
+	
+			for _, v in clone:WaitForChild('Animate'):GetChildren() do
+				if not char.Character:FindFirstChild('Animate') then return end
+				local real = char.Character.Animate:FindFirstChild(v.Name)
+				if v and real then
+					local anim = v:FindFirstChildWhichIsA('Animation') or {AnimationId = ''}
+					local realanim = real:FindFirstChildWhichIsA('Animation') or {AnimationId = ''}
+					if realanim then
+						realanim.AnimationId = anim.AnimationId
+					end
+				end
+			end
+	
+			for _, v in clone:GetChildren() do
+				v:SetAttribute('Disguise', true)
+				if v:IsA('Accessory') then
+					for _, v2 in v:GetDescendants() do
+						if v2:IsA('Weld') and v2.Part1 then
+							v2.Part1 = char.Character[v2.Part1.Name]
+						end
+					end
+					v.Parent = char.Character
+				elseif v:IsA('ShirtGraphic') or v:IsA('Shirt') or v:IsA('Pants') or v:IsA('BodyColors') then
+					v.Parent = char.Character
+				elseif v.Name == 'Head' and char.Head:IsA('MeshPart') and (not char.Head:FindFirstChild('FaceControls')) then
+					char.Head.MeshId = v.MeshId
+				end
+			end
+	
+			local localface = char.Character:FindFirstChild('face', true)
+			local cloneface = clone:FindFirstChild('face', true)
+			if localface and cloneface then
+				itemAdded(localface, true)
+				cloneface.Parent = char.Head
+			end
+			originalDesc:SetEmotes(desc:GetEmotes())
+			originalDesc:SetEquippedEmotes(desc:GetEquippedEmotes())
+			clone:ClearAllChildren()
+			clone:Destroy()
+			clone = nil
+			if desc then
+				desc:Destroy()
+				desc = nil
+			end
+		else
+			local data
+			repeat
+				if pcall(function()
+					data = marketplaceService:GetProductInfo(IDBox.Value == '' and 43 or tonumber(IDBox.Value), Enum.InfoType.Bundle)
+				end) then break end
+				task.wait(1)
+			until not Disguise.Enabled
+			if not Disguise.Enabled then
+				if data then
+					table.clear(data)
+					data = nil
+				end
+				return
+			end
+			if data.BundleType == 'AvatarAnimations' then
+				local animate = char.Character:FindFirstChild('Animate')
+				if not animate then return end
+				for _, v in desc.Items do
+					local animtype = v.Name:split(' ')[2]:lower()
+					if animtype ~= 'animation' then
+						local suc, res = pcall(function() return game:GetObjects('rbxassetid://'..v.Id) end)
+						if suc then
+							animate[animtype]:FindFirstChildWhichIsA('Animation').AnimationId = res[1]:FindFirstChildWhichIsA('Animation', true).AnimationId
+						end
+					end
+				end
+			else
+				notif('Disguise', 'that\'s not an animation pack', 5, 'warning')
+			end
+		end
+	end
+	
+	Disguise = vape.Legit:CreateModule({
+		Name = 'Disguise',
+		Function = function(callback)
+			if callback then
+				Disguise:Clean(entitylib.Events.LocalAdded:Connect(characterAdded))
+				if entitylib.isAlive then
+					characterAdded(entitylib.character)
+				end
+			end
+		end,
+		Tooltip = 'Changes your character or animation to a specific ID (animation packs or userid\'s only)'
+	})
+	Mode = Disguise:CreateDropdown({
+		Name = 'Mode',
+		List = {'Character', 'Animation'},
+		Function = function()
+			if Disguise.Enabled then
+				Disguise:Toggle()
+				Disguise:Toggle()
+			end
+		end
+	})
+	IDBox = Disguise:CreateTextBox({
+		Name = 'Disguise',
+		Placeholder = 'Disguise User Id',
+		Function = function()
+			if Disguise.Enabled then
+				Disguise:Toggle()
+				Disguise:Toggle()
+			end
+		end
+	})
+end)
+	
+run(function()
+	local FOV
+	local Value
+	local oldfov
+	
+	FOV = vape.Legit:CreateModule({
+		Name = 'FOV',
+		Function = function(callback)
+			if callback then
+				oldfov = gameCamera.FieldOfView
+				repeat
+					gameCamera.FieldOfView = Value.Value
+					task.wait()
+				until not FOV.Enabled
+			else
+				gameCamera.FieldOfView = oldfov
+			end
+		end,
+		Tooltip = 'Adjusts camera vision'
+	})
+	Value = FOV:CreateSlider({
+		Name = 'FOV',
+		Min = 30,
+		Max = 120
+	})
+end)
+	
+run(function()
+	--[[
+		Grabbing an accurate count of the current framerate
+		Source: https://devforum.roblox.com/t/get-client-FPS-trough-a-script/282631
+	]]
+	local FPS
+	local label
+	
+	FPS = vape.Legit:CreateModule({
+		Name = 'FPS',
+		Function = function(callback)
+			if callback then
+				local frames = {}
+				local startClock = os.clock()
+				local updateTick = tick()
+				FPS:Clean(runService.Heartbeat:Connect(function()
+					local updateClock = os.clock()
+					for i = #frames, 1, -1 do
+						frames[i + 1] = frames[i] >= updateClock - 1 and frames[i] or nil
+					end
+					frames[1] = updateClock
+					if updateTick < tick() then
+						updateTick = tick() + 1
+						label.Text = math.floor(os.clock() - startClock >= 1 and #frames or #frames / (os.clock() - startClock))..' FPS'
+					end
+				end))
+			end
+		end,
+		Size = UDim2.fromOffset(100, 41),
+		Tooltip = 'Shows the current framerate'
+	})
+	FPS:CreateFont({
+		Name = 'Font',
+		Blacklist = 'Gotham',
+		Function = function(val)
+			label.FontFace = val
+		end
+	})
+	FPS:CreateColorSlider({
+		Name = 'Color',
+		DefaultValue = 0,
+		DefaultOpacity = 0.5,
+		Function = function(hue, sat, val, opacity)
+			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+			label.BackgroundTransparency = 1 - opacity
+		end
+	})
+	label = Instance.new('TextLabel')
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 0.5
+	label.TextSize = 15
+	label.Font = Enum.Font.Gotham
+	label.Text = 'inf FPS'
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.BackgroundColor3 = Color3.new()
+	label.Parent = FPS.Children
+	local corner = Instance.new('UICorner')
+	corner.CornerRadius = UDim.new(0, 4)
+	corner.Parent = label
+end)
+	
+run(function()
+	local Keystrokes
+	local Style
+	local Color
+	local keys, holder = {}
+	
+	local function createKeystroke(keybutton, pos, pos2, text)
+		if keys[keybutton] then
+			keys[keybutton].Key:Destroy()
+			keys[keybutton] = nil
+		end
+		local key = Instance.new('Frame')
+		key.Size = keybutton == Enum.KeyCode.Space and UDim2.new(0, 110, 0, 24) or UDim2.new(0, 34, 0, 36)
+		key.BackgroundColor3 = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+		key.BackgroundTransparency = 1 - Color.Opacity
+		key.Position = pos
+		key.Name = keybutton.Name
+		key.Parent = holder
+		local keytext = Instance.new('TextLabel')
+		keytext.BackgroundTransparency = 1
+		keytext.Size = UDim2.fromScale(1, 1)
+		keytext.Font = Enum.Font.Gotham
+		keytext.Text = text or keybutton.Name
+		keytext.TextXAlignment = Enum.TextXAlignment.Left
+		keytext.TextYAlignment = Enum.TextYAlignment.Top
+		keytext.Position = pos2
+		keytext.TextSize = keybutton == Enum.KeyCode.Space and 18 or 15
+		keytext.TextColor3 = Color3.new(1, 1, 1)
+		keytext.Parent = key
+		local corner = Instance.new('UICorner')
+		corner.CornerRadius = UDim.new(0, 4)
+		corner.Parent = key
+		keys[keybutton] = {Key = key}
+	end
+	
+	Keystrokes = vape.Legit:CreateModule({
+		Name = 'Keystrokes',
+		Function = function(callback)
+			if callback then
+				createKeystroke(Enum.KeyCode.W, UDim2.new(0, 38, 0, 0), UDim2.new(0, 6, 0, 5), Style.Value == 'Arrow' and '↑' or nil)
+				createKeystroke(Enum.KeyCode.S, UDim2.new(0, 38, 0, 42), UDim2.new(0, 8, 0, 5), Style.Value == 'Arrow' and '↓' or nil)
+				createKeystroke(Enum.KeyCode.A, UDim2.new(0, 0, 0, 42), UDim2.new(0, 7, 0, 5), Style.Value == 'Arrow' and '←' or nil)
+				createKeystroke(Enum.KeyCode.D, UDim2.new(0, 76, 0, 42), UDim2.new(0, 8, 0, 5), Style.Value == 'Arrow' and '→' or nil)
+	
+				Keystrokes:Clean(inputService.InputBegan:Connect(function(inputType)
+					local key = keys[inputType.KeyCode]
+					if key then
+						if key.Tween then
+							key.Tween:Cancel()
+						end
+						if key.Tween2 then
+							key.Tween2:Cancel()
+						end
+	
+						key.Pressed = true
+						key.Tween = tweenService:Create(key.Key, TweenInfo.new(0.1), {
+							BackgroundColor3 = Color3.new(1, 1, 1), 
+							BackgroundTransparency = 0
+						})
+						key.Tween2 = tweenService:Create(key.Key.TextLabel, TweenInfo.new(0.1), {
+							TextColor3 = Color3.new()
+						})
+						key.Tween:Play()
+						key.Tween2:Play()
+					end
+				end))
+	
+				Keystrokes:Clean(inputService.InputEnded:Connect(function(inputType)
+					local key = keys[inputType.KeyCode]
+					if key then
+						if key.Tween then
+							key.Tween:Cancel()
+						end
+						if key.Tween2 then
+							key.Tween2:Cancel()
+						end
+	
+						key.Pressed = false
+						key.Tween = tweenService:Create(key.Key, TweenInfo.new(0.1), {
+							BackgroundColor3 = Color3.fromHSV(Color.Hue, Color.Sat, Color.Value), 
+							BackgroundTransparency = 1 - Color.Opacity
+						})
+						key.Tween2 = tweenService:Create(key.Key.TextLabel, TweenInfo.new(0.1), {
+							TextColor3 = Color3.new(1, 1, 1)
+						})
+						key.Tween:Play()
+						key.Tween2:Play()
+					end
+				end))
+			end
+		end,
+		Size = UDim2.fromOffset(110, 176),
+		Tooltip = 'Shows movement keys onscreen'
+	})
+	holder = Instance.new('Frame')
+	holder.Size = UDim2.fromScale(1, 1)
+	holder.BackgroundTransparency = 1
+	holder.Parent = Keystrokes.Children
+	Style = Keystrokes:CreateDropdown({
+		Name = 'Key Style',
+		List = {'Keyboard', 'Arrow'},
+		Function = function()
+			if Keystrokes.Enabled then
+				Keystrokes:Toggle()
+				Keystrokes:Toggle()
+			end
+		end
+	})
+	Color = Keystrokes:CreateColorSlider({
+		Name = 'Color',
+		DefaultValue = 0,
+		DefaultOpacity = 0.5,
+		Function = function(hue, sat, val, opacity)
+			for _, v in keys do
+				if not v.Pressed then
+					v.Key.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+					v.Key.BackgroundTransparency = 1 - opacity
+				end
+			end
+		end
+	})
+	Keystrokes:CreateToggle({
+		Name = 'Show Spacebar',
+		Function = function(callback)
+			Keystrokes.Children.Size = UDim2.fromOffset(110, callback and 107 or 78)
+			if callback then
+				createKeystroke(Enum.KeyCode.Space, UDim2.new(0, 0, 0, 83), UDim2.new(0, 25, 0, -10), '______')
+			else
+				keys[Enum.KeyCode.Space].Key:Destroy()
+				keys[Enum.KeyCode.Space] = nil
+			end
+		end,
+		Default = true
+	})
+end)
+	
+run(function()
+	local Memory
+	local label
+	
+	Memory = vape.Legit:CreateModule({
+		Name = 'Memory',
+		Function = function(callback)
+			if callback then
+				repeat
+					label.Text = math.floor(tonumber(game:GetService('Stats'):FindFirstChild('PerformanceStats').Memory:GetValue()))..' MB'
+					task.wait(1)
+				until not Memory.Enabled
+			end
+		end,
+		Size = UDim2.fromOffset(100, 41),
+		Tooltip = 'A label showing the memory currently used by roblox'
+	})
+	Memory:CreateFont({
+		Name = 'Font',
+		Blacklist = 'Gotham',
+		Function = function(val)
+			label.FontFace = val
+		end
+	})
+	Memory:CreateColorSlider({
+		Name = 'Color',
+		DefaultValue = 0,
+		DefaultOpacity = 0.5,
+		Function = function(hue, sat, val, opacity)
+			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+			label.BackgroundTransparency = 1 - opacity
+		end
+	})
+	label = Instance.new('TextLabel')
+	label.Size = UDim2.new(0, 100, 0, 41)
+	label.BackgroundTransparency = 0.5
+	label.TextSize = 15
+	label.Font = Enum.Font.Gotham
+	label.Text = '0 MB'
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.BackgroundColor3 = Color3.new()
+	label.Parent = Memory.Children
+	local corner = Instance.new('UICorner')
+	corner.CornerRadius = UDim.new(0, 4)
+	corner.Parent = label
+end)
+	
+run(function()
+	local Ping
+	local label
+	
+	Ping = vape.Legit:CreateModule({
+		Name = 'Ping',
+		Function = function(callback)
+			if callback then
+				repeat
+					label.Text = math.floor(tonumber(game:GetService('Stats'):FindFirstChild('PerformanceStats').Ping:GetValue()))..' ms'
+					task.wait(1)
+				until not Ping.Enabled
+			end
+		end,
+		Size = UDim2.fromOffset(100, 41),
+		Tooltip = 'Shows the current connection speed to the roblox server'
+	})
+	Ping:CreateFont({
+		Name = 'Font',
+		Blacklist = 'Gotham',
+		Function = function(val)
+			label.FontFace = val
+		end
+	})
+	Ping:CreateColorSlider({
+		Name = 'Color',
+		DefaultValue = 0,
+		DefaultOpacity = 0.5,
+		Function = function(hue, sat, val, opacity)
+			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+			label.BackgroundTransparency = 1 - opacity
+		end
+	})
+	label = Instance.new('TextLabel')
+	label.Size = UDim2.new(0, 100, 0, 41)
+	label.BackgroundTransparency = 0.5
+	label.TextSize = 15
+	label.Font = Enum.Font.Gotham
+	label.Text = '0 ms'
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.BackgroundColor3 = Color3.new()
+	label.Parent = Ping.Children
+	local corner = Instance.new('UICorner')
+	corner.CornerRadius = UDim.new(0, 4)
+	corner.Parent = label
+end)
+	
+run(function()
+	local SongBeats
+	local List
+	local FOV
+	local FOVValue = {}
+	local Volume
+	local alreadypicked = {}
+	local beattick = tick()
+	local oldfov, songobj, songbpm, songtween
+	
+	local function choosesong()
+		local list = List.ListEnabled
+		if #alreadypicked >= #list then
+			table.clear(alreadypicked)
+		end
+	
+		if #list <= 0 then
+			notif('SongBeats', 'no songs', 10)
+			SongBeats:Toggle()
+			return
+		end
+	
+		local chosensong = list[math.random(1, #list)]
+		if #list > 1 and table.find(alreadypicked, chosensong) then
+			repeat
+				task.wait()
+				chosensong = list[math.random(1, #list)]
+			until not table.find(alreadypicked, chosensong) or not SongBeats.Enabled
+		end
+		if not SongBeats.Enabled then return end
+	
+		local split = chosensong:split('/')
+		if not isfile(split[1]) then
+			notif('SongBeats', 'Missing song ('..split[1]..')', 10)
+			SongBeats:Toggle()
+			return
+		end
+	
+		songobj.SoundId = assetfunction(split[1])
+		repeat task.wait() until songobj.IsLoaded or not SongBeats.Enabled
+		if SongBeats.Enabled then
+			beattick = tick() + (tonumber(split[3]) or 0)
+			songbpm = 60 / (tonumber(split[2]) or 50)
+			songobj:Play()
+		end
+	end
+	
+	SongBeats = vape.Legit:CreateModule({
+		Name = 'Song Beats',
+		Function = function(callback)
+			if callback then
+				songobj = Instance.new('Sound')
+				songobj.Volume = Volume.Value / 100
+				songobj.Parent = workspace
+				oldfov = gameCamera.FieldOfView
+	
+				repeat
+					if not songobj.Playing then
+						choosesong()
+					end
+					if beattick < tick() and SongBeats.Enabled and FOV.Enabled then
+						beattick = tick() + songbpm
+						gameCamera.FieldOfView = oldfov - FOVValue.Value
+						songtween = tweenService:Create(gameCamera, TweenInfo.new(math.min(songbpm, 0.2), Enum.EasingStyle.Linear), {
+							FieldOfView = oldfov
+						})
+						songtween:Play()
+					end
+					task.wait()
+				until not SongBeats.Enabled
+			else
+				if songobj then
+					songobj:Destroy()
+				end
+				if songtween then
+					songtween:Cancel()
+				end
+				if oldfov then
+					gameCamera.FieldOfView = oldfov
+				end
+				table.clear(alreadypicked)
+			end
+		end,
+		Tooltip = 'Built in mp3 player'
+	})
+	List = SongBeats:CreateTextList({
+		Name = 'Songs',
+		Placeholder = 'filepath/bpm/start'
+	})
+	FOV = SongBeats:CreateToggle({
+		Name = 'Beat FOV',
+		Function = function(callback)
+			if FOVValue.Object then
+				FOVValue.Object.Visible = callback
+			end
+			if SongBeats.Enabled then
+				SongBeats:Toggle()
+				SongBeats:Toggle()
+			end
+		end,
+		Default = true
+	})
+	FOVValue = SongBeats:CreateSlider({
+		Name = 'Adjustment',
+		Min = 1,
+		Max = 30,
+		Default = 5,
+		Darker = true
+	})
+	Volume = SongBeats:CreateSlider({
+		Name = 'Volume',
+		Function = function(val)
+			if songobj then
+				songobj.Volume = val / 100
+			end
+		end,
+		Min = 1,
+		Max = 100,
+		Default = 100,
+		Suffix = '%'
+	})
+end)
+	
+run(function()
+	local Speedmeter
+	local label
+	
+	Speedmeter = vape.Legit:CreateModule({
+		Name = 'Speedmeter',
+		Function = function(callback)
+			if callback then
+				repeat
+					local lastpos = entitylib.isAlive and entitylib.character.HumanoidRootPart.Position * Vector3.new(1, 0, 1) or Vector3.zero
+					local dt = task.wait(0.2)
+					local newpos = entitylib.isAlive and entitylib.character.HumanoidRootPart.Position * Vector3.new(1, 0, 1) or Vector3.zero
+					label.Text = math.round(((lastpos - newpos) / dt).Magnitude)..' sps'
+				until not Speedmeter.Enabled
+			end
+		end,
+		Size = UDim2.fromOffset(100, 41),
+		Tooltip = 'A label showing the average velocity in studs'
+	})
+	Speedmeter:CreateFont({
+		Name = 'Font',
+		Blacklist = 'Gotham',
+		Function = function(val)
+			label.FontFace = val
+		end
+	})
+	Speedmeter:CreateColorSlider({
+		Name = 'Color',
+		DefaultValue = 0,
+		DefaultOpacity = 0.5,
+		Function = function(hue, sat, val, opacity)
+			label.BackgroundColor3 = Color3.fromHSV(hue, sat, val)
+			label.BackgroundTransparency = 1 - opacity
+		end
+	})
+	label = Instance.new('TextLabel')
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 0.5
+	label.TextSize = 15
+	label.Font = Enum.Font.Gotham
+	label.Text = '0 sps'
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.BackgroundColor3 = Color3.new()
+	label.Parent = Speedmeter.Children
+	local corner = Instance.new('UICorner')
+	corner.CornerRadius = UDim.new(0, 4)
+	corner.Parent = label
+end)
+	
+run(function()
+	local TimeChanger
+	local Value
+	local old
+	
+	TimeChanger = vape.Legit:CreateModule({
+		Name = 'Time Changer',
+		Function = function(callback)
+			if callback then
+				old = lightingService.TimeOfDay
+				lightingService.TimeOfDay = Value.Value..':00:00'
+			else
+				lightingService.TimeOfDay = old
+				old = nil
+			end
+		end,
+		Tooltip = 'Change the time of the current world'
+	})
+	Value = TimeChanger:CreateSlider({
+		Name = 'Time',
+		Min = 0,
+		Max = 24,
+		Default = 12,
+		Function = function(val)
+			if TimeChanger.Enabled then 
+				lightingService.TimeOfDay = val..':00:00'
+			end
+		end
+	})
+	
+end)
+	
