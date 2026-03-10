@@ -1084,10 +1084,9 @@ local CoreGui = game:GetService("CoreGui")
 local lplr = Players.LocalPlayer
 local Combat = vape.Categories.Combat
 
-local CPS = 10
+local CPS = 12
 local MouseDown = false
 
--- マウス状態検出
 UIS.InputBegan:Connect(function(input,gp)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		MouseDown = true
@@ -1100,8 +1099,8 @@ UIS.InputEnded:Connect(function(input,gp)
 	end
 end)
 
--- GUIクリック防止
 local function canClick()
+
 	local mousepos = (UIS:GetMouseLocation() - GuiService:GetGuiInset())
 
 	for _, v in lplr.PlayerGui:GetGuiObjectsAtPosition(mousepos.X, mousepos.Y) do
@@ -1126,15 +1125,18 @@ local AutoClicker
 AutoClicker = Combat:CreateModule({
 	Name = "AutoClicker",
 	Tooltip = "Hold mouse to auto click",
-	Function = function(enabled)
+	Function = function(callback)
 
-		if enabled then
+		if callback then
+
 			task.spawn(function()
 
-				while enabled do
+				while AutoClicker.Enabled do
 
 					if MouseDown and canClick() then
-						mouse1click()
+						mouse1press()
+						task.wait()
+						mouse1release()
 					end
 
 					task.wait(1 / CPS)
@@ -1142,8 +1144,8 @@ AutoClicker = Combat:CreateModule({
 				end
 
 			end)
-		end
 
+		end
 	end
 })
 
@@ -1151,7 +1153,7 @@ AutoClicker:CreateSlider({
 	Name = "CPS",
 	Min = 1,
 	Max = 25,
-	Default = 10,
+	Default = 12,
 	Function = function(v)
 		CPS = v
 	end
