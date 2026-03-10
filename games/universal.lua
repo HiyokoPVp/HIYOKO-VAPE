@@ -1160,3 +1160,391 @@ AutoClicker:CreateSlider({
 })
 
 end)
+
+run(function()
+
+local Players = game:GetService("Players")
+local lplr = Players.LocalPlayer
+local Combat = vape.Categories.Combat
+
+local Horizontal = 0
+local Vertical = 0
+
+local Velocity = Combat:CreateModule({
+	Name = "Velocity",
+	Tooltip = "Reduce knockback",
+	Function = function(enabled)
+
+		if enabled then
+
+			local character = lplr.Character or lplr.CharacterAdded:Wait()
+			local root = character:WaitForChild("HumanoidRootPart")
+
+			root:GetPropertyChangedSignal("Velocity"):Connect(function()
+
+				if not enabled then return end
+
+				local vel = root.Velocity
+
+				root.Velocity = Vector3.new(
+					vel.X * (Horizontal / 100),
+					vel.Y * (Vertical / 100),
+					vel.Z * (Horizontal / 100)
+				)
+
+			end)
+
+		end
+
+	end
+})
+
+Velocity:CreateSlider({
+	Name = "Horizontal %",
+	Min = 0,
+	Max = 100,
+	Default = 0,
+	Function = function(v)
+		Horizontal = v
+	end
+})
+
+Velocity:CreateSlider({
+	Name = "Vertical %",
+	Min = 0,
+	Max = 100,
+	Default = 0,
+	Function = function(v)
+		Vertical = v
+	end
+})
+
+end)
+
+run(function()
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local lplr = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local Combat = vape.Categories.Combat
+
+local Range = 20
+local Smoothness = 0.15
+local TeamCheck = false
+
+local AimAssist = Combat:CreateModule({
+	Name = "AimAssist",
+	Tooltip = "Smooth aim assist",
+	Function = function(enabled)
+
+		if enabled then
+
+			RunService.RenderStepped:Connect(function()
+
+				if not enabled then return end
+
+				local character = lplr.Character
+				if not character then return end
+
+				local head = character:FindFirstChild("Head")
+				if not head then return end
+
+				local closest
+				local closestDist = math.huge
+
+				for _,v in pairs(Players:GetPlayers()) do
+
+					if v ~= lplr and v.Character then
+
+						if TeamCheck and v.Team == lplr.Team then
+							continue
+						end
+
+						local enemyHead = v.Character:FindFirstChild("Head")
+						if not enemyHead then continue end
+
+						local dist = (enemyHead.Position - head.Position).Magnitude
+
+						if dist < Range and dist < closestDist then
+							closest = enemyHead
+							closestDist = dist
+						end
+
+					end
+				end
+
+				if closest then
+
+					local targetCF = CFrame.new(
+						camera.CFrame.Position,
+						closest.Position
+					)
+
+					camera.CFrame = camera.CFrame:Lerp(targetCF, Smoothness)
+
+				end
+
+			end)
+
+		end
+	end
+})
+
+AimAssist:CreateSlider({
+	Name = "Range",
+	Min = 5,
+	Max = 40,
+	Default = 20,
+	Function = function(v)
+		Range = v
+	end
+})
+
+AimAssist:CreateSlider({
+	Name = "Smoothness",
+	Min = 1,
+	Max = 100,
+	Default = 15,
+	Function = function(v)
+		Smoothness = v / 100
+	end
+})
+
+AimAssist:CreateToggle({
+	Name = "TeamCheck",
+	Default = false,
+	Function = function(v)
+		TeamCheck = v
+	end
+})
+
+end)
+
+run(function()
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+
+local lplr = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local Render = vape.Categories.Render
+
+local KitESPEnabled = false
+local PlayerESPEnabled = false
+
+local KitObjects = {}
+local PlayerBoxes = {}
+
+
+local function createText(label,color)
+
+	local t = Drawing.new("Text")
+	t.Text = label
+	t.Size = 16
+	t.Center = true
+	t.Outline = true
+	t.Color = color
+	t.Visible = true
+
+	return t
+
+end
+
+
+
+local function addKit(obj,label)
+
+	if KitObjects[obj] then return end
+
+	local text = createText(label,Color3.fromRGB(255,170,0))
+	KitObjects[obj] = text
+
+end
+
+local function removeKit(obj)
+
+	if KitObjects[obj] then
+		KitObjects[obj]:Remove()
+		KitObjects[obj] = nil
+	end
+
+end
+
+local function tagObject(obj)
+
+	if obj:IsA("ProximityPrompt") and obj.Name == "hidden-metal-prompt" then
+		CollectionService:AddTag(obj.Parent,"KitMetal")
+
+	elseif obj.Name == "TreeOrb" then
+		CollectionService:AddTag(obj,"KitTreeOrb")
+
+	elseif obj:IsA("MeshPart") and obj.Name == "star_mesh.001" then
+
+		local parent = obj.Parent
+
+		if parent and parent.Name == "CritStar" then
+			CollectionService:AddTag(obj,"KitCritStar")
+
+		elseif parent and parent.Name == "VitalityStar" then
+			CollectionService:AddTag(obj,"KitVitalityStar")
+		end
+
+	end
+
+end
+
+for _,obj in ipairs(workspace:GetDescendants()) do
+	tagObject(obj)
+end
+
+workspace.DescendantAdded:Connect(tagObject)
+
+
+
+local function addPlayer(player)
+
+	if player == lplr then return end
+
+	local text = createText(player.Name,Color3.fromRGB(255,60,60))
+	PlayerBoxes[player] = text
+
+end
+
+local function removePlayer(player)
+
+	if PlayerBoxes[player] then
+		PlayerBoxes[player]:Remove()
+		PlayerBoxes[player] = nil
+	end
+
+end
+
+for _,p in pairs(Players:GetPlayers()) do
+	addPlayer(p)
+end
+
+Players.PlayerAdded:Connect(addPlayer)
+Players.PlayerRemoving:Connect(removePlayer)
+
+
+RunService.RenderStepped:Connect(function()
+
+	if KitESPEnabled then
+
+		for obj,text in pairs(KitObjects) do
+
+			if not obj or not obj.Parent then
+				removeKit(obj)
+				continue
+			end
+
+			local pos
+
+			if obj:IsA("BasePart") then
+				pos = obj.Position
+			elseif obj.PrimaryPart then
+				pos = obj.PrimaryPart.Position
+			end
+
+			if pos then
+
+				local screen,visible = camera:WorldToViewportPoint(pos)
+
+				if visible then
+					text.Position = Vector2.new(screen.X,screen.Y)
+					text.Visible = true
+				else
+					text.Visible = false
+				end
+
+			end
+
+		end
+
+	end
+
+	if PlayerESPEnabled then
+
+		for player,text in pairs(PlayerBoxes) do
+
+			local char = player.Character
+			local head = char and char:FindFirstChild("Head")
+
+			if head then
+
+				local screen,visible = camera:WorldToViewportPoint(head.Position)
+
+				if visible then
+					text.Position = Vector2.new(screen.X,screen.Y)
+					text.Visible = true
+				else
+					text.Visible = false
+				end
+
+			else
+				text.Visible = false
+			end
+
+		end
+
+	end
+
+end)
+
+
+local KitESP = Render:CreateModule({
+	Name = "KitESP",
+	Tooltip = "Metal / TreeOrb / Star ESP",
+	Function = function(enabled)
+
+		KitESPEnabled = enabled
+
+		if enabled then
+
+			for _,obj in ipairs(CollectionService:GetTagged("KitMetal")) do
+				addKit(obj,"Metal")
+			end
+
+			for _,obj in ipairs(CollectionService:GetTagged("KitTreeOrb")) do
+				addKit(obj,"TreeOrb")
+			end
+
+			for _,obj in ipairs(CollectionService:GetTagged("KitCritStar")) do
+				addKit(obj,"CritStar")
+			end
+
+			for _,obj in ipairs(CollectionService:GetTagged("KitVitalityStar")) do
+				addKit(obj,"VitalityStar")
+			end
+
+		else
+
+			for obj,_ in pairs(KitObjects) do
+				removeKit(obj)
+			end
+
+		end
+
+	end
+})
+
+
+local PlayerESP = Render:CreateModule({
+	Name = "PlayerESP",
+	Tooltip = "Player name ESP",
+	Function = function(enabled)
+
+		PlayerESPEnabled = enabled
+
+		for _,text in pairs(PlayerBoxes) do
+			text.Visible = enabled
+		end
+
+	end
+})
+
+end)
