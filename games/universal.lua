@@ -1131,7 +1131,7 @@ AutoClicker = Combat:CreateModule({
 
 			task.spawn(function()
 
-				while AutoClicker.Enabled do
+				while callback do
 
 					if MouseDown and canClick() then
 						mouse1press()
@@ -1170,6 +1170,8 @@ local Combat = vape.Categories.Combat
 local Horizontal = 0
 local Vertical = 0
 
+local VelocityConnection
+
 local Velocity = Combat:CreateModule({
 	Name = "Velocity",
 	Tooltip = "Reduce knockback",
@@ -1180,9 +1182,7 @@ local Velocity = Combat:CreateModule({
 			local character = lplr.Character or lplr.CharacterAdded:Wait()
 			local root = character:WaitForChild("HumanoidRootPart")
 
-			root:GetPropertyChangedSignal("Velocity"):Connect(function()
-
-				if not enabled then return end
+			VelocityConnection = root:GetPropertyChangedSignal("Velocity"):Connect(function()
 
 				local vel = root.Velocity
 
@@ -1194,8 +1194,14 @@ local Velocity = Combat:CreateModule({
 
 			end)
 
-		end
+		else
 
+			if VelocityConnection then
+				VelocityConnection:Disconnect()
+				VelocityConnection = nil
+			end
+
+		end
 	end
 })
 
@@ -1228,87 +1234,150 @@ local RunService = game:GetService("RunService")
 
 local lplr = Players.LocalPlayer
 local camera = workspace.CurrentCamera
+
 local Combat = vape.Categories.Combat
 
-local Range = 20
-local Smoothness = 0.15
+local Range = 30
+local MaxAngle = 90
+local Smooth = 0.2
 local TeamCheck = false
+local WallCheck = false
 
-local AimAssist = Combat:CreateModule({
+local AimConnection
+
+local function getTarget()
+
+	local character = lplr.Character
+	if not character then return end
+
+	local head = character:FindFirstChild("Head")
+	if not head then return end
+
+	local closest
+	local closestDist = math.huge
+
+	for _,player in pairs(Players:GetPlayers()) do
+
+		if player ~= lplr and player.Character then
+
+			if TeamCheck and player.Team == lplr.Team then
+				continue
+			end
+
+			local enemyHead = player.Character:FindFirstChild("Head")
+			local enemyRoot = player.Character:FindFirstChild("HumanoidRootPart")
+
+			if enemyHead and enemyRoot then
+
+				local dist = (enemyRoot.Position - head.Position).Magnitude
+
+				if dist > Range then
+					continue
+				end
+
+				local dir = (enemyRoot.Position - head.Position).Unit
+				local look = camera.CFrame.LookVector
+
+				local angle = math.deg(math.acos(math.clamp(look:Dot(dir), -1, 1)))
+
+				if angle > MaxAngle then
+					continue
+				end
+
+				if WallCheck then
+
+					local rayParams = RaycastParams.new()
+					rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+					rayParams.FilterDescendantsInstances = {character}
+
+					local result = workspace:Raycast(
+						head.Position,
+						enemyRoot.Position - head.Position,
+						rayParams
+					)
+
+					if result and not result.Instance:IsDescendantOf(player.Character) then
+						continue
+					end
+
+				end
+
+				if dist < closestDist then
+					closestDist = dist
+					closest = enemyHead
+				end
+
+			end
+		end
+	end
+
+	return closest
+
+end
+
+local AimAssist
+AimAssist = Combat:CreateModule({
+
 	Name = "AimAssist",
-	Tooltip = "Smooth aim assist",
+	Tooltip = "Smooth aim to closest player",
+
 	Function = function(enabled)
 
 		if enabled then
 
-			RunService.RenderStepped:Connect(function()
+			AimConnection = RunService.RenderStepped:Connect(function()
 
-				if not enabled then return end
+				local target = getTarget()
+				if not target then return end
 
-				local character = lplr.Character
-				if not character then return end
+				local targetPos = target.Position
 
-				local head = character:FindFirstChild("Head")
-				if not head then return end
+				local newCF = CFrame.new(camera.CFrame.Position, targetPos)
 
-				local closest
-				local closestDist = math.huge
-
-				for _,v in pairs(Players:GetPlayers()) do
-
-					if v ~= lplr and v.Character then
-
-						if TeamCheck and v.Team == lplr.Team then
-							continue
-						end
-
-						local enemyHead = v.Character:FindFirstChild("Head")
-						if not enemyHead then continue end
-
-						local dist = (enemyHead.Position - head.Position).Magnitude
-
-						if dist < Range and dist < closestDist then
-							closest = enemyHead
-							closestDist = dist
-						end
-
-					end
-				end
-
-				if closest then
-
-					local targetCF = CFrame.new(
-						camera.CFrame.Position,
-						closest.Position
-					)
-
-					camera.CFrame = camera.CFrame:Lerp(targetCF, Smoothness)
-
-				end
+				camera.CFrame = camera.CFrame:Lerp(newCF, Smooth)
 
 			end)
 
+		else
+
+			if AimConnection then
+				AimConnection:Disconnect()
+				AimConnection = nil
+			end
+
 		end
+
 	end
+
 })
 
 AimAssist:CreateSlider({
 	Name = "Range",
 	Min = 5,
-	Max = 40,
-	Default = 20,
+	Max = 100,
+	Default = 30,
 	Function = function(v)
 		Range = v
 	end
 })
 
 AimAssist:CreateSlider({
-	Name = "Smoothness",
+	Name = "MaxAngle",
 	Min = 1,
-	Max = 100,
-	Default = 15,
+	Max = 360,
+	Default = 90,
 	Function = function(v)
-		Smoothness = v / 100
+		MaxAngle = v
+	end
+})
+
+AimAssist:CreateSlider({
+	Name = "Smooth",
+	Min = 0.01,
+	Max = 1,
+	Default = 0.2,
+	Function = function(v)
+		Smooth = v
 	end
 })
 
@@ -1317,6 +1386,14 @@ AimAssist:CreateToggle({
 	Default = false,
 	Function = function(v)
 		TeamCheck = v
+	end
+})
+
+AimAssist:CreateToggle({
+	Name = "WallCheck",
+	Default = false,
+	Function = function(v)
+		WallCheck = v
 	end
 })
 
