@@ -1073,3 +1073,88 @@ Hits:CreateSlider({
 })
 
 end)
+
+run(function()
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
+local CoreGui = game:GetService("CoreGui")
+
+local lplr = Players.LocalPlayer
+local Combat = vape.Categories.Combat
+
+local CPS = 10
+local MouseDown = false
+
+-- マウス状態検出
+UIS.InputBegan:Connect(function(input,gp)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		MouseDown = true
+	end
+end)
+
+UIS.InputEnded:Connect(function(input,gp)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		MouseDown = false
+	end
+end)
+
+-- GUIクリック防止
+local function canClick()
+	local mousepos = (UIS:GetMouseLocation() - GuiService:GetGuiInset())
+
+	for _, v in lplr.PlayerGui:GetGuiObjectsAtPosition(mousepos.X, mousepos.Y) do
+		local obj = v:FindFirstAncestorOfClass("ScreenGui")
+		if v.Active and v.Visible and obj and obj.Enabled then
+			return false
+		end
+	end
+
+	for _, v in CoreGui:GetGuiObjectsAtPosition(mousepos.X, mousepos.Y) do
+		local obj = v:FindFirstAncestorOfClass("ScreenGui")
+		if v.Active and v.Visible and obj and obj.Enabled then
+			return false
+		end
+	end
+
+	return (not vape.gui.ScaledGui.ClickGui.Visible)
+		and (not UIS:GetFocusedTextBox())
+end
+
+local AutoClicker
+AutoClicker = Combat:CreateModule({
+	Name = "AutoClicker",
+	Tooltip = "Hold mouse to auto click",
+	Function = function(enabled)
+
+		if enabled then
+			task.spawn(function()
+
+				while enabled do
+
+					if MouseDown and canClick() then
+						mouse1click()
+					end
+
+					task.wait(1 / CPS)
+
+				end
+
+			end)
+		end
+
+	end
+})
+
+AutoClicker:CreateSlider({
+	Name = "CPS",
+	Min = 1,
+	Max = 25,
+	Default = 10,
+	Function = function(v)
+		CPS = v
+	end
+})
+
+end)
