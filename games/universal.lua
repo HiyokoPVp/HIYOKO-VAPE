@@ -834,7 +834,7 @@ local camera = workspace.CurrentCamera
 
 local Combat = vape.Categories.Combat
 
-local MaxAngle = 360
+local MaxAngle = 120
 local WallCheck = false
 local MouseRequire = false
 local UpdateHz = 10
@@ -864,7 +864,7 @@ Hits = Combat:CreateModule({
         if enabled then
             task.spawn(function()
 
-                while enabled do
+                while Hits.Enabled do  
 
                     if MouseRequire and not MouseDown then
                         task.wait(1/UpdateHz)
