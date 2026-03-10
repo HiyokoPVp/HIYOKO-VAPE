@@ -823,11 +823,11 @@ run(function()
 	end)
 end)
 
-
 run(function()
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -855,7 +855,8 @@ UIS.InputEnded:Connect(function(input,gp)
     end
 end)
 
-local Hits = Combat:CreateModule({
+local Hits
+Hits = Combat:CreateModule({
     Name = "Hits",
     Tooltip = "Closest enemy hit",
     Function = function(enabled)
@@ -863,7 +864,7 @@ local Hits = Combat:CreateModule({
         if enabled then
             task.spawn(function()
 
-                while Hits.Enabled do
+                while enabled do
 
                     if MouseRequire and not MouseDown then
                         task.wait(1/UpdateHz)
@@ -875,66 +876,79 @@ local Hits = Combat:CreateModule({
 
                     local root = character:FindFirstChild("HumanoidRootPart")
                     local head = character:FindFirstChild("Head")
-                    if not root or not head then task.wait() continue end
 
-                    local closest = nil
+                    if not root or not head then
+                        task.wait()
+                        continue
+                    end
+
+                    local closest
                     local closestDist = math.huge
 
                     for _,v in pairs(Players:GetPlayers()) do
-                        if v ~= player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+
+                        if v ~= player and v.Character then
+
+                            local enemyRoot = v.Character:FindFirstChild("HumanoidRootPart")
+                            if not enemyRoot then continue end
 
                             if TeamCheck and v.Team == player.Team then
                                 continue
                             end
 
-                            local enemyRoot = v.Character.HumanoidRootPart
                             local dist = (enemyRoot.Position - root.Position).Magnitude
 
-                            -- Range check
                             if dist > Range then
                                 continue
                             end
 
                             local dir = (enemyRoot.Position - head.Position).Unit
                             local look = head.CFrame.LookVector
-                            local angle = math.deg(math.acos(look:Dot(dir)))
 
-                            if angle <= MaxAngle then
+                            local angle = math.deg(math.acos(math.clamp(look:Dot(dir), -1, 1)))
 
-                                if WallCheck then
-                                    local rayParams = RaycastParams.new()
-                                    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                    rayParams.FilterDescendantsInstances = {character}
+                            if angle > MaxAngle then
+                                continue
+                            end
 
-                                    local result = workspace:Raycast(
-                                        head.Position,
-                                        (enemyRoot.Position - head.Position),
-                                        rayParams
-                                    )
+                            if WallCheck then
 
-                                    if result and not result.Instance:IsDescendantOf(v.Character) then
-                                        continue
-                                    end
-                                end
+                                local rayParams = RaycastParams.new()
+                                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                rayParams.FilterDescendantsInstances = {character}
 
-                                if dist < closestDist then
-                                    closestDist = dist
-                                    closest = v.Character
+                                local result = workspace:Raycast(
+                                    head.Position,
+                                    enemyRoot.Position - head.Position,
+                                    rayParams
+                                )
+
+                                if result and not result.Instance:IsDescendantOf(v.Character) then
+                                    continue
                                 end
 
                             end
+
+                            if dist < closestDist then
+                                closestDist = dist
+                                closest = v.Character
+                            end
+
                         end
                     end
 
                     if closest then
 
                         local targetRoot = closest:FindFirstChild("HumanoidRootPart")
-                        if not targetRoot then task.wait() continue end
+                        if not targetRoot then
+                            task.wait()
+                            continue
+                        end
 
                         local cursorDirection =
                             (targetRoot.Position - camera.CFrame.Position).Unit
 
-                        local inventory = game:GetService("ReplicatedStorage")
+                        local inventory = ReplicatedStorage
                             :WaitForChild("Inventories")
                             :WaitForChild(player.Name)
 
@@ -949,7 +963,7 @@ local Hits = Combat:CreateModule({
 
                         if sword then
 
-                            game:GetService("ReplicatedStorage")
+                            ReplicatedStorage
                             :WaitForChild("rbxts_include")
                             :WaitForChild("node_modules")
                             :WaitForChild("@rbxts")
@@ -959,37 +973,37 @@ local Hits = Combat:CreateModule({
                             :WaitForChild("SwordHit")
                             :FireServer({
 
-                                ["chargedAttack"] = {
-                                    ["chargeRatio"] = 0
+                                chargedAttack = {
+                                    chargeRatio = 0
                                 },
 
-                                ["entityInstance"] = closest,
+                                entityInstance = closest,
 
-                                ["validate"] = {
+                                validate = {
 
-                                    ["targetPosition"] = {
-                                        ["value"] = targetRoot.Position
+                                    targetPosition = {
+                                        value = targetRoot.Position
                                     },
 
-                                    ["raycast"] = {
+                                    raycast = {
 
-                                        ["cameraPosition"] = {
-                                            ["value"] = camera.CFrame.Position
+                                        cameraPosition = {
+                                            value = camera.CFrame.Position
                                         },
 
-                                        ["cursorDirection"] = {
-                                            ["value"] = cursorDirection
+                                        cursorDirection = {
+                                            value = cursorDirection
                                         }
 
                                     },
 
-                                    ["selfPosition"] = {
-                                        ["value"] = root.Position
+                                    selfPosition = {
+                                        value = root.Position
                                     }
 
                                 },
 
-                                ["weapon"] = sword
+                                weapon = sword
 
                             })
 
@@ -1006,7 +1020,7 @@ local Hits = Combat:CreateModule({
 
 Hits:CreateToggle({
     Name = "WallCheck",
-    Default = false,
+    Default = true,
     Function = function(v)
         WallCheck = v
     end
