@@ -840,6 +840,7 @@ local MouseRequire = false
 local UpdateHz = 10
 local TeamCheck = false
 local Range = 14
+local ToolCheck = true 
 
 local MouseDown = false
 
@@ -855,9 +856,23 @@ UIS.InputEnded:Connect(function(input,gp)
     end
 end)
 
+
+local function hasSword()
+    local character = player.Character
+    if not character then return false end
+    
+    for _, child in pairs(character:GetChildren()) do
+        if child:IsA("Tool") and string.lower(child.Name):find("sword") then
+            return true
+        end
+    end
+    
+    return false
+end
+
 local Hits
 Hits = Combat:CreateModule({
-    Name = "Hits",
+    Name = "Killaura",
     Tooltip = "Closest enemy hit",
     Function = function(enabled)
 
@@ -867,6 +882,11 @@ Hits = Combat:CreateModule({
                 while Hits.Enabled do  
 
                     if MouseRequire and not MouseDown then
+                        task.wait(1/UpdateHz)
+                        continue
+                    end
+                    
+                    if ToolCheck and not hasSword() then
                         task.wait(1/UpdateHz)
                         continue
                     end
@@ -1042,6 +1062,15 @@ Hits:CreateToggle({
     end
 })
 
+
+Hits:CreateToggle({
+    Name = "Tool Check",
+    Default = true,
+    Function = function(v)
+        ToolCheck = v
+    end
+})
+
 Hits:CreateSlider({
     Name = "MaxAngle",
     Min = 1,
@@ -1085,22 +1114,25 @@ local lplr = Players.LocalPlayer
 local Combat = vape.Categories.Combat
 
 local CPS = 12
+local RandomizeCPS = true
+local CPSVariation = 2
+local ClickDelay = 50
+local ToolCheckAC = false
 local MouseDown = false
 
-UIS.InputBegan:Connect(function(input,gp)
+UIS.InputBegan:Connect(function(input, gp)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		MouseDown = true
 	end
 end)
 
-UIS.InputEnded:Connect(function(input,gp)
+UIS.InputEnded:Connect(function(input, gp)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		MouseDown = false
 	end
 end)
 
 local function canClick()
-
 	local mousepos = (UIS:GetMouseLocation() - GuiService:GetGuiInset())
 
 	for _, v in lplr.PlayerGui:GetGuiObjectsAtPosition(mousepos.X, mousepos.Y) do
@@ -1121,25 +1153,47 @@ local function canClick()
 		and (not UIS:GetFocusedTextBox())
 end
 
+local function hasSwordAC()
+	if not ToolCheckAC then return true end
+	
+	local character = lplr.Character
+	if not character then return false end
+	
+	for _, child in pairs(character:GetChildren()) do
+		if child:IsA("Tool") and string.lower(child.Name):find("sword") then
+			return true
+		end
+	end
+	
+	return false
+end
+
 local AutoClicker
 AutoClicker = Combat:CreateModule({
 	Name = "AutoClicker",
-	Tooltip = "Hold mouse to auto click",
+	Tooltip = "Hold mouse to auto click with randomization",
 	Function = function(callback)
 
 		if callback then
 
 			task.spawn(function()
 
-				while callback do
+				while AutoClicker.Enabled do
 
-					if MouseDown and canClick() then
+					if MouseDown and canClick() and hasSwordAC() then
 						mouse1press()
-						task.wait()
+						task.wait(ClickDelay / 1000) 
 						mouse1release()
 					end
 
-					task.wait(1 / CPS)
+					-- ランダムCPS
+					local actualCPS = CPS
+					if RandomizeCPS then
+						actualCPS = CPS + math.random(-CPSVariation, CPSVariation)
+						actualCPS = math.max(1, actualCPS) 
+					end
+
+					task.wait(1 / actualCPS)
 
 				end
 
@@ -1156,6 +1210,42 @@ AutoClicker:CreateSlider({
 	Default = 12,
 	Function = function(v)
 		CPS = v
+	end
+})
+
+AutoClicker:CreateToggle({
+	Name = "Randomize CPS",
+	Default = true,
+	Function = function(v)
+		RandomizeCPS = v
+	end
+})
+
+AutoClicker:CreateSlider({
+	Name = "CPS Variation",
+	Min = 0,
+	Max = 5,
+	Default = 2,
+	Function = function(v)
+		CPSVariation = v
+	end
+})
+
+AutoClicker:CreateSlider({
+	Name = "Click Delay (ms)",
+	Min = 10,
+	Max = 200,
+	Default = 50,
+	Function = function(v)
+		ClickDelay = v
+	end
+})
+
+AutoClicker:CreateToggle({
+	Name = "Tool Check",
+	Default = false,
+	Function = function(v)
+		ToolCheckAC = v
 	end
 })
 
@@ -1412,115 +1502,107 @@ local Render = vape.Categories.Render
 
 local KitESPEnabled = false
 local PlayerESPEnabled = false
+local ShowDistance = true
+local ShowHealth = true
+local FontSize = 16
+local TextOutline = true
 
 local KitObjects = {}
 local PlayerBoxes = {}
 
 
-local function createText(label,color)
-
+local function createText(label, color, size)
 	local t = Drawing.new("Text")
 	t.Text = label
-	t.Size = 16
+	t.Size = size or FontSize
 	t.Center = true
-	t.Outline = true
+	t.Outline = TextOutline
+	t.OutlineColor = Color3.new(0, 0, 0)
 	t.Color = color
 	t.Visible = true
-
+	t.Font = Drawing.Fonts.Plex 
 	return t
-
 end
 
-
-
-local function addKit(obj,label)
-
+local function addKit(obj, label)
 	if KitObjects[obj] then return end
-
-	local text = createText(label,Color3.fromRGB(255,170,0))
+	local text = createText(label, Color3.fromRGB(255, 170, 0))
 	KitObjects[obj] = text
-
 end
 
 local function removeKit(obj)
-
 	if KitObjects[obj] then
 		KitObjects[obj]:Remove()
 		KitObjects[obj] = nil
 	end
-
 end
 
 local function tagObject(obj)
-
 	if obj:IsA("ProximityPrompt") and obj.Name == "hidden-metal-prompt" then
-		CollectionService:AddTag(obj.Parent,"KitMetal")
-
+		CollectionService:AddTag(obj.Parent, "KitMetal")
 	elseif obj.Name == "TreeOrb" then
-		CollectionService:AddTag(obj,"KitTreeOrb")
-
+		CollectionService:AddTag(obj, "KitTreeOrb")
 	elseif obj:IsA("MeshPart") and obj.Name == "star_mesh.001" then
-
 		local parent = obj.Parent
-
 		if parent and parent.Name == "CritStar" then
-			CollectionService:AddTag(obj,"KitCritStar")
-
+			CollectionService:AddTag(obj, "KitCritStar")
 		elseif parent and parent.Name == "VitalityStar" then
-			CollectionService:AddTag(obj,"KitVitalityStar")
+			CollectionService:AddTag(obj, "KitVitalityStar")
 		end
-
 	end
-
 end
 
-for _,obj in ipairs(workspace:GetDescendants()) do
+for _, obj in ipairs(workspace:GetDescendants()) do
 	tagObject(obj)
 end
 
 workspace.DescendantAdded:Connect(tagObject)
 
-
-
 local function addPlayer(player)
-
 	if player == lplr then return end
-
-	local text = createText(player.Name,Color3.fromRGB(255,60,60))
-	PlayerBoxes[player] = text
-
+	
+	
+	local nameText = createText(player.Name, Color3.fromRGB(255, 60, 60))
+	
+	local distText = createText("", Color3.fromRGB(255, 255, 255), FontSize - 2)
+	
+	local healthBar = Drawing.new("Line")
+	healthBar.Thickness = 2
+	healthBar.Visible = true
+	healthBar.Color = Color3.fromRGB(0, 255, 0)
+	
+	PlayerBoxes[player] = {
+		nameText = nameText,
+		distText = distText,
+		healthBar = healthBar
+	}
 end
 
 local function removePlayer(player)
-
 	if PlayerBoxes[player] then
-		PlayerBoxes[player]:Remove()
+		PlayerBoxes[player].nameText:Remove()
+		PlayerBoxes[player].distText:Remove()
+		PlayerBoxes[player].healthBar:Remove()
 		PlayerBoxes[player] = nil
 	end
-
 end
 
-for _,p in pairs(Players:GetPlayers()) do
+for _, p in pairs(Players:GetPlayers()) do
 	addPlayer(p)
 end
 
 Players.PlayerAdded:Connect(addPlayer)
 Players.PlayerRemoving:Connect(removePlayer)
 
-
 RunService.RenderStepped:Connect(function()
-
 	if KitESPEnabled then
-
-		for obj,text in pairs(KitObjects) do
-
+		for obj, text in pairs(KitObjects) do
 			if not obj or not obj.Parent then
 				removeKit(obj)
 				continue
 			end
 
 			local pos
-
 			if obj:IsA("BasePart") then
 				pos = obj.Position
 			elseif obj.PrimaryPart then
@@ -1528,99 +1610,289 @@ RunService.RenderStepped:Connect(function()
 			end
 
 			if pos then
-
-				local screen,visible = camera:WorldToViewportPoint(pos)
-
-				if visible then
-					text.Position = Vector2.new(screen.X,screen.Y)
+				local screen, visible = camera:WorldToViewportPoint(pos)
+				if visible and screen.Z > 0 then
+					local distance = (camera.CFrame.Position - pos).Magnitude
+					local labelWithDist = text.Text:match("^[^%[]+") .. string.format(" [%.1fm]", distance)
+					
+					text.Text = labelWithDist
+					text.Position = Vector2.new(screen.X, screen.Y)
 					text.Visible = true
 				else
 					text.Visible = false
 				end
-
 			end
-
 		end
-
 	end
 
 	if PlayerESPEnabled then
-
-		for player,text in pairs(PlayerBoxes) do
-
+		for player, elements in pairs(PlayerBoxes) do
 			local char = player.Character
 			local head = char and char:FindFirstChild("Head")
+			local humanoid = char and char:FindFirstChild("Humanoid")
+			local rootPart = char and char:FindFirstChild("HumanoidRootPart")
 
-			if head then
-
-				local screen,visible = camera:WorldToViewportPoint(head.Position)
-
-				if visible then
-					text.Position = Vector2.new(screen.X,screen.Y)
-					text.Visible = true
+			if head and humanoid and rootPart then
+				local screen, visible = camera:WorldToViewportPoint(head.Position)
+				
+				if visible and screen.Z > 0 then
+					local distance = (camera.CFrame.Position - rootPart.Position).Magnitude
+					local health = humanoid.Health
+					local maxHealth = humanoid.MaxHealth
+					local healthPercent = health / maxHealth
+					
+					
+					elements.nameText.Position = Vector2.new(screen.X, screen.Y - 20)
+					elements.nameText.Visible = true
+					
+					
+					if ShowDistance then
+						elements.distText.Text = string.format("[%.1fm]", distance)
+						elements.distText.Position = Vector2.new(screen.X, screen.Y - 5)
+						elements.distText.Visible = true
+					else
+						elements.distText.Visible = false
+					end
+					
+					
+					if ShowHealth then
+						local barWidth = 50
+						local barStart = Vector2.new(screen.X - barWidth/2, screen.Y + 10)
+						local barEnd = Vector2.new(screen.X - barWidth/2 + (barWidth * healthPercent), screen.Y + 10)
+						
+						elements.healthBar.From = barStart
+						elements.healthBar.To = barEnd
+						elements.healthBar.Color = Color3.fromRGB(
+							255 * (1 - healthPercent),
+							255 * healthPercent,
+							0
+						)
+						elements.healthBar.Visible = true
+					else
+						elements.healthBar.Visible = false
+					end
 				else
-					text.Visible = false
+					elements.nameText.Visible = false
+					elements.distText.Visible = false
+					elements.healthBar.Visible = false
 				end
-
 			else
-				text.Visible = false
+				elements.nameText.Visible = false
+				elements.distText.Visible = false
+				elements.healthBar.Visible = false
 			end
-
 		end
-
 	end
-
 end)
-
 
 local KitESP = Render:CreateModule({
 	Name = "KitESP",
 	Tooltip = "Metal / TreeOrb / Star ESP",
 	Function = function(enabled)
-
 		KitESPEnabled = enabled
 
 		if enabled then
-
-			for _,obj in ipairs(CollectionService:GetTagged("KitMetal")) do
-				addKit(obj,"Metal")
+			for _, obj in ipairs(CollectionService:GetTagged("KitMetal")) do
+				addKit(obj, "Metal")
 			end
-
-			for _,obj in ipairs(CollectionService:GetTagged("KitTreeOrb")) do
-				addKit(obj,"TreeOrb")
+			for _, obj in ipairs(CollectionService:GetTagged("KitTreeOrb")) do
+				addKit(obj, "TreeOrb")
 			end
-
-			for _,obj in ipairs(CollectionService:GetTagged("KitCritStar")) do
-				addKit(obj,"CritStar")
+			for _, obj in ipairs(CollectionService:GetTagged("KitCritStar")) do
+				addKit(obj, "CritStar")
 			end
-
-			for _,obj in ipairs(CollectionService:GetTagged("KitVitalityStar")) do
-				addKit(obj,"VitalityStar")
+			for _, obj in ipairs(CollectionService:GetTagged("KitVitalityStar")) do
+				addKit(obj, "VitalityStar")
 			end
-
 		else
-
-			for obj,_ in pairs(KitObjects) do
+			for obj, _ in pairs(KitObjects) do
 				removeKit(obj)
 			end
-
 		end
+	end
+})
 
+local PlayerESP = Render:CreateModule({
+	Name = "PlayerESP",
+	Tooltip = "Player name ESP with health and distance",
+	Function = function(enabled)
+		PlayerESPEnabled = enabled
+		
+		if not enabled then
+			for _, elements in pairs(PlayerBoxes) do
+				elements.nameText.Visible = false
+				elements.distText.Visible = false
+				elements.healthBar.Visible = false
+			end
+		end
 	end
 })
 
 
-local PlayerESP = Render:CreateModule({
-	Name = "PlayerESP",
-	Tooltip = "Player name ESP",
-	Function = function(enabled)
+PlayerESP:CreateToggle({
+	Name = "Show Distance",
+	Default = true,
+	Function = function(v)
+		ShowDistance = v
+	end
+})
 
-		PlayerESPEnabled = enabled
+PlayerESP:CreateToggle({
+	Name = "Show Health",
+	Default = true,
+	Function = function(v)
+		ShowHealth = v
+	end
+})
 
-		for _,text in pairs(PlayerBoxes) do
-			text.Visible = enabled
+PlayerESP:CreateToggle({
+	Name = "Text Outline",
+	Default = true,
+	Function = function(v)
+		TextOutline = v
+		for _, elements in pairs(PlayerBoxes) do
+			elements.nameText.Outline = v
+			elements.distText.Outline = v
 		end
+		for _, text in pairs(KitObjects) do
+			text.Outline = v
+		end
+	end
+})
 
+PlayerESP:CreateSlider({
+	Name = "Font Size",
+	Min = 10,
+	Max = 24,
+	Default = 16,
+	Function = function(v)
+		FontSize = v
+		for _, elements in pairs(PlayerBoxes) do
+			elements.nameText.Size = v
+			elements.distText.Size = v - 2
+		end
+		for _, text in pairs(KitObjects) do
+			text.Size = v
+		end
+	end
+})
+
+end)
+
+run(function()
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local lplr = Players.LocalPlayer
+local Blatant = vape.Categories.Blatant
+
+local FallDistance = 10 -- 落下する直前の高さ
+local Enabled = false
+local LastSafePos = nil
+local Connection
+
+local function isOverVoid()
+	local character = lplr.Character
+	if not character then return false end
+	
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then return false end
+	
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+	rayParams.FilterDescendantsInstances = {character}
+	
+	local result = workspace:Raycast(
+		rootPart.Position,
+		Vector3.new(0, -FallDistance, 0),
+		rayParams
+	)
+	
+	return result == nil
+end
+
+local function updateSafePosition()
+	local character = lplr.Character
+	if not character then return end
+	
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then return end
+	
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+	rayParams.FilterDescendantsInstances = {character}
+	
+	local result = workspace:Raycast(
+		rootPart.Position,
+		Vector3.new(0, -5, 0),
+		rayParams
+	)
+	
+	if result then
+		LastSafePos = rootPart.Position
+	end
+end
+
+local NoFall
+NoFall = Blatant:CreateModule({
+	Name = "NoFall",
+	Tooltip = "Teleport before falling into void",
+	Function = function(enabled)
+		
+		Enabled = enabled
+		
+		if enabled then
+			
+			LastSafePos = nil
+			
+			Connection = RunService.Heartbeat:Connect(function()
+				
+				if not Enabled then return end
+				
+				local character = lplr.Character
+				if not character then return end
+				
+				local rootPart = character:FindFirstChild("HumanoidRootPart")
+				local humanoid = character:FindFirstChild("Humanoid")
+				
+				if not rootPart or not humanoid then return end
+				
+				
+				if humanoid.FloorMaterial ~= Enum.Material.Air then
+					updateSafePosition()
+				end
+				
+				
+				if isOverVoid() and LastSafePos then
+					
+					rootPart.CFrame = CFrame.new(LastSafePos)
+					rootPart.Velocity = Vector3.zero
+				end
+				
+			end)
+			
+		else
+			
+			if Connection then
+				Connection:Disconnect()
+				Connection = nil
+			end
+			
+			LastSafePos = nil
+			
+		end
+		
+	end
+})
+
+NoFall:CreateSlider({
+	Name = "Fall Distance",
+	Min = 5,
+	Max = 50,
+	Default = 10,
+	Function = function(v)
+		FallDistance = v
 	end
 })
 
