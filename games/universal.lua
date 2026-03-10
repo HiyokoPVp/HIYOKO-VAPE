@@ -823,6 +823,20 @@ run(function()
 	end)
 end)
 
+local function hasSword()
+	local player = game:GetService("Players").LocalPlayer
+    local character = player.Character
+    if not character then return false end
+    
+    for _, child in pairs(character:GetChildren()) do
+        if child:IsA("Tool") and string.lower(child.Name):find("sword") then
+            return true
+        end
+    end
+    
+    return false
+end
+
 run(function()
 
 local Players = game:GetService("Players")
@@ -857,18 +871,6 @@ UIS.InputEnded:Connect(function(input,gp)
 end)
 
 
-local function hasSword()
-    local character = player.Character
-    if not character then return false end
-    
-    for _, child in pairs(character:GetChildren()) do
-        if child:IsA("Tool") and string.lower(child.Name):find("sword") then
-            return true
-        end
-    end
-    
-    return false
-end
 
 local Hits
 Hits = Combat:CreateModule({
@@ -1103,22 +1105,30 @@ Hits:CreateSlider({
 
 end)
 
+
 run(function()
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local CoreGui = game:GetService("CoreGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local lplr = Players.LocalPlayer
 local Combat = vape.Categories.Combat
 
+
+local bedwars = {
+	SwordController = require(ReplicatedStorage.TS.controllers.game.sword["sword-controller"]).SwordController
+}
+
 local CPS = 12
 local RandomizeCPS = true
 local CPSVariation = 2
-local ClickDelay = 50
 local ToolCheckAC = false
 local MouseDown = false
+local LastSwing = 0
 
 UIS.InputBegan:Connect(function(input, gp)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -1171,7 +1181,7 @@ end
 local AutoClicker
 AutoClicker = Combat:CreateModule({
 	Name = "AutoClicker",
-	Tooltip = "Hold mouse to auto click with randomization",
+	Tooltip = "Auto swing sword using SwordController",
 	Function = function(callback)
 
 		if callback then
@@ -1181,19 +1191,28 @@ AutoClicker = Combat:CreateModule({
 				while AutoClicker.Enabled do
 
 					if MouseDown and canClick() and hasSwordAC() then
-						mouse1press()
-						task.wait(ClickDelay / 1000) 
-						mouse1release()
+						
+						local currentTime = tick()
+						
+						
+						local actualCPS = CPS
+						if RandomizeCPS then
+							actualCPS = CPS + math.random(-CPSVariation, CPSVariation)
+							actualCPS = math.max(1, actualCPS)
+						end
+						
+						local delay = 1 / actualCPS
+						
+						
+						if currentTime - LastSwing >= delay then
+							pcall(function()
+								bedwars.SwordController:swingSwordAtMouse()
+							end)
+							LastSwing = currentTime
+						end
 					end
 
-					-- ランダムCPS
-					local actualCPS = CPS
-					if RandomizeCPS then
-						actualCPS = CPS + math.random(-CPSVariation, CPSVariation)
-						actualCPS = math.max(1, actualCPS) 
-					end
-
-					task.wait(1 / actualCPS)
+					task.wait(0.01) 
 
 				end
 
@@ -1228,16 +1247,6 @@ AutoClicker:CreateSlider({
 	Default = 2,
 	Function = function(v)
 		CPSVariation = v
-	end
-})
-
-AutoClicker:CreateSlider({
-	Name = "Click Delay (ms)",
-	Min = 10,
-	Max = 200,
-	Default = 50,
-	Function = function(v)
-		ClickDelay = v
 	end
 })
 
