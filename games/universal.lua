@@ -1526,6 +1526,9 @@ local TextOutline = true
 local KitObjects = {}
 local PlayerBoxes = {}
 
+local PlayerAddedConnection
+local PlayerRemovingConnection
+
 
 local function createText(label, color, size)
 	local t = Drawing.new("Text")
@@ -1535,14 +1538,15 @@ local function createText(label, color, size)
 	t.Outline = TextOutline
 	t.OutlineColor = Color3.new(0, 0, 0)
 	t.Color = color
-	t.Visible = true
-	t.Font = Drawing.Fonts.Plex 
+	t.Visible = false 
+	t.Font = Drawing.Fonts.Plex
 	return t
 end
 
 local function addKit(obj, label)
 	if KitObjects[obj] then return end
 	local text = createText(label, Color3.fromRGB(255, 170, 0))
+	text.Visible = KitESPEnabled 
 	KitObjects[obj] = text
 end
 
@@ -1584,7 +1588,7 @@ local function addPlayer(player)
 	
 	local healthBar = Drawing.new("Line")
 	healthBar.Thickness = 2
-	healthBar.Visible = true
+	healthBar.Visible = false 
 	healthBar.Color = Color3.fromRGB(0, 255, 0)
 	
 	PlayerBoxes[player] = {
@@ -1592,6 +1596,13 @@ local function addPlayer(player)
 		distText = distText,
 		healthBar = healthBar
 	}
+	
+	
+	if PlayerESPEnabled then
+		nameText.Visible = false 
+		distText.Visible = false
+		healthBar.Visible = false
+	end
 end
 
 local function removePlayer(player)
@@ -1602,13 +1613,6 @@ local function removePlayer(player)
 		PlayerBoxes[player] = nil
 	end
 end
-
-for _, p in pairs(Players:GetPlayers()) do
-	addPlayer(p)
-end
-
-Players.PlayerAdded:Connect(addPlayer)
-Players.PlayerRemoving:Connect(removePlayer)
 
 RunService.RenderStepped:Connect(function()
 	if KitESPEnabled then
@@ -1638,6 +1642,11 @@ RunService.RenderStepped:Connect(function()
 					text.Visible = false
 				end
 			end
+		end
+	else
+		
+		for _, text in pairs(KitObjects) do
+			text.Visible = false
 		end
 	end
 
@@ -1698,6 +1707,13 @@ RunService.RenderStepped:Connect(function()
 				elements.healthBar.Visible = false
 			end
 		end
+	else
+		
+		for _, elements in pairs(PlayerBoxes) do
+			elements.nameText.Visible = false
+			elements.distText.Visible = false
+			elements.healthBar.Visible = false
+		end
 	end
 end)
 
@@ -1721,8 +1737,9 @@ local KitESP = Render:CreateModule({
 				addKit(obj, "VitalityStar")
 			end
 		else
-			for obj, _ in pairs(KitObjects) do
-				removeKit(obj)
+			
+			for _, text in pairs(KitObjects) do
+				text.Visible = false
 			end
 		end
 	end
@@ -1734,7 +1751,23 @@ local PlayerESP = Render:CreateModule({
 	Function = function(enabled)
 		PlayerESPEnabled = enabled
 		
-		if not enabled then
+		if enabled then
+			
+			if not PlayerAddedConnection then
+				PlayerAddedConnection = Players.PlayerAdded:Connect(addPlayer)
+			end
+			if not PlayerRemovingConnection then
+				PlayerRemovingConnection = Players.PlayerRemoving:Connect(removePlayer)
+			end
+			
+			
+			for _, p in pairs(Players:GetPlayers()) do
+				if not PlayerBoxes[p] then
+					addPlayer(p)
+				end
+			end
+		else
+			
 			for _, elements in pairs(PlayerBoxes) do
 				elements.nameText.Visible = false
 				elements.distText.Visible = false
@@ -1744,7 +1777,7 @@ local PlayerESP = Render:CreateModule({
 	end
 })
 
-
+-- ESPオプション
 PlayerESP:CreateToggle({
 	Name = "Show Distance",
 	Default = true,
@@ -1972,6 +2005,35 @@ FFlagEditor:CreateTextBox({
 	Default = "{}",
 	Function = function(v)
 		FFlagEditor.JsonInput = v
+	end
+})
+
+end)
+
+run(function()
+
+local Blatant = vape.Categories.Blatant
+
+local DefaultPhysicsRate = 15 
+
+local Desync
+Desync = Blatant:CreateModule({
+	Name = "Desync",
+	Tooltip = "Change physics sender rate for desync",
+	Function = function(enabled)
+		
+		if enabled then
+			
+			pcall(function()
+				setfflag("DFIntS2PhysicsSenderRate", "38000")
+			end)
+		else
+			
+			pcall(function()
+				setfflag("DFIntS2PhysicsSenderRate", tostring(DefaultPhysicsRate))
+			end)
+		end
+		
 	end
 })
 
