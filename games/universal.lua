@@ -1113,15 +1113,22 @@ local UIS = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
 local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local lplr = Players.LocalPlayer
 local Combat = vape.Categories.Combat
 
 
-local bedwars = {
-	SwordController = require(ReplicatedStorage.TS.controllers.game.sword["sword-controller"]).SwordController
-}
+local bedwars = {}
+
+pcall(function()
+	local controller = require(
+		ReplicatedStorage.TS.controllers.game.sword["sword-controller"]
+	)
+
+	if controller and controller.SwordController then
+		bedwars.SwordController = controller.SwordController
+	end
+end)
 
 local CPS = 12
 local RandomizeCPS = true
@@ -1130,13 +1137,13 @@ local ToolCheckAC = false
 local MouseDown = false
 local LastSwing = 0
 
-UIS.InputBegan:Connect(function(input, gp)
+UIS.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		MouseDown = true
 	end
 end)
 
-UIS.InputEnded:Connect(function(input, gp)
+UIS.InputEnded:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		MouseDown = false
 	end
@@ -1194,7 +1201,6 @@ AutoClicker = Combat:CreateModule({
 						
 						local currentTime = tick()
 						
-						
 						local actualCPS = CPS
 						if RandomizeCPS then
 							actualCPS = CPS + math.random(-CPSVariation, CPSVariation)
@@ -1203,16 +1209,17 @@ AutoClicker = Combat:CreateModule({
 						
 						local delay = 1 / actualCPS
 						
-						
 						if currentTime - LastSwing >= delay then
 							pcall(function()
-								bedwars.SwordController:swingSwordAtMouse()
+								if bedwars.SwordController and lplr.Character then
+									bedwars.SwordController:swingSwordAtMouse()
+								end
 							end)
 							LastSwing = currentTime
 						end
 					end
 
-					task.wait(0.01) 
+					task.wait(0.01)
 
 				end
 
@@ -1796,7 +1803,7 @@ local RunService = game:GetService("RunService")
 local lplr = Players.LocalPlayer
 local Blatant = vape.Categories.Blatant
 
-local FallDistance = 10 -- 落下する直前の高さ
+local FallDistance = 10 
 local Enabled = false
 local LastSafePos = nil
 local Connection
@@ -1902,6 +1909,54 @@ NoFall:CreateSlider({
 	Default = 10,
 	Function = function(v)
 		FallDistance = v
+	end
+})
+
+end)
+
+run(function()
+
+local Blatant = vape.Categories.Blatant
+
+local HttpService = game:GetService("HttpService")
+
+local FFlagEditor = Blatant:CreateModule({
+	Name = "FFLAGEDITOR",
+	Tooltip = "Set Roblox FFlags using JSON",
+	Function = function(callback)
+
+		if callback then
+
+			local success, data = pcall(function()
+				return HttpService:JSONDecode(FFlagEditor.JsonInput)
+			end)
+
+			if success and type(data) == "table" then
+
+				for flag, value in pairs(data) do
+					pcall(function()
+						setfflag(flag, value)
+					end)
+				end
+
+				print("FFlags applied")
+
+			else
+				warn("Invalid JSON")
+			end
+
+		end
+
+	end
+})
+
+FFlagEditor.JsonInput = "{}"
+
+FFlagEditor:CreateTextBox({
+	Name = "JSON",
+	Default = "{}",
+	Function = function(v)
+		FFlagEditor.JsonInput = v
 	end
 })
 
