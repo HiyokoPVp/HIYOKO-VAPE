@@ -825,16 +825,16 @@ end)
 
 local function hasSword()
 	local player = game:GetService("Players").LocalPlayer
-    local character = player.Character
-    if not character then return false end
-    
-    for _, child in pairs(character:GetChildren()) do
-        if child:IsA("Tool") and string.lower(child.Name):find("sword") then
-            return true
-        end
-    end
-    
-    return false
+	local character = player.Character
+	if not character then return false end
+	
+	for _, child in pairs(character:GetChildren()) do
+		if string.find(string.lower(child.Name), "sword") then
+			return true
+		end
+	end
+	
+	return false
 end
 
 run(function()
@@ -1917,7 +1917,6 @@ end)
 run(function()
 
 local Blatant = vape.Categories.Blatant
-
 local HttpService = game:GetService("HttpService")
 
 local FFlagEditor = Blatant:CreateModule({
@@ -1935,14 +1934,30 @@ local FFlagEditor = Blatant:CreateModule({
 
 				for flag, value in pairs(data) do
 					pcall(function()
-						setfflag(flag, value)
+
+						local v = value
+
+						if typeof(value) == "boolean" then
+							v = value and "True" or "False"
+
+						elseif typeof(value) == "number" then
+							v = tostring(value)
+
+						elseif typeof(value) == "string" then
+							v = value
+						end
+
+						setfflag(flag, v)
+
+						print("Set FFlag:", flag, v)
+
 					end)
 				end
 
-				print("FFlags applied")
+				print("FFlags applied successfully")
 
 			else
-				warn("Invalid JSON")
+				warn("Invalid JSON input")
 			end
 
 		end
