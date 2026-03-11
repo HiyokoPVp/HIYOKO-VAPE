@@ -1796,122 +1796,122 @@ PlayerESP:CreateSlider({
 end)
 
 run(function()
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-
-local lplr = Players.LocalPlayer
-local Blatant = vape.Categories.Blatant
-
-local FallDistance = 10 
-local Enabled = false
-local LastSafePos = nil
-local Connection
-
-local function isOverVoid()
-	local character = lplr.Character
-	if not character then return false end
-	
-	local rootPart = character:FindFirstChild("HumanoidRootPart")
-	if not rootPart then return false end
-	
-	local rayParams = RaycastParams.new()
-	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-	rayParams.FilterDescendantsInstances = {character}
-	
-	local result = workspace:Raycast(
-		rootPart.Position,
-		Vector3.new(0, -FallDistance, 0),
-		rayParams
-	)
-	
-	return result == nil
-end
-
-local function updateSafePosition()
-	local character = lplr.Character
-	if not character then return end
-	
-	local rootPart = character:FindFirstChild("HumanoidRootPart")
-	if not rootPart then return end
-	
-	local rayParams = RaycastParams.new()
-	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-	rayParams.FilterDescendantsInstances = {character}
-	
-	local result = workspace:Raycast(
-		rootPart.Position,
-		Vector3.new(0, -5, 0),
-		rayParams
-	)
-	
-	if result then
-		LastSafePos = rootPart.Position
-	end
-end
-
-local NoFall
-NoFall = Blatant:CreateModule({
-	Name = "NoFall",
-	Tooltip = "Teleport before falling into void",
-	Function = function(enabled)
-		
-		Enabled = enabled
-		
-		if enabled then
-			
-			LastSafePos = nil
-			
-			Connection = RunService.Heartbeat:Connect(function()
-				
-				if not Enabled then return end
-				
-				local character = lplr.Character
-				if not character then return end
-				
-				local rootPart = character:FindFirstChild("HumanoidRootPart")
-				local humanoid = character:FindFirstChild("Humanoid")
-				
-				if not rootPart or not humanoid then return end
-				
-				
-				if humanoid.FloorMaterial ~= Enum.Material.Air then
-					updateSafePosition()
-				end
-				
-				
-				if isOverVoid() and LastSafePos then
-					
-					rootPart.CFrame = CFrame.new(LastSafePos)
-					rootPart.Velocity = Vector3.zero
-				end
-				
-			end)
-			
-		else
-			
-			if Connection then
-				Connection:Disconnect()
-				Connection = nil
-			end
-			
-			LastSafePos = nil
-			
-		end
-		
-	end
-})
-
-NoFall:CreateSlider({
-	Name = "Fall Distance",
-	Min = 5,
-	Max = 50,
-	Default = 10,
-	Function = function(v)
-		FallDistance = v
-	end
-})
-
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local lplr = Players.LocalPlayer
+    local Blatant = vape.Categories.Blatant
+    
+    
+    local Enabled = false
+    local DamageAccuracy = 0
+    local tracked = 0
+    local extraGravity = 0
+    
+    
+    local rayParams = RaycastParams.new()
+    rayParams.RespectCanCollide = true
+    
+   
+    local rand = Random.new()
+    
+    local Connection
+    
+    local NoFall
+    NoFall = Blatant:CreateModule({
+        Name = "NoFall",
+        Tooltip = "Prevents fall damage using velocity manipulation",
+        Function = function(enabled)
+            Enabled = enabled
+            
+            if enabled then
+                Connection = RunService.PreSimulation:Connect(function(dt)
+                    if not Enabled then return end
+                    
+                    local character = lplr.Character
+                    if not character then return end
+                    
+                    local rootPart = character:FindFirstChild("HumanoidRootPart")
+                    local humanoid = character:FindFirstChild("Humanoid")
+                    
+                    if not rootPart or not humanoid then return end
+                    
+                    
+                    if rootPart.AssemblyLinearVelocity.Y < -85 then
+                        
+                        rayParams.FilterDescendantsInstances = {character, workspace.CurrentCamera}
+                        rayParams.CollisionGroup = rootPart.CollisionGroup
+                        
+                        
+                        local rootSize = rootPart.Size.Y / 2.5 + (humanoid.HipHeight or 2)
+                        
+                        
+                        local ray = workspace:Blockcast(
+                            rootPart.CFrame, 
+                            Vector3.new(3, 3, 3), 
+                            Vector3.new(0, (tracked * 0.1) - rootSize, 0), 
+                            rayParams
+                        )
+                        
+                        if not ray then
+                           
+                            local Failed = rand:NextNumber(0, 100) < DamageAccuracy
+                            local velo = rootPart.AssemblyLinearVelocity.Y
+                            
+                            if Failed then 
+                                
+                                rootPart.AssemblyLinearVelocity = Vector3.new(
+                                    rootPart.AssemblyLinearVelocity.X, 
+                                    velo + 0.5, 
+                                    rootPart.AssemblyLinearVelocity.Z
+                                )
+                            else
+                               
+                                rootPart.AssemblyLinearVelocity = Vector3.new(
+                                    rootPart.AssemblyLinearVelocity.X, 
+                                    -86, 
+                                    rootPart.AssemblyLinearVelocity.Z
+                                )
+                            end
+                            
+                           
+                            rootPart.CFrame = rootPart.CFrame + Vector3.new(
+                                0, 
+                                (Failed and -extraGravity or extraGravity) * dt, 
+                                0
+                            )
+                            
+                           
+                            extraGravity = extraGravity + (Failed and workspace.Gravity or -workspace.Gravity) * dt
+                        end
+                    else
+                        
+                        extraGravity = 0
+                    end
+                end)
+            else
+                
+                if Connection then
+                    Connection:Disconnect()
+                    Connection = nil
+                end
+                extraGravity = 0
+                tracked = 0
+            end
+        end
+    })
+    
+    NoFall:CreateSlider({
+        Name = "Damage Accuracy",
+        Min = 0,
+        Max = 100,
+        Default = 0,
+        Decimal = 5,
+        Suffix = "%",
+        Tooltip = "Chance to take damage (0% = no damage, 100% = always damage)",
+        Function = function(v)
+            DamageAccuracy = v
+        end
+    })
 end)
 
 run(function()
