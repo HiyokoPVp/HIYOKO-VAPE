@@ -855,6 +855,7 @@ local UpdateHz = 10
 local TeamCheck = false
 local Range = 14
 local ToolCheck = true 
+local GUICheck = true
 
 local MouseDown = false
 
@@ -891,6 +892,18 @@ Hits = Combat:CreateModule({
                     if ToolCheck and not hasSword() then
                         task.wait(1/UpdateHz)
                         continue
+                    end
+
+                    
+                    if GUICheck then
+                        local playerGui = player:WaitForChild("PlayerGui")
+                        local itemShop = playerGui:FindFirstChild("ItemShop")
+                        local inventoryApp = playerGui:FindFirstChild("InventoryApp")
+                        
+                        if itemShop or inventoryApp then
+                            task.wait(1/UpdateHz)
+                            continue
+                        end
                     end
 
                     local character = player.Character
@@ -1070,6 +1083,15 @@ Hits:CreateToggle({
     Default = true,
     Function = function(v)
         ToolCheck = v
+    end
+})
+
+
+Hits:CreateToggle({
+    Name = "GUI Check",
+    Default = true,
+    Function = function(v)
+        GUICheck = v
     end
 })
 
@@ -1777,7 +1799,7 @@ local PlayerESP = Render:CreateModule({
 	end
 })
 
--- ESPオプション
+
 PlayerESP:CreateToggle({
 	Name = "Show Distance",
 	Default = true,
