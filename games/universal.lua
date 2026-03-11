@@ -2196,3 +2196,122 @@ Desync = Blatant:CreateModule({
 })
 
 end)
+
+run(function()
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local lplr = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local Render = vape.Categories.Render
+
+local PlayerInventoryESPEnabled = false
+local FontSize = 14
+local ShowCount = true
+
+local InventoryTexts = {}
+
+local function createInventoryText()
+	local t = Drawing.new("Text")
+	t.Size = FontSize
+	t.Center = false
+	t.Outline = true
+	t.OutlineColor = Color3.new(0, 0, 0)
+	t.Color = Color3.fromRGB(255, 255, 255)
+	t.Visible = false
+	t.Font = Drawing.Fonts.Plex
+	return t
+end
+
+local function getInventoryItems(player)
+	local inventories = ReplicatedStorage:FindFirstChild("Inventories")
+	if not inventories then return {} end
+	
+	local playerInv = inventories:FindFirstChild(player.Name)
+	if not playerInv then return {} end
+	
+	local items = {}
+	for _, item in ipairs(playerInv:GetChildren()) do
+		table.insert(items, item.Name)
+	end
+	
+	return items
+end
+
+RunService.RenderStepped:Connect(function()
+	if PlayerInventoryESPEnabled then
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player == lplr then continue end
+			
+			local char = player.Character
+			local head = char and char:FindFirstChild("Head")
+			
+			if head then
+				local screen, visible = camera:WorldToViewportPoint(head.Position)
+				
+				if visible and screen.Z > 0 then
+					if not InventoryTexts[player] then
+						InventoryTexts[player] = createInventoryText()
+					end
+					
+					local items = getInventoryItems(player)
+					local invText = ""
+					
+					if #items > 0 then
+						invText = table.concat(items, ", ")
+					else
+						invText = "Empty"
+					end
+					
+					InventoryTexts[player].Text = invText
+					InventoryTexts[player].Position = Vector2.new(screen.X + 10, screen.Y + 30)
+					InventoryTexts[player].Visible = true
+				else
+					if InventoryTexts[player] then
+						InventoryTexts[player].Visible = false
+					end
+				end
+			else
+				if InventoryTexts[player] then
+					InventoryTexts[player].Visible = false
+				end
+			end
+		end
+	else
+		for _, text in pairs(InventoryTexts) do
+			text.Visible = false
+		end
+	end
+end)
+
+local PlayerInventoryESP = Render:CreateModule({
+	Name = "PlayerInventoryESP",
+	Tooltip = "Show other players' inventory items",
+	Function = function(enabled)
+		PlayerInventoryESPEnabled = enabled
+		
+		if not enabled then
+			for _, text in pairs(InventoryTexts) do
+				text.Visible = false
+			end
+		end
+	end
+})
+
+PlayerInventoryESP:CreateSlider({
+	Name = "Font Size",
+	Min = 10,
+	Max = 24,
+	Default = 14,
+	Function = function(v)
+		FontSize = v
+		for _, text in pairs(InventoryTexts) do
+			text.Size = v
+		end
+	end
+})
+
+end)
