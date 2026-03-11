@@ -1568,7 +1568,7 @@ end
 local function addKit(obj, label)
 	if KitObjects[obj] then return end
 	local text = createText(label, Color3.fromRGB(255, 170, 0))
-	text.Visible = KitESPEnabled 
+	text.Visible = false 
 	KitObjects[obj] = text
 end
 
@@ -1618,13 +1618,6 @@ local function addPlayer(player)
 		distText = distText,
 		healthBar = healthBar
 	}
-	
-	
-	if PlayerESPEnabled then
-		nameText.Visible = false 
-		distText.Visible = false
-		healthBar.Visible = false
-	end
 end
 
 local function removePlayer(player)
@@ -1637,6 +1630,12 @@ local function removePlayer(player)
 end
 
 RunService.RenderStepped:Connect(function()
+	-- カメラの存在チェック追加...めんどくさ
+	if not camera or not camera.Parent then
+		camera = workspace.CurrentCamera
+		return
+	end
+
 	if KitESPEnabled then
 		for obj, text in pairs(KitObjects) do
 			if not obj or not obj.Parent then
@@ -1647,26 +1646,42 @@ RunService.RenderStepped:Connect(function()
 			local pos
 			if obj:IsA("BasePart") then
 				pos = obj.Position
-			elseif obj.PrimaryPart then
+			elseif obj:IsA("Model") and obj.PrimaryPart then
 				pos = obj.PrimaryPart.Position
 			end
 
 			if pos then
-				local screen, visible = camera:WorldToViewportPoint(pos)
-				if visible and screen.Z > 0 then
+				-- より厳密な可視性チェック
+				local screen, onScreen = camera:WorldToViewportPoint(pos)
+				if onScreen and screen.Z > 0 then
 					local distance = (camera.CFrame.Position - pos).Magnitude
-					local labelWithDist = text.Text:match("^[^%[]+") .. string.format(" [%.1fm]", distance)
 					
-					text.Text = labelWithDist
-					text.Position = Vector2.new(screen.X, screen.Y)
-					text.Visible = true
+					-- レイキャストで壁チェック（オプショナル、重いかもだけど）
+					local rayParams = RaycastParams.new()
+					rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+					rayParams.FilterDescendantsInstances = {lplr.Character, obj}
+					
+					local result = workspace:Raycast(camera.CFrame.Position, pos - camera.CFrame.Position, rayParams)
+					
+					-- 壁に遮られてなければ表示
+					if not result or result.Instance:IsDescendantOf(obj) or result.Instance == obj then
+						local labelWithDist = text.Text:match("^[^%[]+") or text.Text
+						labelWithDist = labelWithDist .. string.format(" [%.1fm]", distance)
+						
+						text.Text = labelWithDist
+						text.Position = Vector2.new(screen.X, screen.Y)
+						text.Visible = true
+					else
+						text.Visible = false
+					end
 				else
 					text.Visible = false
 				end
+			else
+				text.Visible = false
 			end
 		end
 	else
-		
 		for _, text in pairs(KitObjects) do
 			text.Visible = false
 		end
@@ -1674,25 +1689,32 @@ RunService.RenderStepped:Connect(function()
 
 	if PlayerESPEnabled then
 		for player, elements in pairs(PlayerBoxes) do
+			-- プレイヤーの存在チェック強化
+			if not player or not player.Parent then
+				removePlayer(player)
+				continue
+			end
+			
 			local char = player.Character
 			local head = char and char:FindFirstChild("Head")
 			local humanoid = char and char:FindFirstChild("Humanoid")
 			local rootPart = char and char:FindFirstChild("HumanoidRootPart")
 
-			if head and humanoid and rootPart then
-				local screen, visible = camera:WorldToViewportPoint(head.Position)
+			if head and humanoid and rootPart and humanoid.Health > 0 then
+				local headPos = head.Position + Vector3.new(0, 1, 0) -- 頭の少し上
+				local screen, onScreen = camera:WorldToViewportPoint(headPos)
 				
-				if visible and screen.Z > 0 then
+				if onScreen and screen.Z > 0 then
 					local distance = (camera.CFrame.Position - rootPart.Position).Magnitude
 					local health = humanoid.Health
 					local maxHealth = humanoid.MaxHealth
-					local healthPercent = health / maxHealth
+					local healthPercent = math.clamp(health / maxHealth, 0, 1)
 					
-					
+					-- 名前表示
 					elements.nameText.Position = Vector2.new(screen.X, screen.Y - 20)
 					elements.nameText.Visible = true
 					
-					
+					-- 距離表示
 					if ShowDistance then
 						elements.distText.Text = string.format("[%.1fm]", distance)
 						elements.distText.Position = Vector2.new(screen.X, screen.Y - 5)
@@ -1701,7 +1723,7 @@ RunService.RenderStepped:Connect(function()
 						elements.distText.Visible = false
 					end
 					
-					
+					-- 体力バー
 					if ShowHealth then
 						local barWidth = 50
 						local barStart = Vector2.new(screen.X - barWidth/2, screen.Y + 10)
@@ -1710,8 +1732,8 @@ RunService.RenderStepped:Connect(function()
 						elements.healthBar.From = barStart
 						elements.healthBar.To = barEnd
 						elements.healthBar.Color = Color3.fromRGB(
-							255 * (1 - healthPercent),
-							255 * healthPercent,
+							math.floor(255 * (1 - healthPercent)),
+							math.floor(255 * healthPercent),
 							0
 						)
 						elements.healthBar.Visible = true
@@ -1730,7 +1752,6 @@ RunService.RenderStepped:Connect(function()
 			end
 		end
 	else
-		
 		for _, elements in pairs(PlayerBoxes) do
 			elements.nameText.Visible = false
 			elements.distText.Visible = false
@@ -1759,7 +1780,6 @@ local KitESP = Render:CreateModule({
 				addKit(obj, "VitalityStar")
 			end
 		else
-			
 			for _, text in pairs(KitObjects) do
 				text.Visible = false
 			end
@@ -1774,7 +1794,6 @@ local PlayerESP = Render:CreateModule({
 		PlayerESPEnabled = enabled
 		
 		if enabled then
-			
 			if not PlayerAddedConnection then
 				PlayerAddedConnection = Players.PlayerAdded:Connect(addPlayer)
 			end
@@ -1782,14 +1801,12 @@ local PlayerESP = Render:CreateModule({
 				PlayerRemovingConnection = Players.PlayerRemoving:Connect(removePlayer)
 			end
 			
-			
 			for _, p in pairs(Players:GetPlayers()) do
 				if not PlayerBoxes[p] then
 					addPlayer(p)
 				end
 			end
 		else
-			
 			for _, elements in pairs(PlayerBoxes) do
 				elements.nameText.Visible = false
 				elements.distText.Visible = false
