@@ -1540,6 +1540,8 @@ local Render = vape.Categories.Render
 
 local KitESPEnabled = false
 local PlayerESPEnabled = false
+local ItemTimeESPEnabled = false
+local ItemESPEnabled = false
 local ShowDistance = true
 local ShowHealth = true
 local FontSize = 16
@@ -1551,6 +1553,7 @@ local PlayerBoxes = {}
 local PlayerAddedConnection
 local PlayerRemovingConnection
 
+local TAG = "OreCountdownESP"
 
 local function createText(label, color, size)
 	local t = Drawing.new("Text")
@@ -1569,7 +1572,6 @@ local function addKit(obj, label)
 	if KitObjects[obj] then return end
 	local text = createText(label, Color3.fromRGB(255, 170, 0))
 	text.Visible = false
-	
 	KitObjects[obj] = {
 		drawing = text,
 		baseLabel = label
@@ -1607,9 +1609,7 @@ workspace.DescendantAdded:Connect(tagObject)
 local function addPlayer(player)
 	if player == lplr then return end
 	
-	
 	local nameText = createText(player.Name, Color3.fromRGB(255, 60, 60))
-	
 	local distText = createText("", Color3.fromRGB(255, 255, 255), FontSize - 2)
 	
 	local healthBar = Drawing.new("Line")
@@ -1630,6 +1630,73 @@ local function removePlayer(player)
 		PlayerBoxes[player].distText:Remove()
 		PlayerBoxes[player].healthBar:Remove()
 		PlayerBoxes[player] = nil
+	end
+end
+
+
+local function scanCountdowns()
+	for _,v in ipairs(workspace:GetDescendants()) do
+		if v.Name == "Countdown" and v:IsA("TextLabel") then
+			if not CollectionService:HasTag(v, TAG) then
+				CollectionService:AddTag(v, TAG)
+			end
+		end
+	end
+end
+
+local function applyCountdownESP(text)
+	local gui = text:FindFirstAncestorOfClass("BillboardGui")
+	if not gui then return end
+	
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = math.huge
+	gui.Size = UDim2.new(0,300,0,120)
+	
+	text.TextScaled = true
+	text.TextTransparency = 0
+	text.TextStrokeTransparency = 0
+	text.TextColor3 = Color3.fromRGB(255,255,0)
+end
+
+
+local itemColors = {
+	diamond = Color3.fromRGB(0, 255, 255),
+	emerald = Color3.fromRGB(0, 255, 0),
+	iron = Color3.fromRGB(200, 200, 200)
+}
+
+local function createItemESP(part)
+	if not part:IsA("BasePart") then return end
+	if part:FindFirstChild("ItemESP") then return end
+	
+	local name = string.lower(part.Name)
+	local color = itemColors[name] or Color3.fromRGB(255,255,255)
+	
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "ItemESP"
+	billboard.Adornee = part
+	billboard.Size = UDim2.new(0,200,0,50)
+	billboard.AlwaysOnTop = true
+	billboard.StudsOffset = Vector3.new(0,2,0)
+	
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.new(1,0,1,0)
+	text.BackgroundTransparency = 1
+	text.Text = part.Name
+	text.TextScaled = true
+	text.Font = Enum.Font.SourceSansBold
+	text.TextColor3 = color
+	text.TextStrokeTransparency = 0
+	text.TextStrokeColor3 = Color3.new(0,0,0)
+	text.Parent = billboard
+	
+	billboard.Parent = part
+end
+
+local function removeItemESP(part)
+	local esp = part:FindFirstChild("ItemESP")
+	if esp then
+		esp:Destroy()
 	end
 end
 
@@ -1655,7 +1722,6 @@ RunService.RenderStepped:Connect(function()
 				local screen, visible = camera:WorldToViewportPoint(pos)
 				if visible and screen.Z > 0 then
 					local distance = (camera.CFrame.Position - pos).Magnitude
-					
 					text.Text = string.format("%s [%.1fm]", baseLabel, distance)
 					text.Position = Vector2.new(screen.X, screen.Y)
 					text.Visible = true
@@ -1688,10 +1754,8 @@ RunService.RenderStepped:Connect(function()
 					local maxHealth = humanoid.MaxHealth
 					local healthPercent = health / maxHealth
 					
-					
 					elements.nameText.Position = Vector2.new(screen.X, screen.Y - 20)
 					elements.nameText.Visible = true
-					
 					
 					if ShowDistance then
 						elements.distText.Text = string.format("[%.1fm]", distance)
@@ -1700,7 +1764,6 @@ RunService.RenderStepped:Connect(function()
 					else
 						elements.distText.Visible = false
 					end
-					
 					
 					if ShowHealth then
 						local barWidth = 50
@@ -1730,7 +1793,6 @@ RunService.RenderStepped:Connect(function()
 			end
 		end
 	else
-		
 		for _, elements in pairs(PlayerBoxes) do
 			elements.nameText.Visible = false
 			elements.distText.Visible = false
@@ -1759,7 +1821,6 @@ local KitESP = Render:CreateModule({
 				addKit(obj, "VitalityStar")
 			end
 		else
-			
 			for _, data in pairs(KitObjects) do
 				data.drawing.Visible = false
 			end
@@ -1774,7 +1835,6 @@ local PlayerESP = Render:CreateModule({
 		PlayerESPEnabled = enabled
 		
 		if enabled then
-			
 			if not PlayerAddedConnection then
 				PlayerAddedConnection = Players.PlayerAdded:Connect(addPlayer)
 			end
@@ -1782,14 +1842,12 @@ local PlayerESP = Render:CreateModule({
 				PlayerRemovingConnection = Players.PlayerRemoving:Connect(removePlayer)
 			end
 			
-			
 			for _, p in pairs(Players:GetPlayers()) do
 				if not PlayerBoxes[p] then
 					addPlayer(p)
 				end
 			end
 		else
-			
 			for _, elements in pairs(PlayerBoxes) do
 				elements.nameText.Visible = false
 				elements.distText.Visible = false
@@ -1799,6 +1857,84 @@ local PlayerESP = Render:CreateModule({
 	end
 })
 
+
+local ItemTimeESP = Render:CreateModule({
+	Name = "ItemTIME ESP",
+	Tooltip = "Show ore countdown timers",
+	Function = function(enabled)
+		ItemTimeESPEnabled = enabled
+		
+		if enabled then
+			scanCountdowns()
+			for _,v in ipairs(CollectionService:GetTagged(TAG)) do
+				applyCountdownESP(v)
+			end
+			
+			CollectionService:GetInstanceAddedSignal(TAG):Connect(function(v)
+				if ItemTimeESPEnabled then
+					applyCountdownESP(v)
+				end
+			end)
+			
+			
+			workspace.DescendantAdded:Connect(function(v)
+				if ItemTimeESPEnabled and v.Name == "Countdown" and v:IsA("TextLabel") then
+					if not CollectionService:HasTag(v, TAG) then
+						CollectionService:AddTag(v, TAG)
+					end
+				end
+			end)
+		else
+			
+			for _,v in ipairs(CollectionService:GetTagged(TAG)) do
+				local gui = v:FindFirstAncestorOfClass("BillboardGui")
+				if gui then
+					gui.AlwaysOnTop = false
+					gui.MaxDistance = 100 
+					gui.Size = UDim2.new(0,100,0,40)
+				end
+				
+				v.TextTransparency = 0
+				v.TextStrokeTransparency = 0.5
+				v.TextColor3 = Color3.fromRGB(255,255,255)
+			end
+		end
+	end
+})
+
+
+local ItemESP = Render:CreateModule({
+	Name = "ItemESP",
+	Tooltip = "Show dropped items (diamond, emerald, iron)",
+	Function = function(enabled)
+		ItemESPEnabled = enabled
+		
+		if enabled then
+			local folder = workspace:FindFirstChild("ItemDrops")
+			if folder then
+				
+				for _,v in ipairs(folder:GetChildren()) do
+					createItemESP(v)
+				end
+				
+				
+				folder.ChildAdded:Connect(function(v)
+					if ItemESPEnabled then
+						createItemESP(v)
+					end
+				end)
+			end
+		else
+			
+			local folder = workspace:FindFirstChild("ItemDrops")
+			if folder then
+				for _,v in ipairs(folder:GetChildren()) do
+					removeItemESP(v)
+				end
+			end
+		end
+	end
+})
 
 PlayerESP:CreateToggle({
 	Name = "Show Distance",
