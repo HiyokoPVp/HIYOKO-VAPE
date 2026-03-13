@@ -2315,3 +2315,151 @@ PlayerInventoryESP:CreateSlider({
 })
 
 end)
+
+run(function()
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local lplr = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local Render = vape.Categories.Render
+
+local ResourceESPEnabled = false
+local FontSize = 14
+
+local ResourceTexts = {}
+
+local resourceColors = {
+	diamond = Color3.fromRGB(0, 255, 255),
+	emerald = Color3.fromRGB(0, 255, 0),
+	iron = Color3.fromRGB(200, 200, 200)
+}
+
+local function createResourceText(color)
+	local t = Drawing.new("Text")
+	t.Size = FontSize
+	t.Center = false
+	t.Outline = true
+	t.OutlineColor = Color3.new(0, 0, 0)
+	t.Color = color
+	t.Visible = false
+	t.Font = Drawing.Fonts.Plex
+	return t
+end
+
+local function getResourceAmounts(player)
+	local inventories = ReplicatedStorage:FindFirstChild("Inventories")
+	if not inventories then return {} end
+	
+	local playerInv = inventories:FindFirstChild(player.Name)
+	if not playerInv then return {} end
+	
+	local resources = {}
+	
+	for resourceName, _ in pairs(resourceColors) do
+		local item = playerInv:FindFirstChild(resourceName)
+		if item then
+			local amount = item:GetAttribute("Amount")
+			if amount and amount > 0 then
+				resources[resourceName] = amount
+			end
+		end
+	end
+	
+	return resources
+end
+
+RunService.RenderStepped:Connect(function()
+	if ResourceESPEnabled then
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player == lplr then continue end
+			
+			local char = player.Character
+			local head = char and char:FindFirstChild("Head")
+			
+			if head then
+				local screen, visible = camera:WorldToViewportPoint(head.Position)
+				
+				if visible and screen.Z > 0 then
+					if not ResourceTexts[player] then
+						ResourceTexts[player] = {}
+					end
+					
+					local resources = getResourceAmounts(player)
+					local yOffset = 50
+					
+					
+					for resourceName, color in pairs(resourceColors) do
+						if not ResourceTexts[player][resourceName] then
+							ResourceTexts[player][resourceName] = createResourceText(color)
+						end
+						
+						local amount = resources[resourceName]
+						if amount then
+							ResourceTexts[player][resourceName].Text = string.format("%s: %d", resourceName, amount)
+							ResourceTexts[player][resourceName].Position = Vector2.new(screen.X + 10, screen.Y + yOffset)
+							ResourceTexts[player][resourceName].Visible = true
+							yOffset = yOffset + 15
+						else
+							ResourceTexts[player][resourceName].Visible = false
+						end
+					end
+				else
+					if ResourceTexts[player] then
+						for _, text in pairs(ResourceTexts[player]) do
+							text.Visible = false
+						end
+					end
+				end
+			else
+				if ResourceTexts[player] then
+					for _, text in pairs(ResourceTexts[player]) do
+						text.Visible = false
+					end
+				end
+			end
+		end
+	else
+		for _, playerTexts in pairs(ResourceTexts) do
+			for _, text in pairs(playerTexts) do
+				text.Visible = false
+			end
+		end
+	end
+end)
+
+local ResourceESP = Render:CreateModule({
+	Name = "ResourceESP",
+	Tooltip = "Show other players' resource amounts (diamond, emerald, iron)",
+	Function = function(enabled)
+		ResourceESPEnabled = enabled
+		
+		if not enabled then
+			for _, playerTexts in pairs(ResourceTexts) do
+				for _, text in pairs(playerTexts) do
+					text.Visible = false
+				end
+			end
+		end
+	end
+})
+
+ResourceESP:CreateSlider({
+	Name = "Font Size",
+	Min = 10,
+	Max = 24,
+	Default = 14,
+	Function = function(v)
+		FontSize = v
+		for _, playerTexts in pairs(ResourceTexts) do
+			for _, text in pairs(playerTexts) do
+				text.Size = v
+			end
+		end
+	end
+})
+
+end)
