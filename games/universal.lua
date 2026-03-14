@@ -851,6 +851,7 @@ local Combat = vape.Categories.Combat
 local MaxAngle = 120
 local WallCheck = false
 local MouseRequire = false
+local MouseClickReq = false  
 local UpdateHz = 10
 local TeamCheck = false
 local Range = 14
@@ -858,10 +859,12 @@ local ToolCheck = true
 local GUICheck = true
 
 local MouseDown = false
+local JustClicked = false  
 
 UIS.InputBegan:Connect(function(input,gp)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         MouseDown = true
+        JustClicked = true  
     end
 end)
 
@@ -884,9 +887,20 @@ Hits = Combat:CreateModule({
 
                 while Hits.Enabled do  
 
-                    if MouseRequire and not MouseDown then
-                        task.wait(1/UpdateHz)
-                        continue
+                    if MouseRequire then
+                        if MouseClickReq then
+                            
+                            if not JustClicked then
+                                task.wait(1/UpdateHz)
+                                continue
+                            end
+                        else
+                            
+                            if not MouseDown then
+                                task.wait(1/UpdateHz)
+                                continue
+                            end
+                        end
                     end
                     
                     if ToolCheck and not hasSword() then
@@ -1045,6 +1059,11 @@ Hits = Combat:CreateModule({
                         end
                     end
 
+                    
+                    if JustClicked then
+                        JustClicked = false
+                    end
+
                     task.wait(1/UpdateHz)
 
                 end
@@ -1066,6 +1085,14 @@ Hits:CreateToggle({
     Default = false,
     Function = function(v)
         MouseRequire = v
+    end
+})
+
+Hits:CreateToggle({
+    Name = "MouseClickReq",  
+    Default = false,
+    Function = function(v)
+        MouseClickReq = v
     end
 })
 
