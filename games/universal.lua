@@ -2490,3 +2490,144 @@ ResourceESP:CreateSlider({
 })
 
 end)
+
+run(function()
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local lplr = Players.LocalPlayer
+
+local Blatant = vape.Categories.Blatant
+
+local AutoWhisperEnabled = false
+local AlwaysHeal = false
+local FlyOnlyVoid = false
+local TargetUsername = ""
+local VoidDepth = 5
+
+local lastHeal = 0
+local healCooldown = 1
+
+local function useOwlHeal()
+	local args = {
+		[1] = "OWL_HEAL"
+	}
+	ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
+		:WaitForChild("useAbility"):FireServer(unpack(args))
+end
+
+local function useOwlLift()
+	local args = {
+		[1] = "OWL_LIFT"
+	}
+	ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
+		:WaitForChild("useAbility"):FireServer(unpack(args))
+end
+
+local function isInVoid(character, depth)
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then return false end
+	
+	
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+	rayParams.FilterDescendantsInstances = {character}
+	
+	local rayDistance = depth * 10 
+	local result = workspace:Raycast(
+		rootPart.Position,
+		Vector3.new(0, -rayDistance, 0),
+		rayParams
+	)
+	
+	return result == nil 
+end
+
+local AutoWhisper = Blatant:CreateModule({
+	Name = "AutoWhisper",
+	Tooltip = "Auto heal/lift target player",
+	Function = function(enabled)
+		AutoWhisperEnabled = enabled
+		
+		if enabled then
+			task.spawn(function()
+				while AutoWhisperEnabled do
+					if TargetUsername ~= "" then
+						local targetPlayer = Players:FindFirstChild(TargetUsername)
+						
+						if targetPlayer and targetPlayer.Character then
+							local char = targetPlayer.Character
+							local humanoid = char:FindFirstChild("Humanoid")
+							
+							
+							if AlwaysHeal then
+								if tick() - lastHeal >= healCooldown then
+									useOwlHeal()
+									lastHeal = tick()
+								end
+							else
+								
+								if humanoid then
+									local currentHealth = humanoid.Health
+									local maxHealth = humanoid.MaxHealth
+									
+									if currentHealth < maxHealth and tick() - lastHeal >= healCooldown then
+										useOwlHeal()
+										lastHeal = tick()
+									end
+								end
+							end
+							
+							
+							if FlyOnlyVoid then
+								if isInVoid(char, VoidDepth) then
+									useOwlLift()
+								end
+							end
+						end
+					end
+					
+					task.wait(0.1) 
+				end
+			end)
+		end
+	end
+})
+
+AutoWhisper:CreateToggle({
+	Name = "AlwaysHeal",
+	Default = false,
+	Function = function(v)
+		AlwaysHeal = v
+	end
+})
+
+AutoWhisper:CreateToggle({
+	Name = "FlyOnlyVoid",
+	Default = false,
+	Function = function(v)
+		FlyOnlyVoid = v
+	end
+})
+
+AutoWhisper:CreateTextBox({
+	Name = "Username",
+	Default = "",
+	Function = function(v)
+		TargetUsername = v
+	end
+})
+
+AutoWhisper:CreateSlider({
+	Name = "Void Depth",
+	Min = 1,
+	Max = 10,
+	Default = 5,
+	Function = function(v)
+		VoidDepth = v
+	end
+})
+
+end)
