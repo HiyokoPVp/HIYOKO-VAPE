@@ -2509,40 +2509,55 @@ local VoidDepth = 5
 
 local lastHeal = 0
 local healCooldown = 1
+local previousHealth = {}
 
 local function useOwlHeal()
-	local args = {
-		[1] = "OWL_HEAL"
-	}
-	ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
-		:WaitForChild("useAbility"):FireServer(unpack(args))
+	pcall(function()
+		local events = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
+		if events then
+			local useAbility = events:FindFirstChild("useAbility")
+			if useAbility then
+				useAbility:FireServer("OWL_HEAL")
+			end
+		end
+	end)
 end
 
 local function useOwlLift()
-	local args = {
-		[1] = "OWL_LIFT"
-	}
-	ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
-		:WaitForChild("useAbility"):FireServer(unpack(args))
+	pcall(function()
+		local events = ReplicatedStorage:FindFirstChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
+		if events then
+			local useAbility = events:FindFirstChild("useAbility")
+			if useAbility then
+				useAbility:FireServer("OWL_LIFT")
+			end
+		end
+	end)
 end
 
 local function isInVoid(character, depth)
+	if not character then return false end
+	
 	local rootPart = character:FindFirstChild("HumanoidRootPart")
 	if not rootPart then return false end
 	
+	local success, result = pcall(function()
+		local rayParams = RaycastParams.new()
+		rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+		rayParams.FilterDescendantsInstances = {character}
+		
+		local rayDistance = depth * 10
+		
+		return workspace:Raycast(
+			rootPart.Position,
+			Vector3.new(0, -rayDistance, 0),
+			rayParams
+		)
+	end)
 	
-	local rayParams = RaycastParams.new()
-	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-	rayParams.FilterDescendantsInstances = {character}
+	if not success then return false end
 	
-	local rayDistance = depth * 10 
-	local result = workspace:Raycast(
-		rootPart.Position,
-		Vector3.new(0, -rayDistance, 0),
-		rayParams
-	)
-	
-	return result == nil 
+	return result == nil
 end
 
 local AutoWhisper = Blatant:CreateModule({
@@ -2554,44 +2569,66 @@ local AutoWhisper = Blatant:CreateModule({
 		if enabled then
 			task.spawn(function()
 				while AutoWhisperEnabled do
-					if TargetUsername ~= "" then
+					pcall(function()
+						if TargetUsername == "" or TargetUsername == nil then
+							task.wait(0.5)
+							return
+						end
+						
 						local targetPlayer = Players:FindFirstChild(TargetUsername)
 						
-						if targetPlayer and targetPlayer.Character then
-							local char = targetPlayer.Character
-							local humanoid = char:FindFirstChild("Humanoid")
+						if not targetPlayer then
+							task.wait(0.5)
+							return
+						end
+						
+						local char = targetPlayer.Character
+						if not char then
+							task.wait(0.5)
+							return
+						end
+						
+						local humanoid = char:FindFirstChild("Humanoid")
+						
+						
+						if AlwaysHeal then
+							if tick() - lastHeal >= healCooldown then
+								useOwlHeal()
+								lastHeal = tick()
+							end
+						else
 							
-							
-							if AlwaysHeal then
-								if tick() - lastHeal >= healCooldown then
-									useOwlHeal()
-									lastHeal = tick()
+							if humanoid then
+								if not previousHealth[targetPlayer] then
+									previousHealth[targetPlayer] = humanoid.Health
 								end
-							else
 								
-								if humanoid then
-									local currentHealth = humanoid.Health
-									local maxHealth = humanoid.MaxHealth
-									
-									if currentHealth < maxHealth and tick() - lastHeal >= healCooldown then
+								local currentHealth = humanoid.Health
+								
+								if currentHealth < previousHealth[targetPlayer] then
+									if tick() - lastHeal >= healCooldown then
 										useOwlHeal()
 										lastHeal = tick()
 									end
 								end
-							end
-							
-							
-							if FlyOnlyVoid then
-								if isInVoid(char, VoidDepth) then
-									useOwlLift()
-								end
+								
+								previousHealth[targetPlayer] = currentHealth
 							end
 						end
-					end
+						
+						
+						if FlyOnlyVoid then
+							if isInVoid(char, VoidDepth) then
+								useOwlLift()
+							end
+						end
+					end)
 					
-					task.wait(0.1) 
+					task.wait(0.1)
 				end
 			end)
+		else
+			previousHealth = {}
 		end
 	end
 })
