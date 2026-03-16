@@ -29,6 +29,12 @@ end
 local run = function(func)
 	func()
 end
+
+local saferun = function(func)
+	pcall(func)
+end
+
+
 local queue_on_teleport = queue_on_teleport or function() end
 local cloneref = cloneref or function(obj)
 	return obj
@@ -2491,11 +2497,10 @@ ResourceESP:CreateSlider({
 
 end)
 
-run(function()
+saferun(function()
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local lplr = Players.LocalPlayer
 
@@ -2510,6 +2515,8 @@ local VoidDepth = 5
 local lastHeal = 0
 local healCooldown = 1
 local previousHealth = {}
+
+local playerDropdown
 
 local function useOwlHeal()
 	pcall(function()
@@ -2558,6 +2565,23 @@ local function isInVoid(character, depth)
 	if not success then return false end
 	
 	return result == nil
+end
+
+local function getPlayerList()
+	local list = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= lplr then
+			table.insert(list, player.Name)
+		end
+	end
+	return list
+end
+
+local function updatePlayerList()
+	if playerDropdown then
+		local newList = getPlayerList()
+		playerDropdown:SetList(newList)
+	end
 end
 
 local AutoWhisper = Blatant:CreateModule({
@@ -2649,12 +2673,23 @@ AutoWhisper:CreateToggle({
 	end
 })
 
-AutoWhisper:CreateTextBox({
-	Name = "Username",
-	Default = "",
-	Function = function(v)
-		TargetUsername = v
-	end
+
+playerDropdown = AutoWhisper:CreateDropdown({
+	Name = "Target Player",
+	List = getPlayerList(),
+	Function = function(value)
+		TargetUsername = value
+	end,
+	Tooltip = "Select player to help"
+})
+
+
+AutoWhisper:CreateButton({
+	Name = "Refresh Players",
+	Function = function()
+		updatePlayerList()
+	end,
+	Tooltip = "Update player list"
 })
 
 AutoWhisper:CreateSlider({
@@ -2666,5 +2701,9 @@ AutoWhisper:CreateSlider({
 		VoidDepth = v
 	end
 })
+
+
+Players.PlayerAdded:Connect(updatePlayerList)
+Players.PlayerRemoving:Connect(updatePlayerList)
 
 end)
