@@ -2707,3 +2707,380 @@ Players.PlayerAdded:Connect(updatePlayerList)
 Players.PlayerRemoving:Connect(updatePlayerList)
 
 end)
+
+run(function()
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
+
+local lplr = Players.LocalPlayer
+
+local Blatant = vape.Categories.Blatant
+
+
+local AutoBuyEnabled = false
+local Cooldown = 1
+local lastPurchaseTime = {}
+
+local function hasItem(itemName)
+	local success, result = pcall(function()
+		local character = lplr.Character
+		if not character then return false end
+		
+		local inventoryFolder = workspace:FindFirstChild(lplr.Name)
+		if not inventoryFolder then return false end
+		
+		local invValue = inventoryFolder:FindFirstChild("InventoryFolder")
+		if not invValue or not invValue.Value then return false end
+		
+		return invValue.Value:FindFirstChild(itemName) ~= nil
+	end)
+	
+	return success and result or false
+end
+
+local function canBuy(itemName)
+	local currentTime = tick()
+	local lastTime = lastPurchaseTime[itemName] or 0
+	return (currentTime - lastTime) >= Cooldown
+end
+
+local function buyItem(itemType, price, currency, shopId)
+	if not canBuy(itemType) then
+		return false
+	end
+	
+	local success = pcall(function()
+		local args = {
+			[1] = {
+				shopItem = {
+					itemType = itemType,
+					price = price,
+					currency = currency,
+					amount = 1,
+					lockAfterPurchase = true
+				},
+				shopId = shopId or "1_item_shop"
+			}
+		}
+		
+		local bedwarsPurchase = ReplicatedStorage
+			:WaitForChild("rbxts_include", 1)
+			:WaitForChild("node_modules", 1)
+			:WaitForChild("@rbxts", 1)
+			:WaitForChild("net", 1)
+			:WaitForChild("out", 1)
+			:WaitForChild("_NetManaged", 1)
+			:WaitForChild("BedwarsPurchaseItem", 1)
+		
+		if bedwarsPurchase then
+			bedwarsPurchase:InvokeServer(unpack(args))
+			lastPurchaseTime[itemType] = tick()
+		end
+	end)
+	
+	return success
+end
+
+local AutoBuy = Blatant:CreateModule({
+	Name = "AutoBuy",
+	Tooltip = "Automatically buy weapons and armor",
+	Function = function(enabled)
+		AutoBuyEnabled = enabled
+		
+		if enabled then
+			task.spawn(function()
+				while AutoBuyEnabled do
+					pcall(function()
+						
+						if hasItem("wood_sword") and not hasItem("stone_sword") then
+							buyItem("stone_sword", 70, "iron")
+						end
+						
+						
+						if hasItem("stone_sword") and not hasItem("iron_sword") then
+							buyItem("iron_sword", 70, "iron")
+						end
+						
+						
+						if hasItem("iron_sword") and not hasItem("diamond_sword") then
+							buyItem("diamond_sword", 70, "emerald")
+						end
+						
+						
+						if (hasItem("stone_sword") or hasItem("wood_scythe")) and 
+						   not hasItem("iron_chestplate") and 
+						   not hasItem("diamond_chestplate") and
+						   not hasItem("leather_chestplate") then
+							buyItem("leather_chestplate", 50, "iron")
+						end
+						
+						
+						if hasItem("leather_chestplate") and not hasItem("iron_chestplate") then
+							buyItem("iron_chestplate", 120, "iron")
+						end
+						
+						
+						if hasItem("iron_chestplate") and not hasItem("diamond_chestplate") then
+							buyItem("diamond_chestplate", 8, "emerald")
+						end
+					end)
+					
+					task.wait(0.1)
+				end
+			end)
+		else
+			lastPurchaseTime = {}
+		end
+	end
+})
+
+AutoBuy:CreateSlider({
+	Name = "Cooldown",
+	Min = 0.5,
+	Max = 10,
+	Default = 1,
+	Function = function(v)
+		Cooldown = v
+	end,
+	Tooltip = "Seconds to wait between purchases"
+})
+
+
+local StaffDetectorEnabled = false
+local NotifyFriends = false
+local NotifyNewPlayers = false
+local Blacklist = {}
+
+local keywords = {
+	"mod",
+	"dev", 
+	"owner",
+	"famous",
+	"admin",
+	"staff",
+	"moderator"
+}
+
+local detectedStaff = {}
+local notifiedPlayers = {}
+
+local function playWarningSound()
+	pcall(function()
+		local sound = Instance.new("Sound")
+		sound.Parent = workspace
+		sound.SoundId = "rbxassetid://7383525713"
+		sound.Volume = 2
+		sound:Play()
+		
+		sound.Ended:Connect(function()
+			sound:Destroy()
+		end)
+	end)
+end
+
+local function sendNotification(title, text, duration)
+	pcall(function()
+		StarterGui:SetCore("SendNotification", {
+			Title = title,
+			Text = text,
+			Duration = duration or 10
+		})
+	end)
+end
+
+local function isBlacklisted(playerName)
+	for _, name in ipairs(Blacklist) do
+		if string.lower(name) == string.lower(playerName) then
+			return true
+		end
+	end
+	return false
+end
+
+local function checkPlayerTags(player)
+	if not StaffDetectorEnabled then return end
+	if player == lplr then return end
+	if detectedStaff[player.Name] then return end
+	
+	pcall(function()
+		local tags = player:FindFirstChild("Tags")
+		if tags and tags:IsA("Folder") then
+			for _, tagValue in ipairs(tags:GetChildren()) do
+				if tagValue:IsA("StringValue") and tagValue.Value then
+					
+					for _, keyword in ipairs(keywords) do
+						if string.find(string.lower(tagValue.Value), string.lower(keyword)) then
+							
+							detectedStaff[player.Name] = true
+							
+							print(string.format("⚠️ STAFF DETECTED: %s (Tag: %s)", player.Name, tagValue.Value))
+							
+							playWarningSound()
+							
+							sendNotification(
+								"⚠️ Staff Detector",
+								string.format("%s joined! (Tag: %s)", player.Name, keyword),
+								10
+							)
+							
+							return
+						end
+					end
+				end
+			end
+		end
+	end)
+end
+
+local function checkBlacklist(player)
+	if not StaffDetectorEnabled then return end
+	if player == lplr then return end
+	
+	pcall(function()
+		if isBlacklisted(player.Name) then
+			print(string.format("🚫 BLACKLISTED PLAYER: %s", player.Name))
+			
+			playWarningSound()
+			
+			sendNotification(
+				"🚫 Blacklist Alert",
+				string.format("%s (Blacklisted) joined!", player.Name),
+				10
+			)
+		end
+	end)
+end
+
+local function checkFriend(player)
+	if not StaffDetectorEnabled or not NotifyFriends then return end
+	if player == lplr then return end
+	
+	pcall(function()
+		if lplr:IsFriendsWith(player.UserId) then
+			print(string.format("👋 FRIEND JOINED: %s", player.Name))
+			
+			sendNotification(
+				"👋 Friend Joined",
+				string.format("%s is in your game!", player.Name),
+				5
+			)
+		end
+	end)
+end
+
+local playerAddedConnection
+local checkLoop
+
+local StaffDetector = Blatant:CreateModule({
+	Name = "StaffDetector",
+	Tooltip = "Detect staff, blacklisted players, and friends",
+	Function = function(enabled)
+		StaffDetectorEnabled = enabled
+		
+		if enabled then
+			
+			playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+				pcall(function()
+					if NotifyNewPlayers and player ~= lplr then
+						sendNotification(
+							"📢 Player Joined",
+							string.format("%s joined the game", player.Name),
+							3
+						)
+					end
+					
+					task.wait(1) 
+					checkPlayerTags(player)
+					checkBlacklist(player)
+					checkFriend(player)
+				end)
+			end)
+			
+			
+			checkLoop = task.spawn(function()
+				while StaffDetectorEnabled do
+					pcall(function()
+						for _, player in ipairs(Players:GetPlayers()) do
+							if player ~= lplr then
+								checkPlayerTags(player)
+								checkBlacklist(player)
+							end
+						end
+					end)
+					
+					task.wait(0.5)
+				end
+			end)
+			
+			
+			pcall(function()
+				for _, player in ipairs(Players:GetPlayers()) do
+					if player ~= lplr then
+						task.wait(0.1)
+						checkPlayerTags(player)
+						checkBlacklist(player)
+						checkFriend(player)
+					end
+				end
+			end)
+		else
+			if playerAddedConnection then
+				playerAddedConnection:Disconnect()
+				playerAddedConnection = nil
+			end
+			
+			if checkLoop then
+				task.cancel(checkLoop)
+				checkLoop = nil
+			end
+			
+			detectedStaff = {}
+			notifiedPlayers = {}
+		end
+	end
+})
+
+StaffDetector:CreateToggle({
+	Name = "Notify Friends",
+	Default = false,
+	Function = function(v)
+		NotifyFriends = v
+	end,
+	Tooltip = "Get notified when friends join"
+})
+
+StaffDetector:CreateToggle({
+	Name = "Notify New Players",
+	Default = false,
+	Function = function(v)
+		NotifyNewPlayers = v
+	end,
+	Tooltip = "Get notified when any player joins"
+})
+
+
+StaffDetector:CreateButton({
+	Name = "Add to Blacklist",
+	Function = function()
+		pcall(function()
+			
+			local username = "PlayerName" 
+			table.insert(Blacklist, username)
+			print("Added to blacklist: " .. username)
+		end)
+	end,
+	Tooltip = "Add player to blacklist (edit code)"
+})
+
+StaffDetector:CreateButton({
+	Name = "Clear Blacklist",
+	Function = function()
+		Blacklist = {}
+		print("Blacklist cleared")
+	end,
+	Tooltip = "Clear all blacklisted players"
+})
+
+end)
