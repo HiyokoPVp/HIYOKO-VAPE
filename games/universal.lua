@@ -957,12 +957,14 @@ Hits = Combat:CreateModule({
                                 continue
                             end
 
-                            local dir = (enemyRoot.Position - head.Position).Unit
-                            local look = head.CFrame.LookVector
+                            
+                            local localFacing = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+                            local targetDirection = ((enemyRoot.Position - root.Position) * Vector3.new(1, 0, 1)).Unit
+                            
+                            local angle = math.acos(math.clamp(localFacing:Dot(targetDirection), -1, 1))
 
-                            local angle = math.deg(math.acos(math.clamp(look:Dot(dir), -1, 1)))
-
-                            if angle > MaxAngle then
+                            
+                            if angle > math.rad(MaxAngle / 2) then
                                 continue
                             end
 
