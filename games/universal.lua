@@ -848,7 +848,6 @@ run(function()
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -864,17 +863,9 @@ local TeamCheck = false
 local Range = 14
 local ToolCheck = true 
 local GUICheck = true
-local CustomHitReg = 1
-local AirHits = 100
-local MaxAngleVisualiser = false
-local TargetNPC = false
 
 local MouseDown = false
 local JustClicked = false  
-
-
-local lastFireTime = 0
-local fireInterval = 10 / 1  
 
 UIS.InputBegan:Connect(function(input,gp)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -890,42 +881,6 @@ UIS.InputEnded:Connect(function(input,gp)
 end)
 
 
-local visualiserPart
-local function updateVisualiser()
-    if MaxAngleVisualiser then
-        if not visualiserPart then
-            visualiserPart = Instance.new("Part")
-            visualiserPart.Anchored = true
-            visualiserPart.CanCollide = false
-            visualiserPart.Material = Enum.Material.Neon
-            visualiserPart.Color = Color3.fromRGB(255, 0, 0)
-            visualiserPart.Transparency = 0.7
-            visualiserPart.Parent = workspace
-        end
-        
-        local character = player.Character
-        if character then
-            local root = character:FindFirstChild("HumanoidRootPart")
-            if root then
-                local angle = math.rad(MaxAngle / 2)
-                local distance = Range
-                
-                visualiserPart.Size = Vector3.new(0.5, 0.5, distance)
-                visualiserPart.CFrame = root.CFrame * CFrame.new(0, 0, -distance/2)
-                visualiserPart.Parent = workspace
-            end
-        end
-    else
-        if visualiserPart then
-            visualiserPart:Destroy()
-            visualiserPart = nil
-        end
-    end
-end
-
-RunService.RenderStepped:Connect(function()
-    updateVisualiser()
-end)
 
 local Hits
 Hits = Combat:CreateModule({
@@ -940,11 +895,13 @@ Hits = Combat:CreateModule({
 
                     if MouseRequire then
                         if MouseClickReq then
+                            
                             if not JustClicked then
                                 task.wait(1/UpdateHz)
                                 continue
                             end
                         else
+                            
                             if not MouseDown then
                                 task.wait(1/UpdateHz)
                                 continue
@@ -957,6 +914,7 @@ Hits = Combat:CreateModule({
                         continue
                     end
 
+                    
                     if GUICheck then
                         local playerGui = player:WaitForChild("PlayerGui")
                         local itemShop = playerGui:FindFirstChild("ItemShop")
@@ -982,90 +940,58 @@ Hits = Combat:CreateModule({
                     local closest
                     local closestDist = math.huge
 
-                    
-                    local targets = {}
-                    
-                    if TargetNPC then
-                        
-                        for _, obj in pairs(workspace:GetDescendants()) do
-                            if obj:IsA("Humanoid") and obj.Parent ~= character then
-                                local char = obj.Parent
-                                if char:FindFirstChild("HumanoidRootPart") then
-                                    table.insert(targets, char)
-                                end
-                            end
-                        end
-                    else
-                        
-                        for _,v in pairs(Players:GetPlayers()) do
-                            if v ~= player and v.Character then
-                                table.insert(targets, v.Character)
-                            end
-                        end
-                    end
+                    for _,v in pairs(Players:GetPlayers()) do
 
-                    for _, targetChar in pairs(targets) do
+                        if v ~= player and v.Character then
 
-                        local enemyRoot = targetChar:FindFirstChild("HumanoidRootPart")
-                        if not enemyRoot then continue end
+                            local enemyRoot = v.Character:FindFirstChild("HumanoidRootPart")
+                            if not enemyRoot then continue end
 
-                        if not TargetNPC then
-                            local targetPlayer = Players:GetPlayerFromCharacter(targetChar)
-                            if TeamCheck and targetPlayer and targetPlayer.Team == player.Team then
+                            if TeamCheck and v.Team == player.Team then
                                 continue
                             end
-                        end
 
-                        local dist = (enemyRoot.Position - root.Position).Magnitude
+                            local dist = (enemyRoot.Position - root.Position).Magnitude
 
-                        if dist > Range then
-                            continue
-                        end
+                            if dist > Range then
+                                continue
+                            end
 
-                        local localFacing = root.CFrame.LookVector * Vector3.new(1, 0, 1)
-                        local targetDirection = ((enemyRoot.Position - root.Position) * Vector3.new(1, 0, 1)).Unit
-                        
-                        local angle = math.acos(math.clamp(localFacing:Dot(targetDirection), -1, 1))
-
-                        if angle > math.rad(MaxAngle / 2) then
-                            continue
-                        end
-
-                        
-                        local humanoid = targetChar:FindFirstChild("Humanoid")
-                        if humanoid then
-                            local isAirborne = humanoid:GetState() == Enum.HumanoidStateType.Freefall or 
-                                             humanoid:GetState() == Enum.HumanoidStateType.Flying
                             
-                            if isAirborne then
-                                local chance = math.random(1, 100)
-                                if chance > AirHits then
+                            local localFacing = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+                            local targetDirection = ((enemyRoot.Position - root.Position) * Vector3.new(1, 0, 1)).Unit
+                            
+                            local angle = math.acos(math.clamp(localFacing:Dot(targetDirection), -1, 1))
+
+                            
+                            if angle > math.rad(MaxAngle / 2) then
+                                continue
+                            end
+
+                            if WallCheck then
+
+                                local rayParams = RaycastParams.new()
+                                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+                                rayParams.FilterDescendantsInstances = {character}
+
+                                local result = workspace:Raycast(
+                                    head.Position,
+                                    enemyRoot.Position - head.Position,
+                                    rayParams
+                                )
+
+                                if result and not result.Instance:IsDescendantOf(v.Character) then
                                     continue
                                 end
+
                             end
-                        end
 
-                        if WallCheck then
-                            local rayParams = RaycastParams.new()
-                            rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                            rayParams.FilterDescendantsInstances = {character}
-
-                            local result = workspace:Raycast(
-                                head.Position,
-                                enemyRoot.Position - head.Position,
-                                rayParams
-                            )
-
-                            if result and not result.Instance:IsDescendantOf(targetChar) then
-                                continue
+                            if dist < closestDist then
+                                closestDist = dist
+                                closest = v.Character
                             end
-                        end
 
-                        if dist < closestDist then
-                            closestDist = dist
-                            closest = targetChar
                         end
-
                     end
 
                     if closest then
@@ -1075,17 +1001,6 @@ Hits = Combat:CreateModule({
                             task.wait()
                             continue
                         end
-
-                        
-                        local currentTime = tick()
-                        fireInterval = 10 / CustomHitReg
-                        
-                        if currentTime - lastFireTime < fireInterval then
-                            task.wait(1/UpdateHz)
-                            continue
-                        end
-                        
-                        lastFireTime = currentTime
 
                         local cursorDirection =
                             (targetRoot.Position - camera.CFrame.Position).Unit
@@ -1152,6 +1067,7 @@ Hits = Combat:CreateModule({
                         end
                     end
 
+                    
                     if JustClicked then
                         JustClicked = false
                     end
@@ -1160,12 +1076,6 @@ Hits = Combat:CreateModule({
 
                 end
             end)
-        else
-            
-            if visualiserPart then
-                visualiserPart:Destroy()
-                visualiserPart = nil
-            end
         end
     end
 })
@@ -1202,6 +1112,7 @@ Hits:CreateToggle({
     end
 })
 
+
 Hits:CreateToggle({
     Name = "Tool Check",
     Default = true,
@@ -1210,31 +1121,12 @@ Hits:CreateToggle({
     end
 })
 
+
 Hits:CreateToggle({
     Name = "GUI Check",
     Default = true,
     Function = function(v)
         GUICheck = v
-    end
-})
-
-Hits:CreateToggle({
-    Name = "MaxAngle Visualiser",
-    Default = false,
-    Function = function(v)
-        MaxAngleVisualiser = v
-        if not v and visualiserPart then
-            visualiserPart:Destroy()
-            visualiserPart = nil
-        end
-    end
-})
-
-Hits:CreateToggle({
-    Name = "Target NPC",
-    Default = false,
-    Function = function(v)
-        TargetNPC = v
     end
 })
 
@@ -1265,27 +1157,6 @@ Hits:CreateSlider({
     Default = 14,
     Function = function(v)
         Range = v
-    end
-})
-
-Hits:CreateSlider({
-    Name = "Custom Hit Reg",
-    Min = 1,
-    Max = 36,
-    Default = 1,
-    Function = function(v)
-        CustomHitReg = v
-        fireInterval = 10 / v
-    end
-})
-
-Hits:CreateSlider({
-    Name = "Air Hits",
-    Min = 0,
-    Max = 100,
-    Default = 100,
-    Function = function(v)
-        AirHits = v
     end
 })
 
