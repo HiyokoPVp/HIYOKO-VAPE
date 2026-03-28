@@ -867,6 +867,10 @@ local GUICheck = true
 local MouseDown = false
 local JustClicked = false  
 
+
+local _wallRayParams = RaycastParams.new()
+_wallRayParams.FilterType = Enum.RaycastFilterType.Exclude
+
 UIS.InputBegan:Connect(function(input,gp)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         MouseDown = true
@@ -881,6 +885,30 @@ UIS.InputEnded:Connect(function(input,gp)
 end)
 
 
+local function isTargetBehindWall(character, ent)
+    if not WallCheck then return false end
+    
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
+    if not ent or not ent:FindFirstChild("HumanoidRootPart") then return false end
+    
+    local origin = character.HumanoidRootPart.Position
+    local target = ent.HumanoidRootPart.Position
+    local direction = target - origin
+    
+    _wallRayParams.FilterDescendantsInstances = {character, ent}
+    local result = workspace:Raycast(origin, direction, _wallRayParams)
+    
+    if result then
+        local hitDist = (result.Position - origin).Magnitude
+        local targetDist = direction.Magnitude
+        
+        if hitDist < targetDist - 0.5 then
+            return true
+        end
+    end
+    
+    return false
+end
 
 local Hits
 Hits = Combat:CreateModule({
@@ -968,22 +996,9 @@ Hits = Combat:CreateModule({
                                 continue
                             end
 
-                            if WallCheck then
-
-                                local rayParams = RaycastParams.new()
-                                rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                                rayParams.FilterDescendantsInstances = {character}
-
-                                local result = workspace:Raycast(
-                                    head.Position,
-                                    enemyRoot.Position - head.Position,
-                                    rayParams
-                                )
-
-                                if result and not result.Instance:IsDescendantOf(v.Character) then
-                                    continue
-                                end
-
+                            
+                            if isTargetBehindWall(character, v.Character) then
+                                continue
                             end
 
                             if dist < closestDist then
