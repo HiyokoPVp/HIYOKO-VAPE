@@ -1,8 +1,4 @@
---[[
-    Vape V4 Main Script
-    Based on original VapeV4ForRoblox structure
-    URL system integrated
---]]
+
 
 repeat task.wait() until game:IsLoaded()
 if shared.vape then shared.vape:Uninject() end
