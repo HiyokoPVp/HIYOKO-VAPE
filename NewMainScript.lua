@@ -1,8 +1,4 @@
---[[
-    Vape V4 NewMainScript (Remaked)
-    - All exploit function hooks removed
-    - URL system integrated
---]]
+
 
 repeat task.wait() until game:IsLoaded()
 
