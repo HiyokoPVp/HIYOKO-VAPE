@@ -1,20 +1,14 @@
---[[
-    Vape V4 Main Script (Remaked)
-    - All exploit function hooks removed
-    - URL system integrated
-    - Clean and stable code
---]]
+
 
 repeat task.wait() until game:IsLoaded()
 
--- Uninject old vape
+
 if shared.vape then 
     pcall(function() shared.vape:Uninject() end)
 end
 
 print('[Vape] Main script starting...')
 
--- Load URLs
 local URLs
 if isfile and isfile('newvape/URL.lua') then
     URLs = loadstring(readfile('newvape/URL.lua'))()
@@ -22,7 +16,7 @@ else
     URLs = loadstring(game:HttpGet('https://raw.githubusercontent.com/HiyokoPVp/HIYOKO-VAPE/main/URL.lua', true))()
 end
 
--- Basic functions (no hooks!)
+
 local vape
 
 local queue_on_teleport = queue_on_teleport or function() end
