@@ -1224,19 +1224,12 @@ run(function()
 	local ClickAim
 	local Mouse
     local Limit
-    local ClosetDelay
-    local ClosetMouseInfluence
-    local ClosetRandomness
 
     local function ease(t)
         return t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
     end
 
     local cache = {}
-    local lastMousePos = Vector2.new(0, 0)
-    local closetTimer = 0
-    local closetDelayActive = false
-    
     local function getMousePosition()
         if inputService.TouchEnabled then
             return gameCamera.ViewportSize / 2
@@ -1289,71 +1282,10 @@ run(function()
                 (rng:NextNumber() - 0.5) * Shake.Value * fps,
                 (rng:NextNumber() - 0.5) * Shake.Value * fps
             )), speed * fps) 
-        end,
-        Closet = function(localcframe, ent, fps)
-            local rng = Random.new()
-            local currentMousePos = getMousePosition()
-            local mouseDelta = (currentMousePos - lastMousePos).Magnitude
-            lastMousePos = currentMousePos
-            
-            
-            if not closetDelayActive then
-                closetTimer = closetTimer + fps
-                if closetTimer >= ClosetDelay.Value / 1000 then
-                    closetDelayActive = true
-                    closetTimer = 0
-                end
-                return localcframe
-            else
-                closetTimer = closetTimer + fps
-                if closetTimer >= (rng:NextNumber(0.05, 0.15)) then
-                    closetDelayActive = false
-                    closetTimer = 0
-                end
-            end
-            
-            
-            local mouseInfluence = math.clamp(mouseDelta * ClosetMouseInfluence.Value, 0, 1)
-            local baseSpeed = AimSpeed.Value * 0.3 * (1 - mouseInfluence * 0.7)
-            
-            
-            local randomOffset = Vector3.new(
-                (rng:NextNumber() - 0.5) * ClosetRandomness.Value * 0.1,
-                (rng:NextNumber() - 0.5) * ClosetRandomness.Value * 0.1,
-                (rng:NextNumber() - 0.5) * ClosetRandomness.Value * 0.1
-            )
-            
-            local microShake = Vector3.new(
-                math.sin(tick() * rng:NextNumber(3, 7)) * Shake.Value * 0.01,
-                math.cos(tick() * rng:NextNumber(3, 7)) * Shake.Value * 0.01,
-                math.sin(tick() * rng:NextNumber(2, 5)) * Shake.Value * 0.01
-            )
-            
-           
-            local strafeMultiplier = 1
-            if StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) then
-                strafeMultiplier = 0.6
-            end
-            
-            return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + randomOffset + microShake), 
-                baseSpeed * fps * strafeMultiplier * rng:NextNumber(0.7, 1.0))
         end
     }
 
 	local function GetTarget()
-		
-		if KillauraTarget.Enabled and store.KillauraTarget then
-			local killauraEnt = store.KillauraTarget
-			if killauraEnt and killauraEnt.RootPart and killauraEnt.Humanoid and killauraEnt.Humanoid.Health > 0 then
-				local localPosition = entitylib.character.RootPart.Position
-				if (localPosition - killauraEnt.RootPart.Position).Magnitude <= Distance.Value then
-					if not (Targets.Walls.Enabled and entitylib.Wallcheck(localPosition, killauraEnt.RootPart.Position, Targets.Walls.Enabled)) then
-						return killauraEnt
-					end
-				end
-			end
-		end
-		
 		if lasttarget then
 			local localPosition = entitylib.character.RootPart.Position
 			if not lasttarget or not lasttarget.RootPart or not lasttarget.Humanoid or not lasttarget.Humanoid.Health or lasttarget.Humanoid.Health <= 0 then
@@ -1379,23 +1311,14 @@ run(function()
         if Limit.Enabled and store.hand.toolType ~= 'sword' then return false end
 
         if (tick() - started) > 1 or not lasttarget or not lasttarget.Parent or not lasttarget.Humanoid or lasttarget.Humanoid.Health <= 0 then
-            
-            local ent = nil
-            if KillauraTarget.Enabled and store.KillauraTarget then
-                ent = GetTarget()
-            end
-            
-            if not ent then
-                ent = GetTarget() or entitylib.EntityPosition({
-                    Range = Distance.Value,
-                    Part = 'RootPart',
-                    Wallcheck = Targets.Walls.Enabled,
-                    Players = Targets.Players.Enabled,
-                    NPCs = Targets.NPCs.Enabled,
-                    Sort = sortmethods[Sort.Value]
-                })
-            end
-            
+            local ent = GetTarget() or KillauraTarget.Enabled and store.KillauraTarget or entitylib.EntityPosition({
+                Range = Distance.Value,
+                Part = 'RootPart',
+                Wallcheck = Targets.Walls.Enabled,
+                Players = Targets.Players.Enabled,
+                NPCs = Targets.NPCs.Enabled,
+                Sort = sortmethods[Sort.Value]
+            })
             if ent then
                 started = tick()
             end
@@ -1405,7 +1328,7 @@ run(function()
     end
 	
 	AimAssist = vape.Categories.Combat:CreateModule({
-		Name = 'AimAssist',
+		Name = 'Aim Assist',
 		Function = function(callback)
 			if callback then
 				AimAssist:Clean(runService.PostSimulation:Connect(function(dt)
@@ -1419,10 +1342,6 @@ run(function()
                         gameCamera.CFrame = aimfuncs[Mode.Value](gameCamera.CFrame, ent, dt)
                     end
 				end))
-			else
-				closetTimer = 0
-				closetDelayActive = false
-				lastMousePos = Vector2.new(0, 0)
 			end
 		end,
 		Tooltip = 'Smoothly aims to closest valid target with sword'
@@ -1434,7 +1353,7 @@ run(function()
     Mode = AimAssist:CreateDropdown({
         Name = 'Mode',
         List = modes,
-        Tooltip = 'Simple - Smooth aiming\nAdaptive - Advanced tracking\nCloset - Legit-looking aim with delays and imperfections',
+        Tooltip = 'Simple - Smooth aiming\nAdaptive - Advanced tracking with adaptive behavior',
         Default = modes[1]
     })
 	Targets = AimAssist:CreateTargets({
@@ -1454,10 +1373,7 @@ run(function()
 	Mouse = AimAssist:CreateToggle({Name = 'Require mouse down'})
 	StrafeIncrease = AimAssist:CreateToggle({Name = 'Strafe increase'})
     BlockBreak = AimAssist:CreateToggle({Name = 'Check block break'})
-    KillauraTarget = AimAssist:CreateToggle({
-        Name = 'Use killaura target',
-        Tooltip = 'Prioritizes Killaura target over everything else'
-    })
+    KillauraTarget = AimAssist:CreateToggle({Name = 'Use killaura target'})
 	AimSpeed = AimAssist:CreateSlider({
 		Name = 'Aim speed',
 		Min = 1,
@@ -1500,30 +1416,6 @@ run(function()
 		List = {'Center', 'Closest'},
         Default = 'Center'
 	})
-    
-    
-    ClosetDelay = AimAssist:CreateSlider({
-        Name = 'Closet delay',
-        Min = 50,
-        Max = 500,
-        Default = 150,
-        Suffix = 'ms',
-        Tooltip = 'Random delay before aim assist kicks in (Closet mode only)'
-    })
-    ClosetMouseInfluence = AimAssist:CreateSlider({
-        Name = 'Mouse influence',
-        Min = 0,
-        Max = 100,
-        Default = 50,
-        Tooltip = 'How much mouse movement affects aim speed (Closet mode only)'
-    })
-    ClosetRandomness = AimAssist:CreateSlider({
-        Name = 'Randomness',
-        Min = 0,
-        Max = 100,
-        Default = 30,
-        Tooltip = 'Random aim imperfection amount (Closet mode only)'
-    })
 end)
 	
 run(function()
