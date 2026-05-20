@@ -1329,7 +1329,7 @@ run(function()
                 math.sin(tick() * rng:NextNumber(2, 5)) * Shake.Value * 0.01
             )
             
-            -- Strafing時は精度落とす
+           
             local strafeMultiplier = 1
             if StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) then
                 strafeMultiplier = 0.6
@@ -1405,7 +1405,7 @@ run(function()
     end
 	
 	AimAssist = vape.Categories.Combat:CreateModule({
-		Name = 'Aim Assist',
+		Name = 'AimAssist',
 		Function = function(callback)
 			if callback then
 				AimAssist:Clean(runService.PostSimulation:Connect(function(dt)
