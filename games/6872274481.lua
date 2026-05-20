@@ -1328,7 +1328,7 @@ run(function()
     end
 	
 	AimAssist = vape.Categories.Combat:CreateModule({
-		Name = 'Aim Assist',
+		Name = 'AimAssist',
 		Function = function(callback)
 			if callback then
 				AimAssist:Clean(runService.PostSimulation:Connect(function(dt)
