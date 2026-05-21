@@ -1086,7 +1086,9 @@ run(function()
 
 			if newinv.inventory.items ~= oldinv.inventory.items then
 				vapeEvents.InventoryAmountChanged:Fire()
-				store.tools.sword = getSword()
+				task.spawn(function()
+					store.tools.sword = getSword()
+				end)
 				for _, v in {'stone', 'wood', 'wool'} do
 					store.tools[v] = getTool(v)
 				end
