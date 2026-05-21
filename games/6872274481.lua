@@ -1,3 +1,5 @@
+-- hiyoko vape ver 1.8
+
 local run = function(func)
 	func()
 end
@@ -1293,6 +1295,7 @@ run(function()
 	local StrafeIncrease
     local BlockBreak
 	local KillauraTarget
+	local PriorityKillauraTarget
 	local ClickAim
 	local Mouse
     local Limit
@@ -1382,6 +1385,15 @@ run(function()
         if BlockBreak.Enabled and (tick() - store.lastHit) < 0.3 then return false end
         if Limit.Enabled and store.hand.toolType ~= 'sword' then return false end
 
+        if PriorityKillauraTarget.Enabled and store.KillauraTarget then
+            local ent = store.KillauraTarget
+            if ent and ent.RootPart and ent.Humanoid and ent.Humanoid.Health > 0 then
+                started = tick()
+                lasttarget = ent
+                return ent
+            end
+        end
+
         if (tick() - started) > 1 or not lasttarget or not lasttarget.Parent or not lasttarget.Humanoid or lasttarget.Humanoid.Health <= 0 then
             local ent = GetTarget() or KillauraTarget.Enabled and store.KillauraTarget or entitylib.EntityPosition({
                 Range = Distance.Value,
@@ -1446,6 +1458,10 @@ run(function()
 	StrafeIncrease = AimAssist:CreateToggle({Name = 'Strafe increase'})
     BlockBreak = AimAssist:CreateToggle({Name = 'Check block break'})
     KillauraTarget = AimAssist:CreateToggle({Name = 'Use killaura target'})
+	PriorityKillauraTarget = AimAssist:CreateToggle({
+		Name = 'Priority killaura target',
+		Tooltip = 'Always aims at killaura target when available, ignoring all other targets'
+	})
 	AimSpeed = AimAssist:CreateSlider({
 		Name = 'Aim speed',
 		Min = 1,
@@ -11766,4 +11782,93 @@ run(function()
             end
         end
     })
+end)
+
+run(function()
+	local VelocityPlus
+	local Mode
+	local Chance
+	local TargetCheck
+	local rand = Random.new()
+	local old = nil
+
+	local function rotateY(v, deg)
+		local r = math.rad(deg)
+		return Vector3.new(
+			v.X * math.cos(r) - v.Z * math.sin(r),
+			0,
+			v.X * math.sin(r) + v.Z * math.cos(r)
+		)
+	end
+
+	VelocityPlus = vape.Categories.Combat:CreateModule({
+		Name = 'VelocityPlus',
+		Tooltip = 'Redirects knockback you receive in a chosen direction.',
+		Function = function(callback)
+			if callback then
+				old = bedwars.KnockbackUtil.applyKnockback
+				bedwars.KnockbackUtil.applyKnockback = function(root, mass, dir, knockback, ...)
+					if rand:NextNumber(0, 100) > Chance.Value then
+						return old(root, mass, dir, knockback, ...)
+					end
+					if TargetCheck.Enabled and not entitylib.EntityPosition({
+						Range = 50, Part = 'RootPart', Players = true
+					}) then
+						return old(root, mass, dir, knockback, ...)
+					end
+					local victimPos = root.Position
+					local victimFlat = Vector3.new(victimPos.X, 0, victimPos.Z)
+					local awayVec = victimFlat - Vector3.new(dir.X, 0, dir.Z)
+					if awayVec.Magnitude < 0.001 then
+						return old(root, mass, dir, knockback, ...)
+					end
+					awayVec = awayVec.Unit
+					local chosen = Mode.Value
+					if chosen == 'Random' then
+						chosen = ({'Left', 'Right', 'Pull'})[rand:NextInteger(1, 3)]
+					end
+					local desiredAway
+					if chosen == 'Left' then
+						desiredAway = rotateY(awayVec, 90)
+					elseif chosen == 'Right' then
+						desiredAway = rotateY(awayVec, -90)
+					elseif chosen == 'Pull' then
+						desiredAway = -awayVec
+					else
+						desiredAway = awayVec
+					end
+					local fakeAttacker = Vector3.new(
+						victimPos.X - desiredAway.X * 100,
+						dir.Y,
+						victimPos.Z - desiredAway.Z * 100
+					)
+					return old(root, mass, fakeAttacker, knockback, ...)
+				end
+			else
+				if old then
+					bedwars.KnockbackUtil.applyKnockback = old
+					old = nil
+				end
+			end
+		end
+	})
+
+	Mode = VelocityPlus:CreateDropdown({
+		Name = 'Direction',
+		List = {'Left', 'Right', 'Pull', 'Random'},
+		Default = 'Random',
+		Tooltip = 'Left/Right: deflect sideways 90Â°\nPull: go past the attacker\nRandom: pick one each hit'
+	})
+	Chance = VelocityPlus:CreateSlider({
+		Name = 'Chance',
+		Min = 0,
+		Max = 100,
+		Default = 100,
+		Suffix = '%',
+		Tooltip = 'Probability the redirect applies per knockback event'
+	})
+	TargetCheck = VelocityPlus:CreateToggle({
+		Name = 'Only when targeting',
+		Tooltip = 'Only redirects knockback when an enemy is within 50 studs'
+	})
 end)
