@@ -2286,13 +2286,6 @@ run(function()
 							}
 						}
 					}
-						pcall(function()
-							debug.setupvalue(bedwars.SwordController.playSwordEffect, 7, fake)
-						end)
-						pcall(function()
-							debug.setupvalue(bedwars.ScytheController.playLocalAnimation, 3, fake)
-						end)
-
 					task.spawn(function()
 						local started = false
 						repeat
@@ -2448,12 +2441,6 @@ run(function()
 						lplr.PlayerGui.MobileUI['2'].Visible = true
 					end)
 				end
-						pcall(function()
-							debug.setupvalue(bedwars.SwordController.playSwordEffect, 7, fake)
-						end)
-						pcall(function()
-							debug.setupvalue(bedwars.ScytheController.playLocalAnimation, 3, fake)
-						end)
 				Attacking = false
 				if armC0 then
 					AnimTween = tweenService:Create(gameCamera.Viewmodel.RightHand.RightWrist, TweenInfo.new(AnimationTween.Enabled and 0.001 or 0.3, Enum.EasingStyle.Exponential), {
@@ -8076,12 +8063,8 @@ run(function()
 	vape.Legit:CreateModule({
 		Name = 'HitFix',
 		Function = function(callback)
-						pcall(function()
-							debug.setupvalue(bedwars.SwordController.playSwordEffect, 7, fake)
-						end)
-						pcall(function()
-							debug.setupvalue(bedwars.ScytheController.playLocalAnimation, 3, fake)
-						end)
+			debug.setconstant(bedwars.SwordController.swingSwordAtMouse, 23, callback and 'raycast' or 'Raycast')
+			debug.setupvalue(bedwars.SwordController.swingSwordAtMouse, 4, callback and bedwars.QueryUtil or workspace)
 		end,
 		Tooltip = 'Changes the raycast function to the correct one'
 	})
