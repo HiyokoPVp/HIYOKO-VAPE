@@ -185,7 +185,7 @@ local function getSword()
 		end
 	end
 	
-	-- 剣がない場合はダミーデータを返す
+	
 	if not bestSword then
 		return {itemType = "wood_sword", amount = 0}, 0
 	end
