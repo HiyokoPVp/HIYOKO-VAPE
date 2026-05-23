@@ -1,4 +1,4 @@
--- hiyoko vape ver 1.8
+-- hiyoko vape ver 1.9 fixed
 
 local run = function(func)
 	func()
@@ -1299,6 +1299,10 @@ run(function()
 	local ClickAim
 	local Mouse
     local Limit
+    
+    local RandomCCRadius
+    local RandomCCSpeed
+    local RandomCCHitChance
 
     local function ease(t)
         return t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
@@ -1319,7 +1323,7 @@ run(function()
             end
             local localPosition, magnitude, part = getMousePosition(), 9e9, nil
             for _, v in cache[ent.Character] do
-                if v and v.Parent and v:IsA('BasePart') then
+                if v and v:IsA('BasePart') then
                     local position, vis = gameCamera.WorldToViewportPoint(gameCamera, v.Position)
 
                     if vis then
@@ -1340,6 +1344,10 @@ run(function()
     end
 
     local started, lasttarget = 0, nil
+    local randomOffset = Vector3.new(0, 0, 0)
+    local lastOffsetUpdate = 0
+    local hitTimer = 0
+    
     local aimfuncs = {
         Simple = function(localcframe, ent, fps)
             local rng = Random.new()
@@ -1357,6 +1365,44 @@ run(function()
                 (rng:NextNumber() - 0.5) * Shake.Value * fps,
                 (rng:NextNumber() - 0.5) * Shake.Value * fps
             )), speed * fps) 
+        end,
+        RandomCC = function(localcframe, ent, fps)
+            local rng = Random.new()
+            local currentTime = tick()
+            
+            
+            if currentTime - lastOffsetUpdate > (0.3 + rng:NextNumber() * 0.5) then
+                local radius = RandomCCRadius.Value / 10
+                randomOffset = Vector3.new(
+                    (rng:NextNumber() - 0.5) * radius * 2,
+                    (rng:NextNumber() - 0.5) * radius * 2,
+                    (rng:NextNumber() - 0.5) * radius * 2
+                )
+                lastOffsetUpdate = currentTime
+                hitTimer = currentTime + (2 + rng:NextNumber() * 3) 
+            end
+            
+            local targetPos = getAim(ent)
+            local finalOffset = randomOffset
+            
+            
+            if currentTime >= hitTimer and rng:NextNumber() * 100 < RandomCCHitChance.Value then
+                finalOffset = Vector3.new(
+                    (rng:NextNumber() - 0.5) * 0.1,
+                    (rng:NextNumber() - 0.5) * 0.1,
+                    (rng:NextNumber() - 0.5) * 0.1
+                )
+                hitTimer = currentTime + (1.5 + rng:NextNumber() * 2.5)
+            end
+            
+            
+            local speed = (RandomCCSpeed.Value * 0.1) + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 0.5 or 0)
+            
+            return localcframe:Lerp(CFrame.lookAt(localcframe.p, targetPos + finalOffset + Vector3.new(
+                (rng:NextNumber() - 0.5) * Shake.Value * fps * 0.5,
+                (rng:NextNumber() - 0.5) * Shake.Value * fps * 0.5,
+                (rng:NextNumber() - 0.5) * Shake.Value * fps * 0.5
+            )), speed * fps)
         end
     }
 
@@ -1437,7 +1483,7 @@ run(function()
     Mode = AimAssist:CreateDropdown({
         Name = 'Mode',
         List = modes,
-        Tooltip = 'Simple - Smooth aiming\nAdaptive - Advanced tracking with adaptive behavior',
+        Tooltip = 'Simple - Smooth aiming\nAdaptive - Advanced tracking\nRandomCC - Random aim around target (anti-detection)',
         Default = modes[1]
     })
 	Targets = AimAssist:CreateTargets({
@@ -1490,6 +1536,29 @@ run(function()
 		Max = 360,
 		Default = 70
 	})
+   
+    RandomCCRadius = AimAssist:CreateSlider({
+        Name = 'RandomCC radius',
+        Min = 1,
+        Max = 50,
+        Default = 15,
+        Tooltip = 'How far to aim around the target (RandomCC mode only)'
+    })
+    RandomCCSpeed = AimAssist:CreateSlider({
+        Name = 'RandomCC speed',
+        Min = 1,
+        Max = 30,
+        Default = 8,
+        Tooltip = 'Aim speed for RandomCC mode'
+    })
+    RandomCCHitChance = AimAssist:CreateSlider({
+        Name = 'RandomCC hit %',
+        Min = 5,
+        Max = 95,
+        Default = 35,
+        Suffix = '%',
+        Tooltip = 'Chance to actually aim at target (lower = more legit)'
+    })
     Limit = AimAssist:CreateToggle({
         Name = 'Limit to items',
         Tooltip = 'Only attacks when sword is held'
