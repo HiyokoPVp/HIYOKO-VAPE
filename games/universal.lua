@@ -8185,7 +8185,7 @@ Replay:CreateButton({
     Function = function()
         if not ReplaySystem then
             ReplaySystem = ReplayModule.new({
-                FPS = 60,
+                FPS = 120,
                 CameraType = "Free"
             })
         end
@@ -8261,7 +8261,7 @@ Replay:CreateButton({
         if jsonData ~= "" then
             if not ReplaySystem then
                 ReplaySystem = ReplayModule.new({
-                    FPS = 60,
+                    FPS = 120,
                     CameraType = "Free"
                 })
                 
@@ -8382,18 +8382,26 @@ local function CreatePlaybackGUI()
         PlaybackGUI = nil
     end)
     
+    local ViewportContainer = Instance.new("Frame")
+    ViewportContainer.Size = UDim2.new(1, -20, 0, 280)
+    ViewportContainer.Position = UDim2.new(0, 10, 0, 45)
+    ViewportContainer.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    ViewportContainer.BackgroundTransparency = 0.5
+    ViewportContainer.BorderSizePixel = 0
+    ViewportContainer.Parent = MainFrame
+    
+    task.wait(3)
+    
     if ReplaySystem then
-        if not ReplaySystem.VPF then
-            local vpf = Instance.new("ViewportFrame")
-            vpf.Name = "ReplayViewport"
-            ReplaySystem.VPF = vpf
+        if ReplaySystem.VPF and ReplaySystem.VPF.Parent == nil then
+            ReplaySystem.VPF.Size = UDim2.new(1, 0, 1, 0)
+            ReplaySystem.VPF.Position = UDim2.new(0, 0, 0, 0)
+            ReplaySystem.VPF.BackgroundTransparency = 1
+            ReplaySystem.VPF.BorderSizePixel = 0
+            pcall(function()
+                ReplaySystem.VPF.Parent = ViewportContainer
+            end)
         end
-        ReplaySystem.VPF.Size = UDim2.new(1, -20, 0, 280)
-        ReplaySystem.VPF.Position = UDim2.new(0, 10, 0, 45)
-        ReplaySystem.VPF.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        ReplaySystem.VPF.BackgroundTransparency = 0.5
-        ReplaySystem.VPF.BorderSizePixel = 0
-        ReplaySystem.VPF.Parent = MainFrame
     end
     
     local ControlsFrame = Instance.new("Frame")
@@ -8611,6 +8619,7 @@ Replay:CreateButton({
     Name = "Play Video",
     Function = function()
         if ReplaySystem and ReplaySystem.Recorded then
+            task.wait(0.2)
             CreatePlaybackGUI()
             if DEBUG_MODE then print("Playback GUI opened") end
         else
