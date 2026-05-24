@@ -8185,8 +8185,8 @@ Replay:CreateButton({
     Function = function()
         if not ReplaySystem then
             ReplaySystem = ReplayModule.new({
-                FPS = 30,
-                CameraType = "Recorded"
+                FPS = 60,
+                CameraType = "Free"
             })
         end
         
@@ -8261,8 +8261,8 @@ Replay:CreateButton({
         if jsonData ~= "" then
             if not ReplaySystem then
                 ReplaySystem = ReplayModule.new({
-                    FPS = 30,
-                    CameraType = "Recorded"
+                    FPS = 60,
+                    CameraType = "Free"
                 })
                 
                 if DEBUG_MODE then print("Registering workspace for import...") end
@@ -8299,8 +8299,8 @@ local function CreatePlaybackGUI()
     end)
     
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 350, 0, 240)
-    MainFrame.Position = UDim2.new(0.5, -175, 0.5, -120)
+    MainFrame.Size = UDim2.new(0, 600, 0, 450)
+    MainFrame.Position = UDim2.new(0.5, -300, 0.5, -225)
     MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     MainFrame.BackgroundTransparency = 0.4
     MainFrame.BorderSizePixel = 0
@@ -8382,22 +8382,28 @@ local function CreatePlaybackGUI()
         PlaybackGUI = nil
     end)
     
-    if ReplaySystem and ReplaySystem.VPF then
-        ReplaySystem.VPF.Size = UDim2.new(1, -20, 0, 100)
+    if ReplaySystem then
+        if not ReplaySystem.VPF then
+            local vpf = Instance.new("ViewportFrame")
+            vpf.Name = "ReplayViewport"
+            ReplaySystem.VPF = vpf
+        end
+        ReplaySystem.VPF.Size = UDim2.new(1, -20, 0, 280)
         ReplaySystem.VPF.Position = UDim2.new(0, 10, 0, 45)
         ReplaySystem.VPF.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         ReplaySystem.VPF.BackgroundTransparency = 0.5
+        ReplaySystem.VPF.BorderSizePixel = 0
         ReplaySystem.VPF.Parent = MainFrame
     end
     
     local ControlsFrame = Instance.new("Frame")
-    ControlsFrame.Size = UDim2.new(1, -20, 0, 80)
-    ControlsFrame.Position = UDim2.new(0, 10, 0, 155)
+    ControlsFrame.Size = UDim2.new(1, -20, 0, 100)
+    ControlsFrame.Position = UDim2.new(0, 10, 0, 335)
     ControlsFrame.BackgroundTransparency = 1
     ControlsFrame.Parent = MainFrame
     
     local StartTimeBox = Instance.new("TextBox")
-    StartTimeBox.Size = UDim2.new(0, 50, 0, 25)
+    StartTimeBox.Size = UDim2.new(0, 70, 0, 30)
     StartTimeBox.Position = UDim2.new(0, 0, 0, 0)
     StartTimeBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     StartTimeBox.BackgroundTransparency = 0.3
@@ -8406,7 +8412,7 @@ local function CreatePlaybackGUI()
     StartTimeBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     StartTimeBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
     StartTimeBox.Font = Enum.Font.Gotham
-    StartTimeBox.TextSize = 11
+    StartTimeBox.TextSize = 12
     StartTimeBox.BorderSizePixel = 0
     StartTimeBox.Parent = ControlsFrame
     
@@ -8415,8 +8421,8 @@ local function CreatePlaybackGUI()
     StartBoxCorner.Parent = StartTimeBox
     
     local SpeedBox = Instance.new("TextBox")
-    SpeedBox.Size = UDim2.new(0, 50, 0, 25)
-    SpeedBox.Position = UDim2.new(0, 60, 0, 0)
+    SpeedBox.Size = UDim2.new(0, 70, 0, 30)
+    SpeedBox.Position = UDim2.new(0, 80, 0, 0)
     SpeedBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     SpeedBox.BackgroundTransparency = 0.3
     SpeedBox.Text = "1"
@@ -8424,7 +8430,7 @@ local function CreatePlaybackGUI()
     SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     SpeedBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
     SpeedBox.Font = Enum.Font.Gotham
-    SpeedBox.TextSize = 11
+    SpeedBox.TextSize = 12
     SpeedBox.BorderSizePixel = 0
     SpeedBox.Parent = ControlsFrame
     
@@ -8432,18 +8438,18 @@ local function CreatePlaybackGUI()
     SpeedBoxCorner.CornerRadius = UDim.new(0, 4)
     SpeedBoxCorner.Parent = SpeedBox
     
-    local CamTypes = {"Recorded", "Free", "Follow", "Track"}
+    local CamTypes = {"Free", "Recorded", "Follow", "Track"}
     local CurrentCamIndex = 1
     
     local CamTypeBtn = Instance.new("TextButton")
-    CamTypeBtn.Size = UDim2.new(0, 80, 0, 25)
-    CamTypeBtn.Position = UDim2.new(0, 120, 0, 0)
+    CamTypeBtn.Size = UDim2.new(0, 100, 0, 30)
+    CamTypeBtn.Position = UDim2.new(0, 160, 0, 0)
     CamTypeBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
     CamTypeBtn.BackgroundTransparency = 0.3
     CamTypeBtn.Text = CamTypes[CurrentCamIndex]
     CamTypeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     CamTypeBtn.Font = Enum.Font.Gotham
-    CamTypeBtn.TextSize = 11
+    CamTypeBtn.TextSize = 12
     CamTypeBtn.BorderSizePixel = 0
     CamTypeBtn.Parent = ControlsFrame
     
@@ -8464,14 +8470,14 @@ local function CreatePlaybackGUI()
     end)
     
     local PlayBtn = Instance.new("TextButton")
-    PlayBtn.Size = UDim2.new(0, 60, 0, 28)
-    PlayBtn.Position = UDim2.new(0, 0, 0, 35)
+    PlayBtn.Size = UDim2.new(0, 80, 0, 35)
+    PlayBtn.Position = UDim2.new(0, 0, 0, 45)
     PlayBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
     PlayBtn.BackgroundTransparency = 0.2
     PlayBtn.Text = "Play"
     PlayBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     PlayBtn.Font = Enum.Font.GothamBold
-    PlayBtn.TextSize = 12
+    PlayBtn.TextSize = 14
     PlayBtn.BorderSizePixel = 0
     PlayBtn.Parent = ControlsFrame
     
@@ -8491,14 +8497,14 @@ local function CreatePlaybackGUI()
     end)
     
     local StopBtn = Instance.new("TextButton")
-    StopBtn.Size = UDim2.new(0, 60, 0, 28)
-    StopBtn.Position = UDim2.new(0, 70, 0, 35)
+    StopBtn.Size = UDim2.new(0, 80, 0, 35)
+    StopBtn.Position = UDim2.new(0, 90, 0, 45)
     StopBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
     StopBtn.BackgroundTransparency = 0.2
     StopBtn.Text = "Stop"
     StopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     StopBtn.Font = Enum.Font.GothamBold
-    StopBtn.TextSize = 12
+    StopBtn.TextSize = 14
     StopBtn.BorderSizePixel = 0
     StopBtn.Parent = ControlsFrame
     
@@ -8514,14 +8520,14 @@ local function CreatePlaybackGUI()
     end)
     
     local ChangeSpeedBtn = Instance.new("TextButton")
-    ChangeSpeedBtn.Size = UDim2.new(0, 80, 0, 28)
-    ChangeSpeedBtn.Position = UDim2.new(0, 140, 0, 35)
+    ChangeSpeedBtn.Size = UDim2.new(0, 110, 0, 35)
+    ChangeSpeedBtn.Position = UDim2.new(0, 180, 0, 45)
     ChangeSpeedBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
     ChangeSpeedBtn.BackgroundTransparency = 0.2
     ChangeSpeedBtn.Text = "Set Speed"
     ChangeSpeedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     ChangeSpeedBtn.Font = Enum.Font.GothamBold
-    ChangeSpeedBtn.TextSize = 11
+    ChangeSpeedBtn.TextSize = 13
     ChangeSpeedBtn.BorderSizePixel = 0
     ChangeSpeedBtn.Parent = ControlsFrame
     
@@ -8540,14 +8546,14 @@ local function CreatePlaybackGUI()
     end)
     
     local ClearBtn = Instance.new("TextButton")
-    ClearBtn.Size = UDim2.new(0, 60, 0, 28)
-    ClearBtn.Position = UDim2.new(0, 230, 0, 35)
+    ClearBtn.Size = UDim2.new(0, 80, 0, 35)
+    ClearBtn.Position = UDim2.new(0, 300, 0, 45)
     ClearBtn.BackgroundColor3 = Color3.fromRGB(150, 100, 50)
     ClearBtn.BackgroundTransparency = 0.2
     ClearBtn.Text = "Clear"
     ClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     ClearBtn.Font = Enum.Font.GothamBold
-    ClearBtn.TextSize = 12
+    ClearBtn.TextSize = 14
     ClearBtn.BorderSizePixel = 0
     ClearBtn.Parent = ControlsFrame
     
@@ -8563,8 +8569,8 @@ local function CreatePlaybackGUI()
     end)
     
     local ResizeHandle = Instance.new("TextButton")
-    ResizeHandle.Size = UDim2.new(0, 15, 0, 15)
-    ResizeHandle.Position = UDim2.new(1, -15, 1, -15)
+    ResizeHandle.Size = UDim2.new(0, 20, 0, 20)
+    ResizeHandle.Position = UDim2.new(1, -20, 1, -20)
     ResizeHandle.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
     ResizeHandle.BackgroundTransparency = 0.5
     ResizeHandle.Text = ""
@@ -8592,8 +8598,8 @@ local function CreatePlaybackGUI()
     game:GetService("UserInputService").InputChanged:Connect(function(input)
         if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - mousePos
-            local newWidth = math.max(250, startSize.X.Offset + delta.X)
-            local newHeight = math.max(200, startSize.Y.Offset + delta.Y)
+            local newWidth = math.max(400, startSize.X.Offset + delta.X)
+            local newHeight = math.max(350, startSize.Y.Offset + delta.Y)
             MainFrame.Size = UDim2.new(0, newWidth, 0, newHeight)
         end
     end)
