@@ -3738,6 +3738,8 @@ run(function()
 	local Health
 	local Distance
 	local Equipment
+	local Rank
+	local Enchant
 	local DrawingToggle
 	local Scale
 	local FontOption
@@ -3778,7 +3780,7 @@ run(function()
 					Icon.Parent = nametag
 				end
 			end
-	
+
 			nametag.TextSize = 14 * Scale.Value
 			nametag.FontFace = FontOption.Value
 			local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
@@ -3793,6 +3795,28 @@ run(function()
 			nametag.TextColor3 = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
 			nametag.RichText = true
 			nametag.Parent = Folder
+			task.spawn(function()
+				if Rank.Enabled and ent.Player then
+					local Icon = Instance.new('ImageLabel')
+					Icon.Name = 'RankIcon'
+					Icon.Size = UDim2.fromOffset(30, 30)
+					Icon.Position = UDim2.fromOffset(size.X + 10, -4)
+					Icon.BackgroundTransparency = 1
+					Icon.Image = store.rank[ent.Player]:async() and bedwars.RankMeta[store.rank[ent.Player]:async()].image or ''
+					Icon.Parent = nametag
+				end
+			end)
+			task.spawn(function()
+				if Enchant.Enabled and ent.Player then
+					local Icon = Instance.new('ImageLabel')
+					Icon.Name = 'EnchantIcon'
+					Icon.Size = UDim2.fromOffset(30, 30)
+					Icon.Position = UDim2.fromOffset(-30, -4)
+					Icon.BackgroundTransparency = 1
+					Icon.Image = store.enchants[ent.Player]:async() or ''
+					Icon.Parent = nametag
+				end
+			end)
 			Reference[ent] = nametag
 		end,
 		Drawing = function(ent)
@@ -3876,7 +3900,11 @@ run(function()
 					nametag.Helmet.Image = bedwars.getIcon(inventory.armor[4] or {itemType = ''}, true)
 					nametag.Chestplate.Image = bedwars.getIcon(inventory.armor[5] or {itemType = ''}, true)
 					nametag.Boots.Image = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true)
-					nametag.Kit.Image = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit].renderImage or ''
+					nametag.Kit.Image = kit and bedwars.BedwarsKitMeta[kit].renderImage or ''
+				end
+
+				if Enchant.Enabled and nametag:FindFirstChild('EnchantIcon') then
+					nametag.EnchantIcon.Image = store.enchants[ent.Player]:async() or ''	
 				end
 	
 				local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
@@ -3987,7 +4015,7 @@ run(function()
 	}
 	
 	NameTags = vape.Categories.Render:CreateModule({
-		Name = 'NameTags',
+		Name = 'Name Tags',
 		Function = function(callback)
 			if callback then
 				methodused = DrawingToggle.Enabled and 'Drawing' or 'Normal'
@@ -4102,6 +4130,15 @@ run(function()
 				NameTags:Toggle()
 			end
 		end
+	})
+	Rank = NameTags:CreateToggle({
+		Name = 'Rank',
+		Tooltip = 'Displays player\'s rank'
+	})
+	Enchant = NameTags:CreateToggle({
+		Name = 'Enchant',
+		Tooltip = 'Displays player\'s enchant',
+		Default = true
 	})
 	Equipment = NameTags:CreateToggle({
 		Name = 'Equipment',
@@ -11939,5 +11976,652 @@ run(function()
 	TargetCheck = VelocityPlus:CreateToggle({
 		Name = 'Only when targeting',
 		Tooltip = 'Only redirects knockback when an enemy is within 50 studs'
+	})
+end)
+
+run(function()
+	local Breaker
+	local Mode
+	local Range
+	local BreakSpeed
+	local Angle
+	local UpdateRate
+	local Custom
+	local Bed
+	local Hive
+	local Tesla
+	local LuckyBlock
+	local IronOre
+	local Effect
+	local Closest
+	local CustomHealth
+	local Animation
+	local SelfBreak
+	local InstantBreak
+	local LimitItem
+	local AutoTool = {Enabled = false}
+	local customlist, parts = {}, {}
+	
+	local function customHealthbar(self, blockRef, health, maxHealth, changeHealth, block)
+		xpcall(function()
+			--if block:GetAttribute('NoHealthbar') then return end
+			if not self.healthbarPart or not self.healthbarBlockRef or self.healthbarBlockRef.blockPosition ~= blockRef.blockPosition then
+				self.healthbarMaid:DoCleaning()
+				self.healthbarBlockRef = blockRef
+				local create = bedwars.Roact.createElement
+				local percent = math.clamp(health / maxHealth, 0, 1)
+				local cleanCheck = true
+				local part = Instance.new('Part')
+				part.Size = Vector3.one
+				part.CFrame = CFrame.new(bedwars.BlockController:getWorldPosition(blockRef.blockPosition))
+				part.Transparency = 1
+				part.Anchored = true
+				part.CanCollide = false
+				part.Parent = workspace
+				self.healthbarPart = part
+				bedwars.QueryUtil:setQueryIgnored(self.healthbarPart, true)
+		
+				local mounted = bedwars.Roact.mount(create('BillboardGui', {
+					Size = UDim2.fromOffset(249, 102),
+					StudsOffset = Vector3.new(0, 2.5, 0),
+					Adornee = part,
+					MaxDistance = 40,
+					AlwaysOnTop = true
+				}, {
+					create('Frame', {
+						Size = UDim2.fromOffset(160, 50),
+						Position = UDim2.fromOffset(44, 32),
+						BackgroundColor3 = Color3.new(),
+						BackgroundTransparency = 0.5
+					}, {
+						create('UICorner', {CornerRadius = UDim.new(0, 5)}),
+						create('ImageLabel', {
+							Size = UDim2.new(1, 89, 1, 52),
+							Position = UDim2.fromOffset(-48, -31),
+							BackgroundTransparency = 1,
+							Image = getcustomasset('catv6/assets/new/blur.png'),
+							ScaleType = Enum.ScaleType.Slice,
+							SliceCenter = Rect.new(52, 31, 261, 502)
+						}),
+						create('TextLabel', {
+							Size = UDim2.fromOffset(145, 14),
+							Position = UDim2.fromOffset(13, 12),
+							BackgroundTransparency = 1,
+							Text = bedwars.ItemMeta[block.Name].displayName or block.Name,
+							TextXAlignment = Enum.TextXAlignment.Left,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextColor3 = Color3.new(),
+							TextScaled = true,
+							Font = Enum.Font.Arial
+						}),
+						create('TextLabel', {
+							Size = UDim2.fromOffset(145, 14),
+							Position = UDim2.fromOffset(12, 11),
+							BackgroundTransparency = 1,
+							Text = bedwars.ItemMeta[block.Name].displayName or block.Name,
+							TextXAlignment = Enum.TextXAlignment.Left,
+							TextYAlignment = Enum.TextYAlignment.Top,
+							TextColor3 = color.Dark(uipallet.Text, 0.16),
+							TextScaled = true,
+							Font = Enum.Font.Arial
+						}),
+						create('Frame', {
+							Size = UDim2.fromOffset(138, 4),
+							Position = UDim2.fromOffset(12, 32),
+							BackgroundColor3 = uipallet.Main
+						}, {
+							create('UICorner', {CornerRadius = UDim.new(1, 0)}),
+							create('Frame', {
+								[bedwars.Roact.Ref] = self.healthbarProgressRef,
+								Size = UDim2.fromScale(percent, 1),
+								BackgroundColor3 = Color3.fromHSV(math.clamp(percent / 2.5, 0, 1), 0.89, 0.75)
+							}, {create('UICorner', {CornerRadius = UDim.new(1, 0)})})
+						})
+					})
+				}), part)
+		
+				self.healthbarMaid:GiveTask(function()
+					cleanCheck = false
+					self.healthbarBlockRef = nil
+					bedwars.Roact.unmount(mounted)
+					if self.healthbarPart then
+						self.healthbarPart:Destroy()
+					end
+					self.healthbarPart = nil
+				end)
+		
+				bedwars.RuntimeLib.Promise.delay(5):andThen(function()
+					if cleanCheck then
+						self.healthbarMaid:DoCleaning()
+					end
+				end)
+			end
+		
+			local newpercent = math.clamp((health - changeHealth) / maxHealth, 0, 1)
+			tweenService:Create(self.healthbarProgressRef:getValue(), TweenInfo.new(0.3), {
+				Size = UDim2.fromScale(newpercent, 1), BackgroundColor3 = Color3.fromHSV(math.clamp(newpercent / 2.5, 0, 1), 0.89, 0.75)
+			}):Play()
+		end, warn)
+	end
+	
+	local hit = 0
+	
+	local function attemptBreak(tab, localPosition)
+		if not tab then return end
+		if #tab > 1 then
+			pcall(function()
+				table.sort(tab, function(a, b)
+					return (localPosition - a.Position).Magnitude <= (localPosition - b.Position).Magnitude
+				end)
+			end)
+		end
+		for _, v in tab do
+			if (v.Position - localPosition).Magnitude < Range.Value and bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then
+				if not SelfBreak.Enabled and v:GetAttribute('PlacedByUserId') == lplr.UserId then continue end
+				if (v:GetAttribute('BedShieldEndTime') or 0) > workspace:GetServerTimeNow() then continue end
+				if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
+	
+				hit += 1
+				local target, path, endpos = bedwars.breakBlock(v, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, InstantBreak.Enabled, AutoTool.Enabled, Mode.Value, Angle.Value, Closest.Enabled)
+				if path then
+					local currentnode = target
+					for _, part in parts do
+						part.Position = currentnode or Vector3.zero
+						if currentnode then
+							part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
+						end
+						currentnode = path[currentnode]
+					end
+				end
+	
+				task.wait(InstantBreak.Enabled and (store.damageBlockFail > tick() and 4.5 or 0) or BreakSpeed.Value)
+	
+				return true
+			end
+		end
+	
+		return false
+	end
+	
+	Breaker = vape.Categories.Minigames:CreateModule({
+		Name = 'Breaker',
+		Alias = {'nuker', 'bedbreaker', 'bednuker'},
+		Tags = {'updated'},
+		Function = function(callback)
+			if callback then
+				for _ = 1, 30 do
+					local part = Instance.new('Part')
+					part.Anchored = true
+					part.CanQuery = false
+					part.CanCollide = false
+					part.Transparency = 1
+					part.Parent = gameCamera
+					local highlight = Instance.new('BoxHandleAdornment')
+					highlight.Size = Vector3.one
+					highlight.AlwaysOnTop = true
+					highlight.ZIndex = 1
+					highlight.Transparency = 0.5
+					highlight.Adornee = part
+					highlight.Parent = part
+					table.insert(parts, part)
+				end
+	
+				local beds = collection('bed', Breaker)
+				local teslas = collection('tesla-trap', Breaker, function(tab, obj)
+					task.delay(0.1, function()
+						local player = playersService:GetPlayerByUserId(obj:GetAttribute('PlacedByUserId'))
+						if player and player:GetAttribute('Team') ~= lplr:GetAttribute('Team') then
+							table.insert(tab, obj)
+						end
+					end)
+				end)
+				local hives = collection('beehive', Breaker, function(tab, obj)
+					task.delay(0.1, function()
+						local player = playersService:GetPlayerByUserId(obj:GetAttribute('PlacedByUserId'))
+						if player and player:GetAttribute('Team') ~= lplr:GetAttribute('Team') then
+							table.insert(tab, obj)
+						end
+					end)
+				end)
+				local luckyblock = collection('LuckyBlock', Breaker)
+				local ironores = collection('iron_ore_mesh_block', Breaker)
+				customlist = collection('block', Breaker, function(tab, obj)
+					if table.find(Custom.ListEnabled, obj.Name) then
+						table.insert(tab, obj)
+					end
+				end)
+	
+				repeat
+					task.wait(1 / UpdateRate.Value)
+					if not Breaker.Enabled then break end
+					if entitylib.isAlive then
+						local localPosition = entitylib.character.RootPart.Position
+	
+						if attemptBreak(Tesla.Enabled and teslas, localPosition) then continue end
+						if attemptBreak(Bed.Enabled and beds, localPosition) then continue end
+						if attemptBreak(Hive.Enabled and hives, localPosition) then continue end
+						if attemptBreak(customlist, localPosition) then continue end
+						if attemptBreak(LuckyBlock.Enabled and luckyblock, localPosition) then continue end
+						if attemptBreak(IronOre.Enabled and ironores, localPosition) then continue end
+	
+						for _, v in parts do
+							v.Position = Vector3.zero
+						end
+					end
+				until not Breaker.Enabled
+			else
+				for _, v in parts do
+					v:ClearAllChildren()
+					v:Destroy()
+				end
+				table.clear(parts)
+			end
+		end,
+		Tooltip = 'Break blocks around you automatically'
+	})
+	Mode = Breaker:CreateDropdown({
+		Name = 'Break Sorting',
+		List = {'Distance', 'Health'},
+		Tooltip = 'Distance - Targets nearest blocks\nHealth = Targets the best block',
+		Default = 'Health'
+	})
+	Range = Breaker:CreateSlider({
+		Name = 'Break range',
+		Min = 1,
+		Max = 30,
+		Default = 30,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+	BreakSpeed = Breaker:CreateSlider({
+		Name = 'Break speed',
+		Min = 0,
+		Max = 0.3,
+		Default = 0.25,
+		Decimal = 100,
+		Suffix = 'seconds'
+	})
+	Angle = Breaker:CreateSlider({
+		Name = 'Max angle',
+		Min = 1,
+		Max = 360,
+		Default = 360,	
+	})
+	UpdateRate = Breaker:CreateSlider({
+		Name = 'Update rate',
+		Min = 1,
+		Max = 120,
+		Default = 60,
+		Suffix = 'hz'
+	})
+	Custom = Breaker:CreateTextList({
+		Name = 'Custom',
+		Function = function()
+			if not customlist then return end
+			table.clear(customlist)
+			for _, obj in store.blocks do
+				if table.find(Custom.ListEnabled, obj.Name) then
+					table.insert(customlist, obj)
+				end
+			end
+		end
+	})
+	AutoTool = Breaker:CreateToggle({Name = 'Auto Tool'})
+	Bed = Breaker:CreateToggle({
+		Name = 'Break Bed',
+		Default = true
+	})
+	Tesla = Breaker:CreateToggle({
+		Name = 'Break Tesla',
+		Default = true
+	})
+	Hive = Breaker:CreateToggle({
+		Name = 'Break Hive',
+		Default = true
+	})
+	LuckyBlock = Breaker:CreateToggle({
+		Name = 'Break Lucky Block',
+		Default = true
+	})
+	IronOre = Breaker:CreateToggle({
+		Name = 'Break Iron Ore',
+		Default = true
+	})
+	Effect = Breaker:CreateToggle({
+		Name = 'Show Healthbar & Effects',
+		Function = function(callback)
+			if CustomHealth and CustomHealth.Object then
+				CustomHealth.Object.Visible = callback
+			end
+		end,
+		Default = true
+	})
+	CustomHealth = Breaker:CreateToggle({
+		Name = 'Custom Healthbar',
+		Default = true,
+		Darker = true
+	})
+	Animation = Breaker:CreateToggle({Name = 'Animation'})
+	SelfBreak = Breaker:CreateToggle({Name = 'Self Break'})
+	InstantBreak = Breaker:CreateToggle({Name = 'Instant Break'})
+	Closest = Breaker:CreateToggle({
+		Name = 'Closest Break',
+		Tooltip = 'Breaks the nearest cover block to your mouse before the target block, falling back to your position'
+	})
+	LimitItem = Breaker:CreateToggle({
+		Name = 'Limit to items',
+		Tooltip = 'Only breaks when tools are held'
+	})
+end)
+
+run(function() 
+	local GeneratorESP
+	local Transparency
+	local Scale
+	local Whitelist
+	local Whitelisted = {ListEnabled = {}, Object = nil}
+
+	local Folder = Instance.new('Folder')
+	Folder.Parent = vape.gui
+	
+	local Reference, Strings, Cooldown = {}, {}, {}
+	local Updates = {}
+
+	local function Added(ent)
+		local App = ent.RoactTree.TeamOreGeneratorApp
+		local Name = (App:FindFirstChild('GlobalOreGenerator') or App:FindFirstChild('TeamGenMain'))
+		local Countdown = (Name or App):FindFirstChild('Countdown', true)
+		if Name then
+			Name = Name:FindFirstChild('Title')
+		end
+
+		local TierType = ''
+		if Name then
+			Name = Name.Text
+			TierType = 'iron'
+		else
+			local Ore = ent:GetAttribute('Id')
+			Ore = Ore:sub(0, #Ore - 2)
+			TierType = (Ore:sub(0, 1):upper().. Ore:sub(2, #Ore)):lower()
+			Name = Ore:sub(0, 1):upper().. Ore:sub(2, #Ore).. ' Generator'
+		end
+
+		if Whitelist.Enabled and not table.find(Whitelisted.ListEnabled, TierType) then
+			return
+		end
+
+		Strings[ent] = `{Name} %s%s`
+		local nametag = Instance.new('TextLabel')
+		nametag.TextSize = 14 * Scale.Value
+		nametag.Font = Enum.Font.Arial
+		local format = string.format(Strings[ent], `| T{ent:GetAttribute('GeneratorLevel')}`, '')
+		local size = getfontsize(format , nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+		nametag.Name = Name
+		nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
+		nametag.AnchorPoint = Vector2.new(0.5, 1)
+		nametag.BackgroundColor3 = Color3.new()
+		nametag.BackgroundTransparency = 0.5
+		nametag.BorderSizePixel = 0
+		nametag.Visible = false
+		nametag.Text = format
+		nametag.TextColor3 = Color3.new(1, 1, 1)
+		nametag.RichText = true
+		nametag.Parent = Folder
+		Reference[ent] = nametag	
+
+		local Update = function() Updates[ent] = tick() + 0.1; end
+		GeneratorESP:Clean(ent:GetAttributeChangedSignal('GeneratorLevel'):Connect(Update))
+		GeneratorESP:Clean(ent:GetAttributeChangedSignal('Cooldown'):Connect(Update))
+		if Countdown then
+			Cooldown[ent] = Countdown
+			GeneratorESP:Clean(Countdown:GetPropertyChangedSignal('Text'):Connect(Update))
+		end
+		Update()
+	end
+	local function Updated(ent)
+		if Reference[ent] then
+			Reference[ent].TextSize = 14 * Scale.Value
+			Reference[ent].BackgroundTransparency = Transparency.Value
+		end
+	end
+	local function Removing(ent)
+		if Reference[ent] then
+			Reference[ent]:Destroy()
+			Reference[ent] = nil
+		end
+	end
+	
+	GeneratorESP = vape.Categories.Render:CreateModule({
+		Name = 'Generator ESP',
+		Tooltip = 'Renders generator locations and info',
+		Function = function(call)
+			if call then
+				for _, v in collectionService:GetTagged('Generator') do
+					Added(v)
+				end
+				GeneratorESP:Clean(collectionService:GetInstanceAddedSignal('Generator'):Connect(Added))
+				GeneratorESP:Clean(collectionService:GetInstanceRemovedSignal('Generator'):Connect(Removing))
+				GeneratorESP:Clean(runService.PreRender:Connect(function()
+					for ent, nametag in Reference do
+						local headPos, headVis = gameCamera:WorldToViewportPoint(ent.Position + Vector3.new(0, 1, 0))
+						nametag.Visible = headVis
+						if not headVis then
+							continue
+						end
+			
+						if (Updates[ent] or 0) > tick() then
+							nametag.Text = string.format(Strings[ent], `| T{ent:GetAttribute('GeneratorLevel')}`, Cooldown[ent] and ` | {getgenv().getNumber(Cooldown[ent].Text)}s` or '')
+							local size = getfontsize(removeTags(nametag.Text), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+							nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
+						end
+						
+						nametag.Position = UDim2.fromOffset(headPos.X, headPos.Y)
+					end
+				end))
+			else
+				for i in Reference do
+					Removing(i)
+				end
+			end
+		end
+	})
+
+	Transparency = GeneratorESP:CreateSlider({
+		Name = 'Transparency',
+		Function = function()
+			if GeneratorESP.Enabled then
+				for ent in Reference do
+					Updated(ent)
+				end
+			end
+		end,
+		Default = 0.5,
+		Min = 0,
+		Max = 1,
+		Decimal = 100
+	})
+	Scale = GeneratorESP:CreateSlider({
+		Name = 'Scale',
+		Default = 1,
+		Min = 0.1,
+		Max = 1.5,
+		Decimal = 10,
+		Function = function()
+			if GeneratorESP.Enabled then
+				for ent in Reference do
+					Updated(ent)
+				end
+			end
+		end
+	})
+	Whitelist = GeneratorESP:CreateToggle({
+		Name = 'Use whitelist',
+		Default = true,
+		Function = function(call)
+			if Whitelisted.Object then
+				Whitelisted.Object.Visible = call
+			end
+		end
+	})
+	Whitelisted = GeneratorESP:CreateTextList({
+		Name = 'Generators',
+		Darker = true,
+		Default = {'diamond', 'iron'}
+	})
+end)
+
+run(function()
+	local ItemESP
+	local Distance
+	local Transparency
+	local Scale 
+	local WhitelistOnly
+	local Whitelist = {ListEnabled = {}, Object = nil}
+
+	local Folder = Instance.new('Folder')
+	Folder.Parent = vape.gui
+	
+	local Reference, Strings, Sizes = {}, {}, {}
+
+	local function Added(ent)
+		local Name = bedwars.ItemMeta[ent.Name] and bedwars.ItemMeta[ent.Name].displayName or ent.Name
+		if WhitelistOnly.Enabled and not table.find(Whitelist.ListEnabled, Name:lower()) then
+			return
+		end
+
+		Strings[ent] = (Name).. '%s'
+		if Distance.Enabled then
+			Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
+		end
+
+		local nametag = Instance.new('TextLabel')
+		nametag.TextSize = 14 * Scale.Value
+		nametag.Font = Enum.Font.Arial
+		local size = getfontsize(removeTags(ent.Name), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+		nametag.Name = ent.Name
+		nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
+		nametag.AnchorPoint = Vector2.new(0.5, 1)
+		nametag.BackgroundColor3 = Color3.new()
+		nametag.BackgroundTransparency = 0.5
+		nametag.BorderSizePixel = 0
+		nametag.Visible = false
+		nametag.Text = string.format(Strings[ent], 'nan', ent:GetAttribute('Amount') >= 2 and ' x'..tostring(ent:GetAttribute('Amount')) or '')
+		nametag.TextColor3 = Color3.new(1, 1, 1)
+		nametag.RichText = true
+		nametag.Parent = Folder
+		Reference[ent] = nametag	
+	end
+	local function Updated(ent)
+		if Reference[ent] then
+			Reference[ent].TextSize = 14 * Scale.Value
+			Reference[ent].BackgroundTransparency = Transparency.Value
+		end
+	end
+	local function Removing(ent)
+		if Reference[ent] then
+			Reference[ent]:Destroy()
+			Reference[ent] = nil
+		end
+	end
+	
+	ItemESP = vape.Categories.Render:CreateModule({
+		Name = 'Item ESP',
+		Tooltip = 'Renders tags dropped items',
+		Function = function(call)
+			if call then
+				ItemESP:Clean(collectionService:GetInstanceAddedSignal('ItemDrop'):Connect(Added))
+				ItemESP:Clean(collectionService:GetInstanceRemovedSignal('ItemDrop'):Connect(Removing))
+				ItemESP:Clean(runService.RenderStepped:Connect(function()
+					for ent, nametag in Reference do
+						local headPos, headVis = gameCamera:WorldToViewportPoint(ent.Position + Vector3.new(0, 1, 0))
+						nametag.Visible = headVis
+						if not headVis then
+							continue
+						end
+			
+						if Distance.Enabled then
+							local mag = entitylib.isAlive and math.floor((entitylib.character.RootPart.Position - ent.Position).Magnitude) or 0
+							if Sizes[ent] ~= mag then
+								nametag.Text = string.format(Strings[ent], mag, ent:GetAttribute('Amount') >= 2 and ' x'..tostring(ent:GetAttribute('Amount')) or '')
+								local size = getfontsize(removeTags(nametag.Text), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+								nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
+								Sizes[ent] = mag
+							end
+						end
+						nametag.Position = UDim2.fromOffset(headPos.X, headPos.Y)
+					end
+				end))
+
+				for _, v in collectionService:GetTagged('ItemDrop') do
+					Added(v)
+				end
+			else
+				for i in Reference do
+					Removing(i)
+				end
+			end
+		end
+	})
+	Distance = ItemESP:CreateToggle({
+		Name = 'Distance',
+		Tooltip = 'Shows the distance of the item'
+	})
+	ItemESP:CreateToggle({
+		Name = 'Group items',
+		Tooltip = 'Group items into easier to read tags'
+	})
+	Transparency = ItemESP:CreateSlider({
+		Name = 'Transparency',
+		Function = function()
+			if ItemESP.Enabled then
+				for ent in Reference do
+					Updated(ent)
+				end
+			end
+		end,
+		Default = 0.5,
+		Min = 0,
+		Max = 1,
+		Decimal = 100
+	})
+	Scale = ItemESP:CreateSlider({
+		Name = 'Scale',
+		Default = 1,
+		Min = 0.1,
+		Max = 1.5,
+		Decimal = 10,
+		Function = function()
+			if ItemESP.Enabled then
+				for ent in Reference do
+					Updated(ent)
+				end
+			end
+		end
+	})
+	WhitelistOnly = ItemESP:CreateToggle({
+		Name = 'Whitelist Only',
+		Tooltip = 'Only renders whitelisted items',
+		Function = function(call)
+			if Whitelist.Object then
+				Whitelist.Object.Visible = call
+				
+				if ItemESP.Enabled then
+					ItemESP:Toggle()
+					ItemESP:Toggle()
+				end
+			end
+		end
+	})
+	Whitelist = ItemESP:CreateTextList({
+		Name = 'Allowed items',
+		Visible = false,
+		Darker = true,
+		Function = function()
+			if ItemESP.Enabled then
+				ItemESP:Toggle()
+				ItemESP:Toggle()
+			end
+		end
 	})
 end)
