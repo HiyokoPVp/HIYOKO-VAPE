@@ -8630,3 +8630,11 @@ Replay:CreateButton({
     Darker = false
 })
 end)
+
+run(function()
+	local debug = true
+
+	if debug == true then
+		print("vape loaded")
+	end
+end)
