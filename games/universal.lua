@@ -8634,12 +8634,41 @@ end)
 run(function()
 	local button
 	local gameid = game.PlaceId
+	local setclipboardbutton
 
 	button = vape.Categories.Render:CreateModule({
 		Name = 'print game id',
 		Function = function(callback)
 			if callback then
 				print(gameid)
+
+			else
+
+			end	
+		end
+	})
+
+	setclipboardbutton = button:CreateButton({
+		Name = "clipboard asdohasd",
+		Function = function(callback)
+			if callback then
+				setclipboard(gameid)
+
+			else
+
+			end
+		end	
+	})
+end)
+
+run(function()
+	local button
+
+	button = vape.Categories.Render:CreateModule({
+		Name = "Run Infinity Yeild",
+		Function = function(callback)
+			if callback then
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/DarkNetworks/Infinite-Yield/main/latest.lua'))()
 
 			else
 				
