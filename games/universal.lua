@@ -8110,10 +8110,9 @@ end)
 
 run(function()
 
--- daispdwdasdg
-
 local ReplayModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/HiyokoPVp/ReplayModule/refs/heads/main/ReplayModule.lua", true))()
 
+local DEBUG_MODE = false
 
 local ReplaySystem = nil
 local RecordedData = nil
@@ -8125,9 +8124,9 @@ local Replay = Combat:CreateModule({
     Name = "Replay",
     Function = function(callback)
         if callback then
-            print("Replay有効")
+            if DEBUG_MODE then print("Replay enabled") end
         else
-            print("Replay無効")
+            if DEBUG_MODE then print("Replay disabled") end
             if RecordedData then
                 RecordedData:Destroy()
                 RecordedData = nil
@@ -8138,28 +8137,24 @@ local Replay = Combat:CreateModule({
             end
         end
     end,
-    Tooltip = "ゲームプレイを録画・再生できるやつ"
+    Tooltip = "Record and playback gameplay"
 })
-
 
 local function RegisterWorkspaceRecursive(parent)
     if not ReplaySystem then return end
     
     for _, obj in ipairs(parent:GetDescendants()) do
         if obj:IsA("BasePart") and obj.Archivable then
-            
             if not ReplaySystem.RegisteredObjects[obj] then
                 ReplaySystem:Register(obj, true) 
             end
         elseif obj:IsA("Model") and obj:FindFirstChildWhichIsA("Humanoid") then
-           
             if not ReplaySystem.RegisteredObjects[obj] then
                 ReplaySystem:Register(obj, false)
             end
         end
     end
 end
-
 
 local function StartWorkspaceMonitoring()
     if WorkspaceConnection then
@@ -8173,21 +8168,20 @@ local function StartWorkspaceMonitoring()
         
         if obj:IsA("BasePart") and obj.Archivable then
             if not ReplaySystem.RegisteredObjects[obj] then
-                print("新しいPart検出:", obj.Name)
+                if DEBUG_MODE then print("New Part detected:", obj.Name) end
                 ReplaySystem:Register(obj, true)
             end
         elseif obj:IsA("Model") and obj:FindFirstChildWhichIsA("Humanoid") then
             if not ReplaySystem.RegisteredObjects[obj] then
-                print("新しいキャラクター検出:", obj.Name)
+                if DEBUG_MODE then print("New Character detected:", obj.Name) end
                 ReplaySystem:Register(obj, false)
             end
         end
     end)
 end
 
-
 Replay:CreateButton({
-    Name = "録画開始",
+    Name = "Start Recording",
     Function = function()
         if not ReplaySystem then
             ReplaySystem = ReplayModule.new({
@@ -8197,9 +8191,7 @@ Replay:CreateButton({
         end
         
         if ReplaySystem and not ReplaySystem.Recording then
-           
-            print("workspace全体を登録中...ちょっと重いかも")
-            
+            if DEBUG_MODE then print("Registering workspace objects...") end
             
             pcall(function()
                 for _, player in ipairs(game.Players:GetPlayers()) do
@@ -8209,69 +8201,61 @@ Replay:CreateButton({
                 end
             end)
             
-           
             RegisterWorkspaceRecursive(game.Workspace)
-            
-          
             StartWorkspaceMonitoring()
             
-            
-            ReplaySystem:StartRecording(300) -- 最大5分
-            print("録画開始したよ（workspace全体録画中）")
+            ReplaySystem:StartRecording(300)
+            if DEBUG_MODE then print("Recording started (workspace-wide)") end
         else
-            print("もう録画中だけど...？")
+            if DEBUG_MODE then print("Already recording...") end
         end
     end,
-    Tooltip = "録画を開始する（workspace全体・最大5分）",
+    Tooltip = "Start recording (workspace-wide, max 5 min)",
     Darker = false
 })
 
-
 Replay:CreateButton({
-    Name = "録画終了",
+    Name = "Stop Recording",
     Function = function()
         if ReplaySystem and ReplaySystem.Recording then
             ReplaySystem:StopRecording()
-            
             
             if WorkspaceConnection then
                 WorkspaceConnection:Disconnect()
                 WorkspaceConnection = nil
             end
             
-            print("録画止めた")
+            if DEBUG_MODE then print("Recording stopped") end
         else
-            print("録画してないのに止めるって...？")
+            if DEBUG_MODE then print("Not recording...") end
         end
     end,
-    Tooltip = "録画を停止する",
+    Tooltip = "Stop recording",
     Darker = false
 })
 
-
 Replay:CreateButton({
-    Name = "JSONエクスポート",
+    Name = "Export JSON",
     Function = function()
         if ReplaySystem and ReplaySystem.Recorded then
-            print("JSONエクスポート中...ちょっと待って")
+            if DEBUG_MODE then print("Exporting JSON...") end
             local jsonData = ReplaySystem:ExportToJSON()
             if jsonData then
                 setclipboard(jsonData)
-                print("JSONをクリップボードにコピーしたよ...どっかに保存しといて")
+                if DEBUG_MODE then print("JSON copied to clipboard") end
             else
-                print("エクスポート失敗...はぁ")
+                if DEBUG_MODE then print("Export failed") end
             end
         else
-            print("録画データないけど...？")
+            if DEBUG_MODE then print("No recording data...") end
         end
     end,
-    Tooltip = "録画をJSON形式でエクスポート（クリップボードにコピー）",
+    Tooltip = "Export recording to JSON (clipboard)",
     Darker = true
 })
 
-
 Replay:CreateButton({
-    Name = "JSONインポート",
+    Name = "Import JSON",
     Function = function()
         local jsonData = getclipboard and getclipboard() or ""
         if jsonData ~= "" then
@@ -8281,26 +8265,24 @@ Replay:CreateButton({
                     CameraType = "Recorded"
                 })
                 
-  
-                print("インポート用にworkspace登録中...")
+                if DEBUG_MODE then print("Registering workspace for import...") end
                 RegisterWorkspaceRecursive(game.Workspace)
             end
             
-            print("JSONインポート中...")
+            if DEBUG_MODE then print("Importing JSON...") end
             local success = ReplaySystem:ImportFromJSON(jsonData)
             if success then
-                print("インポート成功したみたい")
+                if DEBUG_MODE then print("Import successful") end
             else
-                print("インポート失敗...JSON壊れてない？")
+                if DEBUG_MODE then print("Import failed") end
             end
         else
-            print("クリップボード空っぽだけど...")
+            if DEBUG_MODE then print("Clipboard is empty...") end
         end
     end,
-    Tooltip = "クリップボードからJSON読み込み",
+    Tooltip = "Import JSON from clipboard",
     Darker = true
 })
-
 
 local function CreatePlaybackGUI()
     if PlaybackGUI then
@@ -8317,15 +8299,16 @@ local function CreatePlaybackGUI()
     end)
     
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 400, 0, 300)
-    MainFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    MainFrame.Size = UDim2.new(0, 350, 0, 240)
+    MainFrame.Position = UDim2.new(0.5, -175, 0.5, -120)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    MainFrame.BackgroundTransparency = 0.4
     MainFrame.BorderSizePixel = 0
     MainFrame.Parent = ScreenGui
     
- 
     local dragging = false
-    local dragInput, mousePos, framePos
+    local resizing = false
+    local dragInput, mousePos, framePos, startSize
     
     MainFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -8363,30 +8346,31 @@ local function CreatePlaybackGUI()
     UICorner.CornerRadius = UDim.new(0, 8)
     UICorner.Parent = MainFrame
     
-  
     local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, 0, 0, 40)
-    Title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Title.Size = UDim2.new(1, 0, 0, 35)
+    Title.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    Title.BackgroundTransparency = 0.3
     Title.BorderSizePixel = 0
-    Title.Text = "Replay再生 (Workspace全体録画)"
-    Title.TextColor3 = Color3.white
+    Title.Text = "Replay Player"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 16
+    Title.TextSize = 14
     Title.Parent = MainFrame
     
     local TitleCorner = Instance.new("UICorner")
     TitleCorner.CornerRadius = UDim.new(0, 8)
     TitleCorner.Parent = Title
     
-
     local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-    CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+    CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+    CloseBtn.Position = UDim2.new(1, -30, 0, 5)
     CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    CloseBtn.BackgroundTransparency = 0.2
     CloseBtn.Text = "X"
-    CloseBtn.TextColor3 = Color3.white
+    CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     CloseBtn.Font = Enum.Font.GothamBold
-    CloseBtn.TextSize = 14
+    CloseBtn.TextSize = 12
+    CloseBtn.BorderSizePixel = 0
     CloseBtn.Parent = MainFrame
     
     local CloseBtnCorner = Instance.new("UICorner")
@@ -8398,90 +8382,70 @@ local function CreatePlaybackGUI()
         PlaybackGUI = nil
     end)
     
-
     if ReplaySystem and ReplaySystem.VPF then
-        ReplaySystem.VPF.Size = UDim2.new(1, -20, 0, 150)
-        ReplaySystem.VPF.Position = UDim2.new(0, 10, 0, 50)
+        ReplaySystem.VPF.Size = UDim2.new(1, -20, 0, 100)
+        ReplaySystem.VPF.Position = UDim2.new(0, 10, 0, 45)
         ReplaySystem.VPF.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        ReplaySystem.VPF.BackgroundTransparency = 0.5
         ReplaySystem.VPF.Parent = MainFrame
     end
     
-
-    local StartTimeLabel = Instance.new("TextLabel")
-    StartTimeLabel.Size = UDim2.new(0, 100, 0, 20)
-    StartTimeLabel.Position = UDim2.new(0, 10, 0, 210)
-    StartTimeLabel.BackgroundTransparency = 1
-    StartTimeLabel.Text = "開始時間(秒):"
-    StartTimeLabel.TextColor3 = Color3.white
-    StartTimeLabel.Font = Enum.Font.Gotham
-    StartTimeLabel.TextSize = 12
-    StartTimeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    StartTimeLabel.Parent = MainFrame
+    local ControlsFrame = Instance.new("Frame")
+    ControlsFrame.Size = UDim2.new(1, -20, 0, 80)
+    ControlsFrame.Position = UDim2.new(0, 10, 0, 155)
+    ControlsFrame.BackgroundTransparency = 1
+    ControlsFrame.Parent = MainFrame
     
     local StartTimeBox = Instance.new("TextBox")
-    StartTimeBox.Size = UDim2.new(0, 60, 0, 25)
-    StartTimeBox.Position = UDim2.new(0, 110, 0, 207)
-    StartTimeBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    StartTimeBox.Size = UDim2.new(0, 50, 0, 25)
+    StartTimeBox.Position = UDim2.new(0, 0, 0, 0)
+    StartTimeBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    StartTimeBox.BackgroundTransparency = 0.3
     StartTimeBox.Text = "0"
-    StartTimeBox.TextColor3 = Color3.white
+    StartTimeBox.PlaceholderText = "Start"
+    StartTimeBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StartTimeBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
     StartTimeBox.Font = Enum.Font.Gotham
-    StartTimeBox.TextSize = 12
-    StartTimeBox.Parent = MainFrame
+    StartTimeBox.TextSize = 11
+    StartTimeBox.BorderSizePixel = 0
+    StartTimeBox.Parent = ControlsFrame
     
-    local StartTimeBoxCorner = Instance.new("UICorner")
-    StartTimeBoxCorner.CornerRadius = UDim.new(0, 4)
-    StartTimeBoxCorner.Parent = StartTimeBox
-    
-
-    local SpeedLabel = Instance.new("TextLabel")
-    SpeedLabel.Size = UDim2.new(0, 80, 0, 20)
-    SpeedLabel.Position = UDim2.new(0, 10, 0, 240)
-    SpeedLabel.BackgroundTransparency = 1
-    SpeedLabel.Text = "速度:"
-    SpeedLabel.TextColor3 = Color3.white
-    SpeedLabel.Font = Enum.Font.Gotham
-    SpeedLabel.TextSize = 12
-    SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
-    SpeedLabel.Parent = MainFrame
+    local StartBoxCorner = Instance.new("UICorner")
+    StartBoxCorner.CornerRadius = UDim.new(0, 4)
+    StartBoxCorner.Parent = StartTimeBox
     
     local SpeedBox = Instance.new("TextBox")
-    SpeedBox.Size = UDim2.new(0, 60, 0, 25)
-    SpeedBox.Position = UDim2.new(0, 110, 0, 237)
-    SpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    SpeedBox.Size = UDim2.new(0, 50, 0, 25)
+    SpeedBox.Position = UDim2.new(0, 60, 0, 0)
+    SpeedBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    SpeedBox.BackgroundTransparency = 0.3
     SpeedBox.Text = "1"
-    SpeedBox.TextColor3 = Color3.white
+    SpeedBox.PlaceholderText = "Speed"
+    SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SpeedBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
     SpeedBox.Font = Enum.Font.Gotham
-    SpeedBox.TextSize = 12
-    SpeedBox.Parent = MainFrame
+    SpeedBox.TextSize = 11
+    SpeedBox.BorderSizePixel = 0
+    SpeedBox.Parent = ControlsFrame
     
     local SpeedBoxCorner = Instance.new("UICorner")
     SpeedBoxCorner.CornerRadius = UDim.new(0, 4)
     SpeedBoxCorner.Parent = SpeedBox
     
-
-    local CamTypeLabel = Instance.new("TextLabel")
-    CamTypeLabel.Size = UDim2.new(0, 100, 0, 20)
-    CamTypeLabel.Position = UDim2.new(0, 200, 0, 210)
-    CamTypeLabel.BackgroundTransparency = 1
-    CamTypeLabel.Text = "カメラ:"
-    CamTypeLabel.TextColor3 = Color3.white
-    CamTypeLabel.Font = Enum.Font.Gotham
-    CamTypeLabel.TextSize = 12
-    CamTypeLabel.TextXAlignment = Enum.TextXAlignment.Left
-    CamTypeLabel.Parent = MainFrame
-    
     local CamTypes = {"Recorded", "Free", "Follow", "Track"}
     local CurrentCamIndex = 1
     
     local CamTypeBtn = Instance.new("TextButton")
-    CamTypeBtn.Size = UDim2.new(0, 100, 0, 25)
-    CamTypeBtn.Position = UDim2.new(0, 260, 0, 207)
-    CamTypeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 200)
+    CamTypeBtn.Size = UDim2.new(0, 80, 0, 25)
+    CamTypeBtn.Position = UDim2.new(0, 120, 0, 0)
+    CamTypeBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
+    CamTypeBtn.BackgroundTransparency = 0.3
     CamTypeBtn.Text = CamTypes[CurrentCamIndex]
-    CamTypeBtn.TextColor3 = Color3.white
+    CamTypeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     CamTypeBtn.Font = Enum.Font.Gotham
-    CamTypeBtn.TextSize = 12
-    CamTypeBtn.Parent = MainFrame
+    CamTypeBtn.TextSize = 11
+    CamTypeBtn.BorderSizePixel = 0
+    CamTypeBtn.Parent = ControlsFrame
     
     local CamTypeBtnCorner = Instance.new("UICorner")
     CamTypeBtnCorner.CornerRadius = UDim.new(0, 4)
@@ -8495,35 +8459,24 @@ local function CreatePlaybackGUI()
         CamTypeBtn.Text = CamTypes[CurrentCamIndex]
         if ReplaySystem then
             ReplaySystem.CameraType = CamTypes[CurrentCamIndex]
-            print("カメラタイプ変更:", CamTypes[CurrentCamIndex])
+            if DEBUG_MODE then print("Camera type changed:", CamTypes[CurrentCamIndex]) end
         end
     end)
     
-
-    local ControlsLabel = Instance.new("TextLabel")
-    ControlsLabel.Size = UDim2.new(0, 180, 0, 15)
-    ControlsLabel.Position = UDim2.new(0, 200, 0, 240)
-    ControlsLabel.BackgroundTransparency = 1
-    ControlsLabel.Text = "Free: WASD/QE移動"
-    ControlsLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-    ControlsLabel.Font = Enum.Font.Gotham
-    ControlsLabel.TextSize = 10
-    ControlsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    ControlsLabel.Parent = MainFrame
-    
-
     local PlayBtn = Instance.new("TextButton")
-    PlayBtn.Size = UDim2.new(0, 70, 0, 30)
-    PlayBtn.Position = UDim2.new(0, 10, 1, -40)
+    PlayBtn.Size = UDim2.new(0, 60, 0, 28)
+    PlayBtn.Position = UDim2.new(0, 0, 0, 35)
     PlayBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-    PlayBtn.Text = "再生"
-    PlayBtn.TextColor3 = Color3.white
+    PlayBtn.BackgroundTransparency = 0.2
+    PlayBtn.Text = "Play"
+    PlayBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     PlayBtn.Font = Enum.Font.GothamBold
-    PlayBtn.TextSize = 14
-    PlayBtn.Parent = MainFrame
+    PlayBtn.TextSize = 12
+    PlayBtn.BorderSizePixel = 0
+    PlayBtn.Parent = ControlsFrame
     
     local PlayBtnCorner = Instance.new("UICorner")
-    PlayBtnCorner.CornerRadius = UDim.new(0, 6)
+    PlayBtnCorner.CornerRadius = UDim.new(0, 5)
     PlayBtnCorner.Parent = PlayBtn
     
     PlayBtn.MouseButton1Click:Connect(function()
@@ -8531,96 +8484,134 @@ local function CreatePlaybackGUI()
             local startTime = tonumber(StartTimeBox.Text) or 0
             local speed = tonumber(SpeedBox.Text) or 1
             ReplaySystem:Play(speed, startTime, true)
-            print("再生開始...たぶん")
+            if DEBUG_MODE then print("Playback started") end
         else
-            print("録画データないよ...？")
+            if DEBUG_MODE then print("No recording data...") end
         end
     end)
     
-
     local StopBtn = Instance.new("TextButton")
-    StopBtn.Size = UDim2.new(0, 70, 0, 30)
-    StopBtn.Position = UDim2.new(0, 90, 1, -40)
+    StopBtn.Size = UDim2.new(0, 60, 0, 28)
+    StopBtn.Position = UDim2.new(0, 70, 0, 35)
     StopBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    StopBtn.Text = "停止"
-    StopBtn.TextColor3 = Color3.white
+    StopBtn.BackgroundTransparency = 0.2
+    StopBtn.Text = "Stop"
+    StopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     StopBtn.Font = Enum.Font.GothamBold
-    StopBtn.TextSize = 14
-    StopBtn.Parent = MainFrame
+    StopBtn.TextSize = 12
+    StopBtn.BorderSizePixel = 0
+    StopBtn.Parent = ControlsFrame
     
     local StopBtnCorner = Instance.new("UICorner")
-    StopBtnCorner.CornerRadius = UDim.new(0, 6)
+    StopBtnCorner.CornerRadius = UDim.new(0, 5)
     StopBtnCorner.Parent = StopBtn
     
     StopBtn.MouseButton1Click:Connect(function()
         if ReplaySystem and ReplaySystem.Playing then
             ReplaySystem:Stop()
-            print("停止した")
+            if DEBUG_MODE then print("Playback stopped") end
         end
     end)
     
-
     local ChangeSpeedBtn = Instance.new("TextButton")
-    ChangeSpeedBtn.Size = UDim2.new(0, 90, 0, 30)
-    ChangeSpeedBtn.Position = UDim2.new(0, 170, 1, -40)
+    ChangeSpeedBtn.Size = UDim2.new(0, 80, 0, 28)
+    ChangeSpeedBtn.Position = UDim2.new(0, 140, 0, 35)
     ChangeSpeedBtn.BackgroundColor3 = Color3.fromRGB(50, 100, 200)
-    ChangeSpeedBtn.Text = "速度変更"
-    ChangeSpeedBtn.TextColor3 = Color3.white
+    ChangeSpeedBtn.BackgroundTransparency = 0.2
+    ChangeSpeedBtn.Text = "Set Speed"
+    ChangeSpeedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     ChangeSpeedBtn.Font = Enum.Font.GothamBold
-    ChangeSpeedBtn.TextSize = 14
-    ChangeSpeedBtn.Parent = MainFrame
+    ChangeSpeedBtn.TextSize = 11
+    ChangeSpeedBtn.BorderSizePixel = 0
+    ChangeSpeedBtn.Parent = ControlsFrame
     
     local ChangeSpeedBtnCorner = Instance.new("UICorner")
-    ChangeSpeedBtnCorner.CornerRadius = UDim.new(0, 6)
+    ChangeSpeedBtnCorner.CornerRadius = UDim.new(0, 5)
     ChangeSpeedBtnCorner.Parent = ChangeSpeedBtn
     
     ChangeSpeedBtn.MouseButton1Click:Connect(function()
         if ReplaySystem and ReplaySystem.Playing then
             local newSpeed = tonumber(SpeedBox.Text) or 1
             ReplaySystem:SetPlaySpeed(newSpeed)
-            print("速度変更した")
+            if DEBUG_MODE then print("Speed changed") end
         else
-            print("再生中じゃないよ...？")
+            if DEBUG_MODE then print("Not playing...") end
         end
     end)
     
-    -- クリアボタン
     local ClearBtn = Instance.new("TextButton")
-    ClearBtn.Size = UDim2.new(0, 90, 0, 30)
-    ClearBtn.Position = UDim2.new(0, 270, 1, -40)
+    ClearBtn.Size = UDim2.new(0, 60, 0, 28)
+    ClearBtn.Position = UDim2.new(0, 230, 0, 35)
     ClearBtn.BackgroundColor3 = Color3.fromRGB(150, 100, 50)
-    ClearBtn.Text = "クリア"
-    ClearBtn.TextColor3 = Color3.white
+    ClearBtn.BackgroundTransparency = 0.2
+    ClearBtn.Text = "Clear"
+    ClearBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     ClearBtn.Font = Enum.Font.GothamBold
-    ClearBtn.TextSize = 14
-    ClearBtn.Parent = MainFrame
+    ClearBtn.TextSize = 12
+    ClearBtn.BorderSizePixel = 0
+    ClearBtn.Parent = ControlsFrame
     
     local ClearBtnCorner = Instance.new("UICorner")
-    ClearBtnCorner.CornerRadius = UDim.new(0, 6)
+    ClearBtnCorner.CornerRadius = UDim.new(0, 5)
     ClearBtnCorner.Parent = ClearBtn
     
     ClearBtn.MouseButton1Click:Connect(function()
         if ReplaySystem then
             ReplaySystem:ClearRecording()
-            print("録画データをクリアした")
+            if DEBUG_MODE then print("Recording data cleared") end
+        end
+    end)
+    
+    local ResizeHandle = Instance.new("TextButton")
+    ResizeHandle.Size = UDim2.new(0, 15, 0, 15)
+    ResizeHandle.Position = UDim2.new(1, -15, 1, -15)
+    ResizeHandle.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    ResizeHandle.BackgroundTransparency = 0.5
+    ResizeHandle.Text = ""
+    ResizeHandle.BorderSizePixel = 0
+    ResizeHandle.Parent = MainFrame
+    
+    local ResizeCorner = Instance.new("UICorner")
+    ResizeCorner.CornerRadius = UDim.new(0, 3)
+    ResizeCorner.Parent = ResizeHandle
+    
+    ResizeHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            resizing = true
+            mousePos = input.Position
+            startSize = MainFrame.Size
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    resizing = false
+                end
+            end)
+        end
+    end)
+    
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - mousePos
+            local newWidth = math.max(250, startSize.X.Offset + delta.X)
+            local newHeight = math.max(200, startSize.Y.Offset + delta.Y)
+            MainFrame.Size = UDim2.new(0, newWidth, 0, newHeight)
         end
     end)
     
     PlaybackGUI = ScreenGui
 end
 
-
 Replay:CreateButton({
-    Name = "動画再生",
+    Name = "Play Video",
     Function = function()
         if ReplaySystem and ReplaySystem.Recorded then
             CreatePlaybackGUI()
-            print("再生GUIを開いた")
+            if DEBUG_MODE then print("Playback GUI opened") end
         else
-            print("録画データないのに再生って...無理だよ")
+            if DEBUG_MODE then print("No recording data to play...") end
         end
     end,
-    Tooltip = "録画した動画を再生するGUIを開く",
+    Tooltip = "Open playback GUI",
     Darker = false
 })
 end)
