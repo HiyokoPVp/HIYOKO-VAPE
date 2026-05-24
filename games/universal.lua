@@ -8635,6 +8635,7 @@ run(function()
 	local button
 	local gameid = game.PlaceId
 	local setclipboardbutton
+	local isclip
 
 	button = vape.Categories.Render:CreateModule({
 		Name = 'print game id',
@@ -8642,20 +8643,22 @@ run(function()
 			if callback then
 				print(gameid)
 
+				if isclip == true then
+					setclipboard(gameid)
+				end	
 			else
 
 			end	
 		end
 	})
 
-	setclipboardbutton = button:CreateButton({
+	setclipboardbutton = button:CreateToggle({
 		Name = "clipboard asdohasd",
 		Function = function(callback)
 			if callback then
-				setclipboard(gameid)
-
+				isclip = true
 			else
-
+				isclip = false
 			end
 		end	
 	})
@@ -8671,7 +8674,7 @@ run(function()
 				loadstring(game:HttpGet('https://raw.githubusercontent.com/DarkNetworks/Infinite-Yield/main/latest.lua'))()
 
 			else
-				
+
 			end	
 		end
 	})
