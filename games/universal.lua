@@ -8632,6 +8632,23 @@ Replay:CreateButton({
 end)
 
 run(function()
+	local button
+	local gameid = game.PlaceId
+
+	button = vape.Categories.Render:CreateModule({
+		Name = 'print game id',
+		Function = function(callback)
+			if callback then
+				print(gameid)
+
+			else
+				
+			end	
+		end
+	})
+end)
+
+run(function()
 	local debug = true
 
 	if debug == true then
