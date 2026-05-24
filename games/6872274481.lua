@@ -3770,7 +3770,7 @@ run(function()
 			end
 	
 			if Equipment.Enabled then
-				for i, v in {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'} do
+				for i, v in ipairs({'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'}) do
 					local Icon = Instance.new('ImageLabel')
 					Icon.Name = v
 					Icon.Size = UDim2.fromOffset(30, 30)
@@ -3802,7 +3802,10 @@ run(function()
 					Icon.Size = UDim2.fromOffset(30, 30)
 					Icon.Position = UDim2.fromOffset(size.X + 10, -4)
 					Icon.BackgroundTransparency = 1
-					Icon.Image = store.rank[ent.Player]:async() and bedwars.RankMeta[store.rank[ent.Player]:async()].image or ''
+					
+					local rankData = store.rank[ent.Player]:async()
+					Icon.Image = (rankData and bedwars.RankMeta[rankData] and bedwars.RankMeta[rankData].image) or ''
+					
 					Icon.Parent = nametag
 				end
 			end)
@@ -3813,7 +3816,9 @@ run(function()
 					Icon.Size = UDim2.fromOffset(30, 30)
 					Icon.Position = UDim2.fromOffset(-30, -4)
 					Icon.BackgroundTransparency = 1
+					
 					Icon.Image = store.enchants[ent.Player]:async() or ''
+					
 					Icon.Parent = nametag
 				end
 			end)
