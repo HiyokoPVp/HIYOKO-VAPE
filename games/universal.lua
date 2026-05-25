@@ -8698,17 +8698,13 @@ local VisualizeBehind = Combat:CreateModule({
                 _G.BehindViewConnection:Disconnect()
                 _G.BehindViewConnection = nil
             end
-            if _G.DisableShakeConnection then
-                _G.DisableShakeConnection:Disconnect()
-                _G.DisableShakeConnection = nil
-            end
         end
     end,
     Tooltip = "Display player's back view in GUI"
 })
 
 local currentSize = 300
-local shakeDisabled = false
+local viewportShakeDisabled = false
 
 local EnableToggle = VisualizeBehind:CreateToggle({
     Name = "Enable View",
@@ -8749,7 +8745,8 @@ local EnableToggle = VisualizeBehind:CreateToggle({
                 if not character then return end
                 
                 local head = character:FindFirstChild("Head")
-                if not head then return end
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                if not head or not hrp then return end
 
                 local worldModel = Viewport:FindFirstChild("WorldModel")
                 if not worldModel then
@@ -8783,10 +8780,19 @@ local EnableToggle = VisualizeBehind:CreateToggle({
                     end
                 end
 
-                Camera.CFrame = CFrame.new(
-                    head.Position + (head.CFrame.LookVector * 2),
-                    head.Position
-                )
+                local camPos
+                if viewportShakeDisabled then
+                    
+                    local hrpCFrame = hrp.CFrame
+                    local headHeight = head.Position.Y - hrp.Position.Y
+                    camPos = hrpCFrame.Position + Vector3.new(0, headHeight, 0)
+                    Camera.CFrame = CFrame.new(camPos, camPos - hrpCFrame.LookVector)
+                else
+                    
+                    camPos = head.Position
+                    Camera.CFrame = CFrame.new(camPos + (head.CFrame.LookVector * 0.1), camPos) -- 向きを反転させて後方を見る
+                    Camera.CFrame = Camera.CFrame * CFrame.Angles(0, math.pi, 0) -- 完全に後ろを向かせる
+                end
             end)
 
         else
@@ -8805,34 +8811,12 @@ local EnableToggle = VisualizeBehind:CreateToggle({
 })
 
 local ShakeToggle = VisualizeBehind:CreateToggle({
-    Name = "Disable Camera Shake",
+    Name = "Disable Viewport Shake",
     Function = function(enabled)
-        shakeDisabled = enabled
-        if enabled then
-            if _G.DisableShakeConnection then _G.DisableShakeConnection:Disconnect() end
-            _G.DisableShakeConnection = RunService.RenderStepped:Connect(function()
-                local mainCam = game:GetService("Workspace").CurrentCamera
-                local character = LocalPlayer.Character
-                if mainCam and character and character:FindFirstChild("Humanoid") then
-                    local humanoid = character.Humanoid
-                    if humanoid.MoveDirection.Magnitude > 0 then
-                        local rootPart = character:FindFirstChild("HumanoidRootPart")
-                        if rootPart then
-                            local targetCFrame = CFrame.new(mainCam.CFrame.Position) * rootPart.CFrame.Rotation
-                            mainCam.CFrame = mainCam.CFrame:Lerp(targetCFrame, 0.5)
-                        end
-                    end
-                end
-            end)
-        else
-            if _G.DisableShakeConnection then
-                _G.DisableShakeConnection:Disconnect()
-                _G.DisableShakeConnection = nil
-            end
-        end
+        viewportShakeDisabled = enabled
     end,
     Default = false,
-    Tooltip = "Remove camera bobbing and shaking while walking"
+    Tooltip = "Remove camera bobbing INSIDE the viewport window"
 })
 
 local SizeSlider = VisualizeBehind:CreateSlider({
