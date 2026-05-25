@@ -12739,6 +12739,18 @@ run(function()
 	local Reference, Strings, Cooldown = {}, {}, {}
 	local Updates = {}
 
+	
+	local function getNumber(text)
+		if not text then return 0 end
+		local num = tonumber(text:match("%d+"))
+		return num or 0
+	end
+
+	
+	local function removeTags(text)
+		return text:gsub("<[^>]*>", "")
+	end
+
 	local function Added(ent)
 		local App = ent.RoactTree.TeamOreGeneratorApp
 		local Name = (App:FindFirstChild('GlobalOreGenerator') or App:FindFirstChild('TeamGenMain'))
@@ -12790,17 +12802,22 @@ run(function()
 		end
 		Update()
 	end
+	
 	local function Updated(ent)
 		if Reference[ent] then
 			Reference[ent].TextSize = 14 * Scale.Value
 			Reference[ent].BackgroundTransparency = Transparency.Value
 		end
 	end
+	
 	local function Removing(ent)
 		if Reference[ent] then
 			Reference[ent]:Destroy()
 			Reference[ent] = nil
 		end
+		Cooldown[ent] = nil
+		Updates[ent] = nil
+		Strings[ent] = nil
 	end
 	
 	GeneratorESP = vape.Categories.Render:CreateModule({
@@ -12822,7 +12839,12 @@ run(function()
 						end
 			
 						if (Updates[ent] or 0) > tick() then
-							nametag.Text = string.format(Strings[ent], `| T{ent:GetAttribute('GeneratorLevel')}`, Cooldown[ent] and ` | {getgenv().getNumber(Cooldown[ent].Text)}s` or '')
+							local countdownText = ''
+							if Cooldown[ent] and Cooldown[ent].Text then
+								local seconds = getNumber(Cooldown[ent].Text)
+								countdownText = ` | {seconds}s`
+							end
+							nametag.Text = string.format(Strings[ent], `| T{ent:GetAttribute('GeneratorLevel')}`, countdownText)
 							local size = getfontsize(removeTags(nametag.Text), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
 							nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
 						end
