@@ -8743,8 +8743,8 @@ local EnableToggle = VisualizeBehind:CreateToggle({
                 local character = LocalPlayer.Character
                 if not character then return end
                 
-                local hrp = character:FindFirstChild("HumanoidRootPart")
-                if not hrp then return end
+                local head = character:FindFirstChild("Head")
+                if not head then return end
 
                 local worldModel = Viewport:FindFirstChild("WorldModel")
                 if not worldModel then
@@ -8752,55 +8752,35 @@ local EnableToggle = VisualizeBehind:CreateToggle({
                     worldModel.Parent = Viewport
                 end
 
-                local viewTarget = worldModel:FindFirstChild("ViewTarget")
-                if not viewTarget then
-                    viewTarget = Instance.new("Folder")
-                    viewTarget.Name = "ViewTarget"
-                    viewTarget.Parent = worldModel
-                end
-
-                for _, part in ipairs(character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        local targetPart = viewTarget:FindFirstChild(part.Name)
-                        if not targetPart then
-                            character.Archivable = true
-                            local success, pClone = pcall(function() return part:Clone() end)
-                            if success and pClone then
-                                pClone.Anchored = true
-                                pClone.CanCollide = false
-                                pClone.Parent = viewTarget
+                for _, object in ipairs(game:GetService("Workspace"):GetChildren()) do
+                    if not object:IsA("Camera") and not object:IsA("Terrain") and not object:IsA("Script") and not object:IsA("LocalScript") and object.Name ~= LocalPlayer.Name and object.Name ~= "Terrain" then
+                        if not worldModel:FindFirstChild(object.Name) then
+                            object.Archivable = true
+                            local success, clone = pcall(function() return object:Clone() end)
+                            if success and clone then
+                                clone.Parent = worldModel
                             end
                         else
-                            targetPart.CFrame = part.CFrame
-                            targetPart.Color = part.Color
-                            targetPart.Transparency = part.Transparency
-                        end
-                    elseif part:IsA("Accessory") then
-                        local targetAcc = viewTarget:FindFirstChild(part.Name)
-                        if not targetAcc then
-                            character.Archivable = true
-                            local success, aClone = pcall(function() return part:Clone() end)
-                            if success and aClone then
-                                local handle = aClone:FindFirstChild("Handle")
-                                if handle and handle:IsA("BasePart") then
-                                    handle.Anchored = true
-                                    handle.CanCollide = false
+                            local targetClone = worldModel:FindFirstChild(object.Name)
+                            if targetClone and targetClone:IsA("Model") and object:IsA("Model") then
+                                for _, part in ipairs(object:GetDescendants()) do
+                                    if part:IsA("BasePart") then
+                                        local clonePart = targetClone:FindFirstChild(part.Name, true)
+                                        if clonePart and clonePart:IsA("BasePart") then
+                                            clonePart.CFrame = part.CFrame
+                                        end
+                                    end
                                 end
-                                aClone.Parent = viewTarget
-                            end
-                        else
-                            local handle = part:FindFirstChild("Handle")
-                            local targetHandle = targetAcc:FindFirstChild("Handle")
-                            if handle and targetHandle and handle:IsA("BasePart") and targetHandle:IsA("BasePart") then
-                                targetHandle.CFrame = handle.CFrame
+                            elseif targetClone and targetClone:IsA("BasePart") and object:IsA("BasePart") then
+                                targetClone.CFrame = object.CFrame
                             end
                         end
                     end
                 end
 
                 Camera.CFrame = CFrame.new(
-                    hrp.Position - (hrp.CFrame.LookVector * 12) + Vector3.new(0, 4, 0),
-                    hrp.Position + (hrp.CFrame.LookVector * 10)
+                    head.Position + (head.CFrame.LookVector * 2),
+                    head.Position
                 )
             end)
 
