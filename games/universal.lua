@@ -8681,7 +8681,7 @@ run(function()
 end)
 
 run(function()
-	local Combat = mainapi.Categories.Combat
+local Combat = vape.Categories.Render
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
