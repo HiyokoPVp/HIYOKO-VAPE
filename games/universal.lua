@@ -8681,6 +8681,125 @@ run(function()
 end)
 
 run(function()
+	local Combat = mainapi.Categories.Combat
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local VisualizeBehind = Combat:CreateModule({
+    Name = "Visualize Behind Player",
+    Function = function(callback)
+        if callback then
+            print("Behind view mode enabled")
+        else
+            print("Behind view mode disabled")
+            if _G.BehindViewGUI then
+                _G.BehindViewGUI:Destroy()
+                _G.BehindViewGUI = nil
+            end
+            if _G.BehindViewConnection then
+                _G.BehindViewConnection:Disconnect()
+                _G.BehindViewConnection = nil
+            end
+        end
+    end,
+    Tooltip = "Display player's back view in GUI"
+})
+
+local EnableToggle = VisualizeBehind:CreateToggle({
+    Name = "Enable View",
+    Function = function(enabled)
+        if enabled then
+            local ScreenGui = Instance.new("ScreenGui")
+            ScreenGui.Name = "BehindViewGUI"
+            ScreenGui.ResetOnSpawn = false
+            ScreenGui.Parent = game:GetService("CoreGui")
+            _G.BehindViewGUI = ScreenGui
+
+            local MainFrame = Instance.new("Frame")
+            MainFrame.Name = "MainFrame"
+            MainFrame.Size = UDim2.new(0, 300, 0, 300)
+            MainFrame.Position = UDim2.new(0.5, -150, 0.5, -150)
+            MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            MainFrame.BorderSizePixel = 2
+            MainFrame.Active = true
+            MainFrame.Draggable = true
+            MainFrame.Parent = ScreenGui
+
+            local Viewport = Instance.new("ViewportFrame")
+            Viewport.Name = "Viewport"
+            Viewport.Size = UDim2.new(1, 0, 1, 0)
+            Viewport.BackgroundTransparency = 0
+            Viewport.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            Viewport.Parent = MainFrame
+
+            local Camera = Instance.new("Camera")
+            Camera.Parent = Viewport
+            Viewport.CurrentCamera = Camera
+
+            local function UpdateCharacterClone()
+                local character = LocalPlayer.Character
+                if not character then return end
+
+                for _, child in ipairs(Viewport:GetChildren()) do
+                    if child:IsA("Model") then
+                        child:Destroy()
+                    end
+                end
+
+                local clone = character:Clone()
+                clone.Parent = Viewport
+
+                local hrp = clone:FindFirstChild("HumanoidRootPart")
+                local head = clone:FindFirstChild("Head")
+                
+                if hrp and head then
+                    Camera.CFrame = CFrame.new(
+                        head.Position - (hrp.CFrame.LookVector * 3),
+                        head.Position
+                    )
+                end
+            end
+
+            _G.BehindViewConnection = RunService.RenderStepped:Connect(function()
+                UpdateCharacterClone()
+            end)
+
+        else
+            if _G.BehindViewGUI then
+                _G.BehindViewGUI:Destroy()
+                _G.BehindViewGUI = nil
+            end
+            if _G.BehindViewConnection then
+                _G.BehindViewConnection:Disconnect()
+                _G.BehindViewConnection = nil
+            end
+        end
+    end,
+    Default = false,
+    Tooltip = "Toggle behind view display"
+})
+
+local SizeSlider = VisualizeBehind:CreateSlider({
+    Name = "GUI Size",
+    Min = 100,
+    Max = 800,
+    Default = 300,
+    Function = function(value)
+        if _G.BehindViewGUI then
+            local frame = _G.BehindViewGUI:FindFirstChild("MainFrame")
+            if frame then
+                frame.Size = UDim2.new(0, value, 0, value)
+                frame.Position = UDim2.new(0.5, -value/2, 0.5, -value/2)
+            end
+        end
+    end,
+    Tooltip = "Change GUI window size"
+})
+
+end)
+
+run(function()
 	local debug = true
 
 	if debug == true then
