@@ -8698,12 +8698,17 @@ local VisualizeBehind = Combat:CreateModule({
                 _G.BehindViewConnection:Disconnect()
                 _G.BehindViewConnection = nil
             end
+            if _G.DisableShakeConnection then
+                _G.DisableShakeConnection:Disconnect()
+                _G.DisableShakeConnection = nil
+            end
         end
     end,
     Tooltip = "Display player's back view in GUI"
 })
 
 local currentSize = 300
+local shakeDisabled = false
 
 local EnableToggle = VisualizeBehind:CreateToggle({
     Name = "Enable View",
@@ -8797,6 +8802,37 @@ local EnableToggle = VisualizeBehind:CreateToggle({
     end,
     Default = false,
     Tooltip = "Toggle behind view display"
+})
+
+local ShakeToggle = VisualizeBehind:CreateToggle({
+    Name = "Disable Camera Shake",
+    Function = function(enabled)
+        shakeDisabled = enabled
+        if enabled then
+            if _G.DisableShakeConnection then _G.DisableShakeConnection:Disconnect() end
+            _G.DisableShakeConnection = RunService.RenderStepped:Connect(function()
+                local mainCam = game:GetService("Workspace").CurrentCamera
+                local character = LocalPlayer.Character
+                if mainCam and character and character:FindFirstChild("Humanoid") then
+                    local humanoid = character.Humanoid
+                    if humanoid.MoveDirection.Magnitude > 0 then
+                        local rootPart = character:FindFirstChild("HumanoidRootPart")
+                        if rootPart then
+                            local targetCFrame = CFrame.new(mainCam.CFrame.Position) * rootPart.CFrame.Rotation
+                            mainCam.CFrame = mainCam.CFrame:Lerp(targetCFrame, 0.5)
+                        end
+                    end
+                end
+            end)
+        else
+            if _G.DisableShakeConnection then
+                _G.DisableShakeConnection:Disconnect()
+                _G.DisableShakeConnection = nil
+            end
+        end
+    end,
+    Default = false,
+    Tooltip = "Remove camera bobbing and shaking while walking"
 })
 
 local SizeSlider = VisualizeBehind:CreateSlider({
