@@ -8689,10 +8689,7 @@ local LocalPlayer = Players.LocalPlayer
 local VisualizeBehind = Combat:CreateModule({
     Name = "Visualize Behind Player",
     Function = function(callback)
-        if callback then
-            print("Behind view mode enabled")
-        else
-            print("Behind view mode disabled")
+        if not callback then
             if _G.BehindViewGUI then
                 _G.BehindViewGUI:Destroy()
                 _G.BehindViewGUI = nil
@@ -8706,20 +8703,25 @@ local VisualizeBehind = Combat:CreateModule({
     Tooltip = "Display player's back view in GUI"
 })
 
+local currentSize = 300
+
 local EnableToggle = VisualizeBehind:CreateToggle({
     Name = "Enable View",
     Function = function(enabled)
         if enabled then
+            if _G.BehindViewGUI then _G.BehindViewGUI:Destroy() end
+            if _G.BehindViewConnection then _G.BehindViewConnection:Disconnect() end
+
             local ScreenGui = Instance.new("ScreenGui")
             ScreenGui.Name = "BehindViewGUI"
             ScreenGui.ResetOnSpawn = false
-            ScreenGui.Parent = game:GetService("CoreGui")
+            ScreenGui.Parent = pcall(function() return game:GetService("CoreGui") end) and game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
             _G.BehindViewGUI = ScreenGui
 
             local MainFrame = Instance.new("Frame")
             MainFrame.Name = "MainFrame"
-            MainFrame.Size = UDim2.new(0, 300, 0, 300)
-            MainFrame.Position = UDim2.new(0.5, -150, 0.5, -150)
+            MainFrame.Size = UDim2.new(0, currentSize, 0, currentSize)
+            MainFrame.Position = UDim2.new(0.5, -currentSize/2, 0.5, -currentSize/2)
             MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
             MainFrame.BorderSizePixel = 2
             MainFrame.Active = true
@@ -8737,32 +8739,41 @@ local EnableToggle = VisualizeBehind:CreateToggle({
             Camera.Parent = Viewport
             Viewport.CurrentCamera = Camera
 
-            local function UpdateCharacterClone()
+            _G.BehindViewConnection = RunService.RenderStepped:Connect(function()
                 local character = LocalPlayer.Character
                 if not character then return end
+                
+                local hrp = character:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
 
-                for _, child in ipairs(Viewport:GetChildren()) do
-                    if child:IsA("Model") then
-                        child:Destroy()
+                local viewTarget = Viewport:FindFirstChild("ViewTarget")
+                if not viewTarget then
+                    viewTarget = Instance.new("Folder")
+                    viewTarget.Name = "ViewTarget"
+                    viewTarget.Parent = Viewport
+                end
+
+                for _, part in ipairs(character:GetChildren()) do
+                    if part:IsA("BasePart") or part:IsA("Accessory") or part:IsA("Shirt") or part:IsA("Pants") then
+                        if not viewTarget:FindFirstChild(part.Name) then
+                            character.Archivable = true
+                            local pClone = part:Clone()
+                            if pClone then
+                                pClone.Parent = viewTarget
+                            end
+                        else
+                            local targetPart = viewTarget:FindFirstChild(part.Name)
+                            if part:IsA("BasePart") and targetPart:IsA("BasePart") then
+                                targetPart.CFrame = part.CFrame
+                            end
+                        end
                     end
                 end
 
-                local clone = character:Clone()
-                clone.Parent = Viewport
-
-                local hrp = clone:FindFirstChild("HumanoidRootPart")
-                local head = clone:FindFirstChild("Head")
-                
-                if hrp and head then
-                    Camera.CFrame = CFrame.new(
-                        head.Position - (hrp.CFrame.LookVector * 3),
-                        head.Position
-                    )
-                end
-            end
-
-            _G.BehindViewConnection = RunService.RenderStepped:Connect(function()
-                UpdateCharacterClone()
+                Camera.CFrame = CFrame.new(
+                    hrp.Position - (hrp.CFrame.LookVector * 12) + Vector3.new(0, 4, 0),
+                    hrp.Position + (hrp.CFrame.LookVector * 10)
+                )
             end)
 
         else
@@ -8786,6 +8797,7 @@ local SizeSlider = VisualizeBehind:CreateSlider({
     Max = 800,
     Default = 300,
     Function = function(value)
+        currentSize = value
         if _G.BehindViewGUI then
             local frame = _G.BehindViewGUI:FindFirstChild("MainFrame")
             if frame then
