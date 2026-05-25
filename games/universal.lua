@@ -144,6 +144,20 @@ local function removeTags(str)
 	return (str:gsub('<[^<>]->', ''))
 end
 
+local function findVapeLogo(objname)
+    for _, obj in ipairs(game:GetService("CoreGui"):GetDescendants()) do
+        if obj.Name == objname then
+            return obj
+        end
+    end
+    return nil
+end
+
+local vapeLogo = findVapeLogo("VapeLogo")
+if vapeLogo then
+  vapeLogo.Image = getcustomasset('newvape/assets/new/textvape.png')
+end
+
 local function rakNetCheck(module)
 	if not (raknet and raknet.add_send_hook and pcall(raknet.add_send_hook, function() end)) then
 		notif(module, 'This feature requires raknet! (risky feature, please do not use on mains.)', 10, 'warning')
