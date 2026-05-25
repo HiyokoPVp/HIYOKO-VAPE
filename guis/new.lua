@@ -58,6 +58,72 @@ local uipallet = {
 	Tween = TweenInfo.new(0.16, Enum.EasingStyle.Linear)
 }
 
+local getcustomassets = {
+	['newvape/assets/new/add.png'] = 'rbxassetid://14368300605',
+	['newvape/assets/new/alert.png'] = 'rbxassetid://14368301329',
+	['newvape/assets/new/allowedicon.png'] = 'rbxassetid://14368302000',
+	['newvape/assets/new/allowedtab.png'] = 'rbxassetid://14368302875',
+	['newvape/assets/new/arrowmodule.png'] = 'rbxassetid://14473354880',
+	['newvape/assets/new/back.png'] = 'rbxassetid://14368303894',
+	['newvape/assets/new/bind.png'] = 'rbxassetid://14368304734',
+	['newvape/assets/new/bindbkg.png'] = 'rbxassetid://14368305655',
+	['newvape/assets/new/blatanticon.png'] = 'rbxassetid://14368306745',
+	['newvape/assets/new/blockedicon.png'] = 'rbxassetid://14385669108',
+	['newvape/assets/new/blockedtab.png'] = 'rbxassetid://14385672881',
+	['newvape/assets/new/blur.png'] = 'rbxassetid://14898786664',
+	['newvape/assets/new/blurnotif.png'] = 'rbxassetid://16738720137',
+	['newvape/assets/new/close.png'] = 'rbxassetid://14368309446',
+	['newvape/assets/new/closemini.png'] = 'rbxassetid://14368310467',
+	['newvape/assets/new/colorpreview.png'] = 'rbxassetid://14368311578',
+	['newvape/assets/new/combaticon.png'] = 'rbxassetid://14368312652',
+	['newvape/assets/new/customsettings.png'] = 'rbxassetid://14403726449',
+	['newvape/assets/new/discord.png'] = '',
+	['newvape/assets/new/dots.png'] = 'rbxassetid://14368314459',
+	['newvape/assets/new/edit.png'] = 'rbxassetid://14368315443',
+	['newvape/assets/new/expandicon.png'] = 'rbxassetid://14368353032',
+	['newvape/assets/new/expandright.png'] = 'rbxassetid://14368316544',
+	['newvape/assets/new/expandup.png'] = 'rbxassetid://14368317595',
+	['newvape/assets/new/friendstab.png'] = 'rbxassetid://14397462778',
+	['newvape/assets/new/guisettings.png'] = 'rbxassetid://14368318994',
+	['newvape/assets/new/guislider.png'] = 'rbxassetid://14368320020',
+	['newvape/assets/new/guisliderrain.png'] = 'rbxassetid://14368321228',
+	['newvape/assets/new/guiv4.png'] = 'rbxassetid://14368322199',
+	['newvape/assets/new/guivape.png'] = 'rbxassetid://14657521312',
+	['newvape/assets/new/info.png'] = 'rbxassetid://14368324807',
+	['newvape/assets/new/inventoryicon.png'] = 'rbxassetid://14928011633',
+	['newvape/assets/new/legit.png'] = 'rbxassetid://14425650534',
+	['newvape/assets/new/legittab.png'] = 'rbxassetid://14426740825',
+	['newvape/assets/new/miniicon.png'] = 'rbxassetid://14368326029',
+	['newvape/assets/new/notification.png'] = 'rbxassetid://16738721069',
+	['newvape/assets/new/overlaysicon.png'] = 'rbxassetid://14368339581',
+	['newvape/assets/new/overlaystab.png'] = 'rbxassetid://14397380433',
+	['newvape/assets/new/pin.png'] = 'rbxassetid://14368342301',
+	['newvape/assets/new/profilesicon.png'] = 'rbxassetid://14397465323',
+	['newvape/assets/new/radaricon.png'] = 'rbxassetid://14368343291',
+	['newvape/assets/new/rainbow_1.png'] = 'rbxassetid://14368344374',
+	['newvape/assets/new/rainbow_2.png'] = 'rbxassetid://14368345149',
+	['newvape/assets/new/rainbow_3.png'] = 'rbxassetid://14368345840',
+	['newvape/assets/new/rainbow_4.png'] = 'rbxassetid://14368346696',
+	['newvape/assets/new/range.png'] = 'rbxassetid://14368347435',
+	['newvape/assets/new/rangearrow.png'] = 'rbxassetid://14368348640',
+	['newvape/assets/new/rendericon.png'] = 'rbxassetid://14368350193',
+	['newvape/assets/new/rendertab.png'] = 'rbxassetid://14397373458',
+	['newvape/assets/new/search.png'] = 'rbxassetid://14425646684',
+	['newvape/assets/new/targetinfoicon.png'] = 'rbxassetid://14368354234',
+	['newvape/assets/new/targetnpc1.png'] = 'rbxassetid://14497400332',
+	['newvape/assets/new/targetnpc2.png'] = 'rbxassetid://14497402744',
+	['newvape/assets/new/targetplayers1.png'] = 'rbxassetid://14497396015',
+	['newvape/assets/new/targetplayers2.png'] = 'rbxassetid://14497397862',
+	['newvape/assets/new/targetstab.png'] = 'rbxassetid://14497393895',
+	['newvape/assets/new/textguiicon.png'] = 'rbxassetid://14368355456',
+	['newvape/assets/new/textv4.png'] = 'rbxassetid://14368357095',
+	['newvape/assets/new/textvape.png'] = '137576021356622',
+	['newvape/assets/new/utilityicon.png'] = 'rbxassetid://14368359107',
+	['newvape/assets/new/vape.png'] = 'rbxassetid://14373395239',
+	['newvape/assets/new/warning.png'] = 'rbxassetid://14368361552',
+	['newvape/assets/new/worldicon.png'] = 'rbxassetid://14368362492'
+}
+
 local isfile = isfile or function(file)
 	local suc, res = pcall(function()
 		return readfile(file)
@@ -80,6 +146,7 @@ local function addBlur(parent, notif)
 	blur.Size = UDim2.new(1, 89, 1, 52)
 	blur.Position = UDim2.fromOffset(-48, -31)
 	blur.BackgroundTransparency = 1
+	blur.Image = getcustomasset('newvape/assets/new/'..(notif and 'blurnotif' or 'blur')..'.png')
 	blur.ScaleType = Enum.ScaleType.Slice
 	blur.SliceCenter = Rect.new(52, 31, 261, 502)
 	blur.Parent = parent
@@ -260,6 +327,11 @@ local function downloadFile(path, func)
 	return (func or readfile)(path)
 end
 
+getcustomasset = not inputService.TouchEnabled and assetfunction and function(path)
+	return downloadFile(path, assetfunction)
+end or function(path)
+	return getcustomassets[path] or ''
+end
 
 local function getTableSize(tab)
 	local ind = 0
