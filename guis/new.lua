@@ -327,6 +327,12 @@ local function downloadFile(path, func)
 	return (func or readfile)(path)
 end
 
+getcustomasset = not inputService.TouchEnabled and assetfunction and function(path)
+	return assetfunction(path)
+end or function(path)
+	return getcustomassets[path] or ''
+end
+
 local function getTableSize(tab)
 	local ind = 0
 	for _ in tab do ind += 1 end
