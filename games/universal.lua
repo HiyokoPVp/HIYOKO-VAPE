@@ -8746,25 +8746,53 @@ local EnableToggle = VisualizeBehind:CreateToggle({
                 local hrp = character:FindFirstChild("HumanoidRootPart")
                 if not hrp then return end
 
-                local viewTarget = Viewport:FindFirstChild("ViewTarget")
+                local worldModel = Viewport:FindFirstChild("WorldModel")
+                if not worldModel then
+                    worldModel = Instance.new("WorldModel")
+                    worldModel.Parent = Viewport
+                end
+
+                local viewTarget = worldModel:FindFirstChild("ViewTarget")
                 if not viewTarget then
                     viewTarget = Instance.new("Folder")
                     viewTarget.Name = "ViewTarget"
-                    viewTarget.Parent = Viewport
+                    viewTarget.Parent = worldModel
                 end
 
                 for _, part in ipairs(character:GetChildren()) do
-                    if part:IsA("BasePart") or part:IsA("Accessory") or part:IsA("Shirt") or part:IsA("Pants") then
-                        if not viewTarget:FindFirstChild(part.Name) then
+                    if part:IsA("BasePart") then
+                        local targetPart = viewTarget:FindFirstChild(part.Name)
+                        if not targetPart then
                             character.Archivable = true
-                            local pClone = part:Clone()
-                            if pClone then
+                            local success, pClone = pcall(function() return part:Clone() end)
+                            if success and pClone then
+                                pClone.Anchored = true
+                                pClone.CanCollide = false
                                 pClone.Parent = viewTarget
                             end
                         else
-                            local targetPart = viewTarget:FindFirstChild(part.Name)
-                            if part:IsA("BasePart") and targetPart:IsA("BasePart") then
-                                targetPart.CFrame = part.CFrame
+                            targetPart.CFrame = part.CFrame
+                            targetPart.Color = part.Color
+                            targetPart.Transparency = part.Transparency
+                        end
+                    elseif part:IsA("Accessory") then
+                        local targetAcc = viewTarget:FindFirstChild(part.Name)
+                        if not targetAcc then
+                            character.Archivable = true
+                            local success, aClone = pcall(function() return part:Clone() end)
+                            if success and aClone then
+                                local handle = aClone:FindFirstChild("Handle")
+                                if handle and handle:IsA("BasePart") then
+                                    handle.Anchored = true
+                                    handle.CanCollide = false
+                                end
+                                aClone.Parent = viewTarget
+                            end
+                        else
+                            local handle = part:FindFirstChild("Handle")
+                            local targetHandle = targetAcc:FindFirstChild("Handle")
+                            if handle and targetHandle and handle:IsA("BasePart") and targetHandle:IsA("BasePart") then
+                                targetHandle.CFrame = handle.CFrame
                             end
                         end
                     end
