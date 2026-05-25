@@ -6358,7 +6358,7 @@ VapeLogo.BackgroundTransparency = 1
 VapeLogo.BorderSizePixel = 0
 VapeLogo.Visible = false
 VapeLogo.BackgroundColor3 = Color3.new()
-VapeLogo.Image = getcustomasset("newvape/assets/new/textvape.png") or 'rbxasset://f2ad75bc2613df4dac2ae333bf5c186e35ea8d61e5ed27c110088e6dab971334/textvape.png'
+VapeLogo.Image = getcustomasset("newvape/assets/new/textvape.png")
 VapeLogo.Parent = textgui.Children
 
 local lastside = textgui.Children.AbsolutePosition.X > (gui.AbsoluteSize.X / 2)
