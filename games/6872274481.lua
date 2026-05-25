@@ -12903,3 +12903,277 @@ run(function()
 		Default = {'diamond', 'iron'}
 	})
 end)
+
+run(function()
+    local AutoBD
+    local Range
+    local MaxBlocks
+    local BlockType
+    local CheckInterval
+    local CustomPattern
+    local Pattern = {Value = 'Pyramid'}
+    
+    local patternFunctions = {
+        Pyramid = function(bedPos)
+            local positions = {}
+            for y = 0, 2 do
+                for x = -y, y do
+                    for z = -y, y do
+                        if math.abs(x) == y or math.abs(z) == y then
+                            table.insert(positions, bedPos + Vector3.new(x * 3, y * 3, z * 3))
+                        end
+                    end
+                end
+            end
+            return positions
+        end,
+        
+        Wall = function(bedPos)
+            local positions = {}
+            for x = -1, 1 do
+                for z = -1, 1 do
+                    if x == -1 or x == 1 or z == -1 or z == 1 then
+                        for y = 0, 2 do
+                            table.insert(positions, bedPos + Vector3.new(x * 3, y * 3, z * 3))
+                        end
+                    end
+                end
+            end
+            return positions
+        end,
+        
+        Box = function(bedPos)
+            local positions = {}
+            for x = -1, 1 do
+                for y = 0, 1 do
+                    for z = -1, 1 do
+                        if not (x == 0 and z == 0) then
+                            table.insert(positions, bedPos + Vector3.new(x * 3, y * 3, z * 3))
+                        end
+                    end
+                end
+            end
+            return positions
+        end
+    }
+    
+    local function getBed()
+        if entitylib.isAlive then
+            local teamId = lplr:GetAttribute('Team')
+            for _, bed in collectionService:GetTagged('bed') do
+                if tonumber(teamId) == tonumber(bed:GetAttribute('TeamId')) then
+                    return bed
+                end
+            end
+        end
+        return nil
+    end
+    
+    local function getDefenseBlock()
+        local blockItem = getWool()
+        if blockItem then
+            return blockItem
+        end
+        
+        for _, item in store.inventory.inventory.items do
+            local meta = bedwars.ItemMeta[item.itemType]
+            if meta and meta.block and not meta.block.seeThrough then
+                return item.itemType, item.amount
+            end
+        end
+        
+        return nil, 0
+    end
+    
+    AutoBD = vape.Categories.World:CreateModule({
+        Name = 'AutoBD',
+        Function = function(callback)
+            if callback then
+                local placedCount = 0
+                
+                repeat
+                    if entitylib.isAlive then
+                        local bed = getBed()
+                        
+                        if bed then
+                            local bedPos = bed.Position
+                            local blockType, blockAmount = getDefenseBlock()
+                            
+                            if not blockType then
+                                task.wait(1)
+                                continue
+                            end
+                            
+                            local positions = patternFunctions[Pattern.Value](bedPos)
+                            placedCount = 0
+                            
+                            for _, pos in positions do
+                                if placedCount >= MaxBlocks.Value then
+                                    break
+                                end
+                                
+                                if not getPlacedBlock(pos) then
+                                    local nearEnemy = entitylib.AllPosition({
+                                        Origin = bedPos,
+                                        Range = Range.Value,
+                                        Part = 'RootPart',
+                                        Players = true
+                                    })
+                                    
+                                    if #nearEnemy > 0 then
+                                        task.spawn(bedwars.placeBlock, pos, blockType)
+                                        placedCount = placedCount + 1
+                                        task.wait(0.05)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
+                    task.wait(CheckInterval.Value)
+                until not AutoBD.Enabled
+            end
+        end,
+        Tooltip = ''
+    })
+    
+    Pattern = AutoBD:CreateDropdown({
+        Name = 'Pattern',
+        List = {'Pyramid', 'Wall', 'Box'},
+        Default = 'Pyramid'
+    })
+    
+    Range = AutoBD:CreateSlider({
+        Name = 'Detection Range',
+        Min = 10,
+        Max = 50,
+        Default = 25,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end,
+        Tooltip = ''
+    })
+    
+    MaxBlocks = AutoBD:CreateSlider({
+        Name = 'Max Blocks',
+        Min = 1,
+        Max = 20,
+        Default = 10,
+        Tooltip = ''
+    })
+    
+    CheckInterval = AutoBD:CreateSlider({
+        Name = 'Check Interval',
+        Min = 0.5,
+        Max = 5,
+        Default = 1,
+        Decimal = 10,
+        Suffix = 's',
+        Tooltip = ''
+    })
+end)
+
+run(function()
+    local AutoCycle
+    local Range
+    local Emerald
+    local Diamond
+    local Delay
+    local GUI
+    local pickupQueue = {}
+    
+    local function canPickup(item)
+        if not item then return false end
+        if tick() - (item:GetAttribute('ClientDropTime') or 0) < 2 then return false end
+        
+        local itemType = item.Name
+        if Emerald.Enabled and itemType == 'emerald' then return true end
+        if Diamond.Enabled and itemType == 'diamond' then return true end
+        
+        return false
+    end
+    
+    AutoCycle = vape.Categories.Utility:CreateModule({
+        Name = 'AutoCycle',
+        Function = function(callback)
+            if callback then
+                local items = collection('ItemDrop', AutoCycle)
+                
+                repeat
+                    if entitylib.isAlive then
+                        if GUI.Enabled and bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN) then
+                            task.wait(0.1)
+                            continue
+                        end
+                        
+                        local localPosition = entitylib.character.RootPart.Position
+                        table.clear(pickupQueue)
+                        
+                        for _, v in items do
+                            if canPickup(v) and (localPosition - v.Position).Magnitude <= Range.Value then
+                                table.insert(pickupQueue, v)
+                            end
+                        end
+                        
+                        if #pickupQueue > 0 then
+                            table.sort(pickupQueue, function(a, b)
+                                return (localPosition - a.Position).Magnitude < (localPosition - b.Position).Magnitude
+                            end)
+                            
+                            for _, item in pickupQueue do
+                                if item and item.Parent then
+                                    task.spawn(function()
+                                        bedwars.Client:Get(remotes.PickupItem):CallServerAsync({
+                                            itemDrop = item
+                                        }):andThen(function(suc)
+                                            if suc and bedwars.SoundList then
+                                                bedwars.SoundManager:playSound(bedwars.SoundList.PICKUP_ITEM_DROP)
+                                            end
+                                        end)
+                                    end)
+                                    task.wait(Delay.Value)
+                                end
+                            end
+                        end
+                    end
+                    task.wait(0.1)
+                until not AutoCycle.Enabled
+            end
+        end,
+        Tooltip = ''
+    })
+    
+    Range = AutoCycle:CreateSlider({
+        Name = 'Range',
+        Min = 1,
+        Max = 20,
+        Default = 10,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+    
+    Delay = AutoCycle:CreateSlider({
+        Name = 'Pickup Delay',
+        Min = 0,
+        Max = 0.5,
+        Default = 0.05,
+        Decimal = 100,
+        Suffix = 's'
+    })
+    
+    Emerald = AutoCycle:CreateToggle({
+        Name = 'Emerald',
+        Default = true
+    })
+    
+    Diamond = AutoCycle:CreateToggle({
+        Name = 'Diamond',
+        Default = true
+    })
+    
+    GUI = AutoCycle:CreateToggle({
+        Name = 'GUI Check',
+        Tooltip = ''
+    })
+end)
