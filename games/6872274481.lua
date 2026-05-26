@@ -3897,6 +3897,11 @@ run(function()
     local color3fromHSV = Color3.fromHSV
     local color3new = Color3.new
     local udim2fromOffset = UDim2.fromOffset
+    
+    -- kitImageIds定義を追加
+    local kitImageIds = {
+        none = ""
+    }
 
     local function getHealthColor(ent)
         local ratio = math.clamp((ent.Health or 0) / (ent.MaxHealth and ent.MaxHealth > 0 and ent.MaxHealth or 1), 0, 1)
@@ -4140,12 +4145,20 @@ run(function()
 
                 local kit = ent.Player:GetAttribute('PlayingAsKits')
                 if kit then
-                    local kitImage = kitImageIds[kit:lower()]
-                    kitIcon.Image = kitImage or kitImageIds["none"]
-                    kitCache[ent] = kitImage or kitImageIds["none"]
+                    local kitImage = ""
+                    local suc, kitMeta = pcall(function()
+                        return bedwars.BedwarsKitMeta and bedwars.BedwarsKitMeta[kit]
+                    end)
+                    if suc and kitMeta and kitMeta.renderImage then
+                        kitImage = kitMeta.renderImage
+                    elseif kitImageIds[kit:lower()] then
+                        kitImage = kitImageIds[kit:lower()]
+                    end
+                    kitIcon.Image = kitImage
+                    kitCache[ent] = kitImage
                 else
-                    kitIcon.Image = kitImageIds["none"]
-                    kitCache[ent] = kitImageIds["none"]
+                    kitIcon.Image = ""
+                    kitCache[ent] = ""
                 end
             end
 
@@ -4486,10 +4499,6 @@ run(function()
             local updateDistanceText = frameCounter % 6 == 0
 
             for ent, nametag in Reference do
-                if ent.Player then
-                    nametag.Visible = true
-                    continue
-                end
                 if DistanceCheck.Enabled then
                     local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math_huge
                     if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
@@ -4555,17 +4564,18 @@ run(function()
                     local kitIcon = nametag:FindFirstChild('KitIcon')
                     if kitIcon and ent.Player then
                         local kit = ent.Player:GetAttribute('PlayingAsKits')
-                        local suc, res = pcall(function()
-                            return bedwars.BedwarsKitMeta[kit]
-                        end)
-                        local newKitImage = nil
-                        if suc and res then
-                            newKitImage = res.renderImage
-                        else
-                            if not suc then
-                                warn(`[HIYOKO VAPE MODULE ISSUE]: [Module - NameTags (Using bedwars.BedwarsKitMeta)] [Error]: {res}`)
+                        local newKitImage = ""
+                        if kit then
+                            local suc, res = pcall(function()
+                                return bedwars.BedwarsKitMeta and bedwars.BedwarsKitMeta[kit]
+                            end)
+                            if suc and res and res.renderImage then
+                                newKitImage = res.renderImage
+                            elseif kitImageIds[kit] then
+                                newKitImage = kitImageIds[kit]
+                            elseif kitImageIds[kit:lower()] then
+                                newKitImage = kitImageIds[kit:lower()]
                             end
-                            newKitImage = kitImageIds[kit] or kitImageIds['none']
                         end
                         if kitCache[ent] ~= newKitImage then
                             kitIcon.Image = newKitImage
@@ -4581,10 +4591,6 @@ run(function()
             local skipFrame = frameCounter % 2 ~= 0
 
             for ent, nametag in Reference do
-                if ent.Player then
-                    nametag.Visible = true
-                    continue
-                end
                 if DistanceCheck.Enabled then
                     local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math_huge
                     if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
