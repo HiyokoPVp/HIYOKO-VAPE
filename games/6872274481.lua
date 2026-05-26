@@ -4487,7 +4487,7 @@ run(function()
 
             for ent, nametag in Reference do
                 if ent.Player then
-                    nametag.Visible = false
+                    nametag.Visible = true
                     continue
                 end
                 if DistanceCheck.Enabled then
@@ -4582,7 +4582,7 @@ run(function()
 
             for ent, nametag in Reference do
                 if ent.Player then
-                    nametag.Visible = false
+                    nametag.Visible = true
                     continue
                 end
                 if DistanceCheck.Enabled then
