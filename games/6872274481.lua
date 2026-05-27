@@ -16011,7 +16011,7 @@ run(function()
 							end	
 						end
 						
-						if matchstats == 3 then
+						if matchstats == 2 then
 							queupath:FireServer(unpack(args))
 						end	
 
