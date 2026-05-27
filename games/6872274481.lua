@@ -15947,3 +15947,73 @@ run(function()
     Sort = AimAssist:CreateDropdown({ Name = 'Target mode', List = methods, Default = 'Angle' })
     AimPart = AimAssist:CreateDropdown({ Name = 'Target area', List = {'Center', 'Closest'}, Default = 'Center' })
 end)
+
+run(function()
+    local AutoFarm
+	local runcheck = false
+
+	local function getSword()
+    local state = bedwars.Store:getState()
+
+	local queupath = game:GetService("ReplicatedStorage"):WaitForChild("events-@easy-games/lobby:shared/event/lobby-events@getEvents.Events"):WaitForChild("joinQueue")
+	local args = {
+    [1] = {
+        ["queueType"] = "bedwars_to1"
+       }
+    }
+
+    local inventory = state
+        and state.Inventory
+        and state.Inventory.observedInventory
+        and state.Inventory.observedInventory.inventory
+        and state.Inventory.observedInventory.inventory.items
+
+    if not inventory then
+        return nil
+    end
+
+    for _, item in pairs(inventory) do
+        if item.itemType and string.find(item.itemType, "sword") then
+            return item.itemType
+        end
+    end
+
+    return nil
+    end
+
+    AutoFarm = vape.Categories.Blatant:CreateModule({
+        Name = "Legit AutoFarm",
+        Function = function(callback)
+            if callback then
+				runcheck = callback
+
+				task.spawn(function()
+					while runcheck do
+						local matchstats = bedwars.Store:getState().Game.matchState
+
+						if matchstats == 1 then
+							sword = getSword()
+
+							if sword then
+
+							switchItem(sword, 0.1)
+							bedwars.SwordController:swingSwordAtMouse()
+
+							end	
+						end
+						
+						if matchstats == 3 then
+							queupath:FireServer(unpack(args))
+						end	
+
+						task.wait(1)
+					end
+				end)
+            else
+				runcheck = callback
+            end    
+        end,
+        
+        ToolTip = "You can afk and farming level"
+    })
+end)
