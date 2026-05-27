@@ -15981,6 +15981,12 @@ run(function()
     return nil
     end
 
+    local function antiafk()
+      for _, v in getconnections(lplr.Idled) do
+          v:Disable()
+      end
+    end
+
     AutoFarm = vape.Categories.Blatant:CreateModule({
         Name = "Legit AutoFarm",
         Function = function(callback)
@@ -15989,6 +15995,9 @@ run(function()
 
 				task.spawn(function()
 					while runcheck do
+
+						antiafk()
+
 						local matchstats = bedwars.Store:getState().Game.matchState
 
 						if matchstats == 1 then
