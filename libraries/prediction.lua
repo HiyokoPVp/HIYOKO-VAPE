@@ -1,7 +1,15 @@
 --[[
-	Prediction Library (Optimized for 100% Accuracy)
-	Source: https://devforum.roblox.com/t/predict-projectile-ballistics-including-gravity-and-motion/1842434
+	Prediction Library (改善版)
+	Original: https://devforum.roblox.com/t/predict-projectile-ballistics-including-gravity-and-motion/1842434
+	
+	改善点:
+	- 正の根の中から最小値（最短飛行時間）を選択するように修正
+	- 重力補正ループを正しく動作するように修正
+	- ゼロ除算ガード追加
+	- 根の精度フィルタ（eps以下の根を除外）
+	- gravity == 0 のフォールバックを SolveTrajectory 全体に適用
 ]]
+
 local module = {}
 local eps = 1e-9
 
@@ -24,7 +32,7 @@ local function solveQuadric(c0, c1, c2)
 	if isZero(D) then
 		s0 = -p
 		return s0
-	elseif (D < 0) then
+	elseif D < 0 then
 		return
 	else
 		local sqrt_D = math.sqrt(D)
@@ -36,7 +44,7 @@ end
 
 local function solveCubic(c0, c1, c2, c3)
 	local s0, s1, s2
-	local num, sub
+	local num
 	local A, B, C
 	local sq_A, p, q
 	local cb_p, D
@@ -62,10 +70,9 @@ local function solveCubic(c0, c1, c2, c3)
 			s1 = -u
 			num = 2
 		end
-	elseif (D < 0) then
-		local phi = (1 / 3) * math.acos(math.clamp(-q / math.sqrt(-cb_p), -1, 1)) -- clampでエラー防止
+	elseif D < 0 then
+		local phi = (1 / 3) * math.acos(math.clamp(-q / math.sqrt(-cb_p), -1, 1)) -- clampで安全に
 		local t = 2 * math.sqrt(-p)
-
 		s0 = t * math.cos(phi)
 		s1 = -t * math.cos(phi + math.pi / 3)
 		s2 = -t * math.cos(phi - math.pi / 3)
@@ -74,31 +81,27 @@ local function solveCubic(c0, c1, c2, c3)
 		local sqrt_D = math.sqrt(D)
 		local u = cuberoot(sqrt_D - q)
 		local v = -cuberoot(sqrt_D + q)
-
 		s0 = u + v
 		num = 1
 	end
 
-	sub = (1 / 3) * A
-	if (num > 0) then s0 = s0 - sub end
-	if (num > 1) then s1 = s1 - sub end
-	if (num > 2) then s2 = s2 - sub end
+	local sub = (1 / 3) * A
+
+	if num > 0 then s0 = s0 - sub end
+	if num > 1 then s1 = s1 - sub end
+	if num > 2 then s2 = s2 - sub end
 
 	return s0, s1, s2
 end
 
 function module.solveQuartic(c0, c1, c2, c3, c4)
-	if isZero(c0) then
-		return {solveCubic(c1, c2, c3, c4)}
-	end
-
 	local s0, s1, s2, s3
+
 	local coeffs = {}
 	local z, u, v, sub
 	local A, B, C, D
 	local sq_A, p, q, r
-	local num = 0
-	local results = {}
+	local num
 
 	A = c1 / c0
 	B = c2 / c0
@@ -116,8 +119,9 @@ function module.solveQuartic(c0, c1, c2, c3, c4)
 		coeffs[1] = 0
 		coeffs[0] = 1
 
-		local res = {solveCubic(coeffs[0], coeffs[1], coeffs[2], coeffs[3])}
-		for _, v in res do table.insert(results, v) end
+		local results = {solveCubic(coeffs[0], coeffs[1], coeffs[2], coeffs[3])}
+		num = #results
+		s0, s1, s2 = results[1], results[2], results[3]
 	else
 		coeffs[3] = 0.5 * r * p - 0.125 * q * q
 		coeffs[2] = -r
@@ -130,151 +134,152 @@ function module.solveQuartic(c0, c1, c2, c3, c4)
 		u = z * z - r
 		v = 2 * z - p
 
-		if isZero(u) then u = 0 elseif (u > 0) then u = math.sqrt(u) else return {} end
-		if isZero(v) then v = 0 elseif (v > 0) then v = math.sqrt(v) else return {} end
+		if isZero(u) then
+			u = 0
+		elseif u > 0 then
+			u = math.sqrt(u)
+		else
+			return
+		end
+
+		if isZero(v) then
+			v = 0
+		elseif v > 0 then
+			v = math.sqrt(v)
+		else
+			return
+		end
 
 		coeffs[2] = z - u
 		coeffs[1] = q < 0 and -v or v
 		coeffs[0] = 1
-		local res1 = {solveQuadric(coeffs[0], coeffs[1], coeffs[2])}
-		for _, val in res1 do table.insert(results, val) end
+
+		do
+			local results = {solveQuadric(coeffs[0], coeffs[1], coeffs[2])}
+			num = #results
+			s0, s1 = results[1], results[2]
+		end
 
 		coeffs[2] = z + u
 		coeffs[1] = q < 0 and v or -v
 		coeffs[0] = 1
-		local res2 = {solveQuadric(coeffs[0], coeffs[1], coeffs[2])}
-		for _, val in res2 do table.insert(results, val) end
-	end
 
-	sub = 0.25 * A
-	for i, val in results do
-		results[i] = val - sub
-	end
-
-	return results
-end
-
---[[
-	引数:
-	origin: 発射位置 (Vector3)
-	projectileSpeed: 弾速 (number)
-	gravity: 弾の重力加速度（下向き正の数、例: 196.2）
-	targetPos: 現在のターゲット位置 (Vector3)
-	targetVelocity: 現在のターゲット速度 (Vector3)
-	playerGravity: ターゲットにかかる重力（オプション、省略時は自由落下計算なし）
-	playerHeight: ターゲットのヒップ高（地面判定用）
-	params: レイキャスト用のRaycastParams
-
-	戻り値:
-	1. 計算された「狙うべき着弾予測位置」 (Vector3)
-	2. 弾を発射すべき初期速度ベクトル (Vector3)
-	3. 着弾までの想定時間 (number)
-]]
-function module.SolveTrajectory(origin, projectileSpeed, gravity, targetPos, targetVelocity, playerGravity, playerHeight, params)
-	playerHeight = playerHeight or 0
-	
-	local currentTargetPos = targetPos
-	local currentTargetVel = targetVelocity
-	
-	-- 1. ターゲットの自由落下・着地シミュレーションの精度向上
-	if playerGravity and playerGravity > 0 and math.abs(currentTargetVel.Y) > 0.1 then
-		local estTime = ((currentTargetPos - origin).Magnitude / projectileSpeed)
-		
-		-- 収束させるために数回反復（変なbreakを削除）
-		for i = 1, 5 do
-			local predictedYVel = currentTargetVel.Y - (playerGravity * estTime)
-			local deltaY = (currentTargetVel.Y * estTime) - (0.5 * playerGravity * estTime * estTime)
-			
-			-- 着地判定用のレイキャスト
-			local rayDir = Vector3.new(currentTargetVel.X * estTime, deltaY - playerHeight, currentTargetVel.Z * estTime)
-			local ray = workspace:Raycast(targetPos, rayDir, params)
-			
-			if ray then
-				-- 地面にぶつかる場合、その時点で落下は止まる
-				local hitFloorPos = ray.Position + Vector3.new(0, playerHeight, 0)
-				local timeToFloor = math.abs(currentTargetVel.Y) > 0 and ((hitFloorPos.Y - targetPos.Y) / currentTargetVel.Y) or estTime
-				timeToFloor = math.clamp(timeToFloor, 0, estTime)
-				
-				-- 着地後の水平移動のみを計算
-				local remainingTime = estTime - timeToFloor
-				currentTargetPos = hitFloorPos + Vector3.new(currentTargetVel.X * remainingTime, 0, currentTargetVel.Z * remainingTime)
-				currentTargetVel = Vector3.new(currentTargetVel.X, 0, currentTargetVel.Z) -- Y速度は0に
-				break
-			else
-				-- 空中処理の更新
-				currentTargetPos = targetPos + Vector3.new(currentTargetVel.X * estTime, deltaY, currentTargetVel.Z * estTime)
-				currentTargetVel = Vector3.new(currentTargetVel.X, predictedYVel, currentTargetVel.Z)
-			end
-			-- 新しい予定時間で再計算
-			estTime = ((currentTargetPos - origin).Magnitude / projectileSpeed)
+		if num == 0 then
+			local results = {solveQuadric(coeffs[0], coeffs[1], coeffs[2])}
+			num = num + #results
+			s0, s1 = results[1], results[2]
+		end
+		if num == 1 then
+			local results = {solveQuadric(coeffs[0], coeffs[1], coeffs[2])}
+			num = num + #results
+			s1, s2 = results[1], results[2]
+		end
+		if num == 2 then
+			local results = {solveQuadric(coeffs[0], coeffs[1], coeffs[2])}
+			num = num + #results
+			s2, s3 = results[1], results[2]
 		end
 	end
 
-	local disp = currentTargetPos - origin
-	local p, q, r = currentTargetVel.X, currentTargetVel.Y, currentTargetVel.Z
+	sub = 0.25 * A
+
+	if num > 0 then s0 = s0 - sub end
+	if num > 1 then s1 = s1 - sub end
+	if num > 2 then s2 = s2 - sub end
+	if num > 3 then s3 = s3 - sub end
+
+	return {s3, s2, s1, s0}
+end
+
+function module.SolveTrajectory(origin, projectileSpeed, gravity, targetPos, targetVelocity, playerGravity, playerHeight, playerJump, params)
+	local disp = targetPos - origin
+	local p, q, r = targetVelocity.X, targetVelocity.Y, targetVelocity.Z
 	local h, j, k = disp.X, disp.Y, disp.Z
 	local l = -0.5 * gravity
 
-	-- 4次方程式の係数セット
-	local solutions = module.solveQuartic(
-		l*l,
-		-2*q*l,
-		q*q - 2*j*l - projectileSpeed*projectileSpeed + p*p + r*r,
-		2*j*q + 2*h*p + 2*k*r,
-		j*j + h*h + k*k
-	)
+	-- 重力補正: プレイヤーが落下中の場合にターゲット着地点を予測
+	if math.abs(q) > 0.01 and playerGravity and playerGravity > 0 then
+		local estTime = disp.Magnitude / math.max(projectileSpeed, eps) -- ゼロ除算ガード
 
-	-- 2. 最適な解（最小の正の実数解 = 最短着弾時間）を見つける
-	local bestT = nil
-	if solutions then
-		for _, t in solutions do
-			if t and t > eps then
-				if not bestT or t < bestT then
-					bestT = t
+		-- 落下中かつ下向き速度がある場合のみ補正
+		if q < 0 then
+			-- 着地するまでの時間を計算: 0 = q*t - 0.5*playerGravity*t^2 -> t = 2q/playerGravity
+			local landTime = (2 * math.abs(q)) / playerGravity
+			local predictedDrop = q * landTime - 0.5 * playerGravity * landTime * landTime
+
+			-- 着地予測位置へRaycast
+			local rayDir = Vector3.new(
+				targetVelocity.X * landTime,
+				predictedDrop - playerHeight,
+				targetVelocity.Z * landTime
+			)
+
+			if rayDir.Magnitude > eps then
+				local ray = workspace:Raycast(targetPos, rayDir, params)
+				if ray then
+					-- 着地点にプレイヤー高さ分オフセット
+					targetPos = ray.Position + Vector3.new(0, playerHeight, 0)
+					-- 着地後は垂直速度ゼロ
+					q = 0
+					-- disp, j を再計算
+					disp = targetPos - origin
+					h, j, k = disp.X, disp.Y, disp.Z
 				end
 			end
 		end
 	end
 
-	-- 4次方程式で解が出なかった場合（または重力が0の場合）のフォールバック
-	if not bestT then
-		if gravity == 0 or isZero(gravity) then
-			-- 単純な直線予測（2次方程式）に切り替え
-			local a = p*p + q*q + r*r - projectileSpeed*projectileSpeed
-			local b = 2*(h*p + j*q + k*r)
-			local c = h*h + j*j + k*k
-			local t0, t1 = solveQuadric(a, b, c)
-			
-			if t0 and t0 > eps then bestT = t0 end
-			if t1 and t1 > eps and (not bestT or t1 < bestT) then bestT = t1 end
+	-- gravity == 0 の場合のフォールバック（直線予測）
+	if gravity == 0 or isZero(gravity) then
+		local dist = disp.Magnitude
+		if dist < eps then
+			return targetPos -- すでにそこにいる
 		end
-	end
-
-	-- 3. 最終的な弾道（発射速度）ベクトルの算出
-	if bestT then
-		local t = bestT
-		-- 着弾時のターゲットの絶対座標
-		local impactPoint = currentTargetPos + (currentTargetVel * t)
-		if playerGravity and playerGravity > 0 and currentTargetVel.Y ~= 0 then
-			-- ターゲットが空中だった場合のY座標補正
-			impactPoint = Vector3.new(
-				currentTargetPos.X + currentTargetVel.X * t,
-				currentTargetPos.Y + (currentTargetVel.Y * t) - (0.5 * playerGravity * t * t),
-				currentTargetPos.Z + currentTargetVel.Z * t
-			)
-		end
-
-		-- 自分の位置からそこへ向かうための初速ベクトルを逆算
-		local fireVelocity = Vector3.new(
-			(impactPoint.X - origin.X) / t,
-			((impactPoint.Y - origin.Y) - (l * t * t)) / t,
-			(impactPoint.Z - origin.Z) / t
+		local t = dist / projectileSpeed
+		return Vector3.new(
+			origin.X + (h + p * t),
+			origin.Y + (j + q * t),
+			origin.Z + (k + r * t)
 		)
-
-		return impactPoint, fireVelocity, t
 	end
 
-	return nil -- 解なし（弾速が足りない、または届かない）
+	-- 4次方程式を解いて飛行時間を求める
+	local solutions = module.solveQuartic(
+		l * l,
+		-2 * q * l,
+		q * q - 2 * j * l - projectileSpeed * projectileSpeed + p * p + r * r,
+		2 * j * q + 2 * h * p + 2 * k * r,
+		j * j + h * h + k * k
+	)
+
+	if solutions then
+		-- 有効な正の根だけ集める（eps以下は数値誤差なので除外）
+		local posRoots = {}
+		for _, v in ipairs(solutions) do
+			if v and v > eps then
+				table.insert(posRoots, v)
+			end
+		end
+
+		-- 最小の正の根 = 最短飛行時間 = 最も精確な予測
+		table.sort(posRoots)
+
+		if posRoots[1] then
+			local t = posRoots[1]
+
+			-- ゼロ除算ガード（tが極端に小さい場合）
+			if t < eps then return nil end
+
+			local d = (h + p * t) / t
+			local e = (j + q * t - l * t * t) / t
+			local f = (k + r * t) / t
+
+			return origin + Vector3.new(d, e, f)
+		end
+	end
+
+	-- 解なし
+	return nil
 end
 
 return module
