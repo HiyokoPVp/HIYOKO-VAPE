@@ -2588,7 +2588,7 @@ run(function()
 				local lastShot = tick()
 
 				if Animation.Enabled then
-					if canDebug then
+					if 1 == 1 then
 						local fake = {
 							Controllers = {
 								ViewmodelController = {
@@ -2660,18 +2660,19 @@ run(function()
 					Attacking = false
 					store.KillauraTarget = nil
 					if sword and store.matchState ~= 0 then
-						local plrs = entitylib.AllPosition({
-							Range = SwingRange.Value,
-							Wallcheck = Targets.Walls.Enabled or nil,
-							Part = 'RootPart',
-							Players = Targets.Players.Enabled,
-							NPCs = Targets.NPCs.Enabled,
-							Limit = Mode.Value == 'Single' and 1 or MaxTargets.Value,
-							Sort = sortmethods[Sort.Value],
-							Priority = targetmethods[Priority.Value]
-						})
+                     local plrs = entitylib.AllPosition({
+                     Range = SwingRange.Value,
+                    Wallcheck = Targets.Walls.Enabled or nil,
+                    Part = 'RootPart',
+                    Players = Targets.Players.Enabled,
+                    NPCs = Targets.NPCs.Enabled,
+                    Limit = Mode.Value == 'Single' and 1 or MaxTargets.Value,
+                    Sort = sortmethods[Sort.Value],
+                    Priority = targetmethods[Priority.Value]
+                 })
+                   if plrs and #plrs > 0 then  
 						if #plrs > 0 then
-							if not Limit.Enabled or canDebug then
+							if not Limit.Enabled then
 								switchItem(sword.tool, 0)
 							end
 							local selfpos = entitylib.character.RootPart.Position
@@ -2707,7 +2708,7 @@ run(function()
 										swingStart = tick()
 										AnimDelay = swingStart + math.max(ChargeTime.Value, 0.11)
 										lastSwang = swingStart
-										if canDebug or (not Limit.Enabled or store.hand.toolType == 'sword') then
+										if (not Limit.Enabled or store.hand.toolType == 'sword') then
 											if meta.displayName:find('Summoner Claw') then
 												task.spawn(function()
 													bedwars.SummonerClawController:clawAttack(lplr, entitylib.character.RootPart.Position, gameCamera.CFrame.LookVector, sword.itemType or 'summoner_claw_1')
@@ -3206,7 +3207,7 @@ run(function()
 		Name = 'Range Visualizer',
 		Function = function(call)
 			if call then
-				if canDebug then
+				if 1 == 1 then
 					if setthreadidentity then
 						setthreadidentity(8)
 					end
