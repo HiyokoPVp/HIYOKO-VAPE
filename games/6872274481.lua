@@ -15693,3 +15693,257 @@ run(function()
 		end
 	end)
 end)
+
+run(function()
+	local CheckMatchStateButton
+
+	CheckMatchStateButton = vape.Categories.Render:CreateModule({
+		Name = "print bedwars match stats",
+		Function = function(callback)
+			if callback then
+				local state = bedwars.Store:getState()
+				print(state.Game.matchState)
+			end	
+		end	
+	})
+end)
+
+run(function()
+    local AimAssist
+    local Mode
+    local Targets
+    local Sort
+    local AimPart
+    local AimSpeed
+    local Smoothness
+    local Shake
+    local Distance
+    local AngleSlider
+    local StrafeIncrease
+    local BlockBreak
+    local KillauraTarget
+    local ClickAim
+    local Mouse
+    local Limit
+    local CameraPerspective
+    local EnemyPriority 
+
+    local function ease(t)
+        return t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
+    end
+
+    local cache = {}
+    local function getMousePosition()
+        if inputService.TouchEnabled then
+            return gameCamera.ViewportSize / 2
+        end
+        return inputService.GetMouseLocation(inputService)
+    end
+    
+    local function getAim(ent)
+        if AimPart.Value == 'Closest' then
+            if not cache[ent.Character] then
+                cache[ent.Character] = ent.Character:GetChildren()
+            end
+            local localPosition, magnitude, part = getMousePosition(), 9e9, nil
+            for _, v in cache[ent.Character] do
+                if v and v.Parent and v:IsA('BasePart') then
+                    local position, vis = gameCamera.WorldToViewportPoint(gameCamera, v.Position)
+
+                    if vis then
+                        local mag = (localPosition - Vector2.new(position.x, position.y)).Magnitude
+
+                        if mag < magnitude then
+                            magnitude = mag
+                            part = v
+                        end
+                    end
+                end
+            end
+            if part then
+                return part.Position
+            end
+        end
+        return ent.RootPart.Position
+    end
+
+   
+    local function checkPerspective()
+        local mode = CameraPerspective.Value
+        if mode == 'Both' then return true end
+        
+        
+        local isFirstPerson = (gameCamera.Focus.p - gameCamera.CFrame.p).Magnitude <= 1
+        if mode == 'First Person' and isFirstPerson then return true end
+        if mode == 'Third Person' and not isFirstPerson then return true end
+        
+        return false
+    end
+
+    local started, lasttarget = 0, nil
+    local aimfuncs = {
+        Simple = function(localcframe, ent, fps)
+            local rng = Random.new()
+            local rawSpeed = (AimSpeed.Value + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 0))
+            local smoothAlpha = (rawSpeed / math.max(Smoothness.Value, 1)) * fps
+            
+            return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + Vector3.new(
+                (rng:NextNumber() - 0.5) * Shake.Value * fps,
+                (rng:NextNumber() - 0.5) * Shake.Value * fps,
+                (rng:NextNumber() - 0.5) * Shake.Value * fps
+            )), math.clamp(smoothAlpha, 0, 1)) 
+        end,
+        Adaptive = function(localcframe, ent, fps)
+            local prog, rng = ease(math.min(tick() - started, 1)), Random.new()
+            local speed = (AimSpeed.Value * 0.1 * prog) + (1 - prog) + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 5)
+            local smoothAlpha = (speed / math.max(Smoothness.Value, 1)) * fps
+            
+            return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + Vector3.new(
+                (rng:NextNumber() - 0.5) * Shake.Value * fps,
+                (rng:NextNumber() - 0.5) * Shake.Value * fps,
+                (rng:NextNumber() - 0.5) * Shake.Value * fps
+            )), math.clamp(smoothAlpha, 0, 1)) 
+        end
+    }
+
+    local function GetTarget()
+        if lasttarget then
+            local localPosition = entitylib.character.RootPart.Position
+            if not lasttarget or not lasttarget.RootPart or not lasttarget.Humanoid or not lasttarget.Humanoid.Health or lasttarget.Humanoid.Health <= 0 then
+                return false
+            end
+            if (localPosition - lasttarget.RootPart.Position).Magnitude > Distance.Value then
+                return false
+            end
+            if Targets.Walls.Enabled and entitylib.Wallcheck(localPosition, lasttarget.RootPart.Position, Targets.Walls.Enabled) then
+                return false
+            end
+            return lasttarget
+        end
+        return false
+    end
+
+    local function getAttackData()
+        if not entitylib.isAlive then return false end
+        if not checkPerspective() then return false end -- Filter perspective bounds
+        if Mouse.Enabled and not inputService:IsMouseButtonPressed(0) and (tick() - bedwars.SwordController.lastSwing) > 0.15 then return false end
+        if ClickAim.Enabled and (tick() - bedwars.SwordController.lastSwing) > 0.3 then return false end
+        if BlockBreak.Enabled and (tick() - store.lastHit) < 0.3 then return false end
+        if Limit.Enabled and store.hand.toolType ~= 'sword' then return false end
+
+        if (tick() - started) > 1 or not lasttarget or not lasttarget.Parent or not lasttarget.Humanoid or lasttarget.Humanoid.Health <= 0 then
+            local ent = GetTarget() or KillauraTarget.Enabled and store.KillauraTarget or entitylib.EntityPosition({
+                Range = Distance.Value,
+                Part = 'RootPart',
+                Wallcheck = Targets.Walls.Enabled,
+                Players = Targets.Players.Enabled,
+                NPCs = Targets.NPCs.Enabled,
+                Sort = sortmethods[Sort.Value]
+            })
+
+            
+            if ent and EnemyPriority.Value ~= 'None' then
+                local localPosition = entitylib.character.RootPart.Position
+                local validTargets = {}
+
+                
+                for _, v in pairs(entitylib.List) do
+                    if v.Targetable and v.Humanoid and v.Humanoid.Health > 0 and v.RootPart then
+                        local mag = (localPosition - v.RootPart.Position).Magnitude
+                        if mag <= Distance.Value then
+                            if not Targets.Walls.Enabled or not entitylib.Wallcheck(localPosition, v.RootPart.Position, Targets.Walls.Enabled) then
+                                table.insert(validTargets, v)
+                            end
+                        end
+                    end
+                end
+
+                
+                if #validTargets > 1 then
+                    if EnemyPriority.Value == 'Lowest Health' then
+                        table.sort(validTargets, function(a, b)
+                            return a.Humanoid.Health < b.Humanoid.Health
+                        end)
+                    elseif EnemyPriority.Value == 'Closest' then
+                        table.sort(validTargets, function(a, b)
+                            return (localPosition - a.RootPart.Position).Magnitude < (localPosition - b.RootPart.Position).Magnitude
+                        end)
+                    end
+                    ent = validTargets[1]
+                end
+            end
+
+            if ent then
+                started = tick()
+            end
+            lasttarget = ent
+        end
+        return lasttarget
+    end
+    
+    AimAssist = vape.Categories.Combat:CreateModule({
+        Name = 'Akira Aim Assist',
+        Function = function(callback)
+            if callback then
+                AimAssist:Clean(runService.PostSimulation:Connect(function(dt)
+                    local ent = getAttackData()
+                    if ent then
+                        -- Uses Camera Direction instead of Player Character Direction to maintain accuracy across all zoom levels
+                        local delta = (ent.RootPart.Position - gameCamera.CFrame.p)
+                        local cameraFacing = gameCamera.CFrame.LookVector
+                        local angle = math.acos(cameraFacing.Unit:Dot(delta.Unit))
+                        
+                        if angle >= (math.rad(AngleSlider.Value) / 2) then return end
+                        targetinfo.Targets[ent] = tick() + 1
+                        gameCamera.CFrame = aimfuncs[Mode.Value](gameCamera.CFrame, ent, dt)
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Smoothly aims to closest valid target with sword'
+    })
+
+    local modes = {}
+    for i in aimfuncs do table.insert(modes, i) end
+    Mode = AimAssist:CreateDropdown({
+        Name = 'Mode',
+        List = modes,
+        Tooltip = 'Simple - Smooth aiming\nAdaptive - Advanced tracking with adaptive behavior',
+        Default = modes[1]
+    })
+
+    
+    CameraPerspective = AimAssist:CreateDropdown({
+        Name = 'Perspective',
+        List = {'Both', 'First Person', 'Third Person'},
+        Tooltip = 'Choose when the aim assist should actively hook tracking.',
+        Default = 'Both'
+    })
+
+    
+    EnemyPriority = AimAssist:CreateDropdown({
+        Name = 'Enemy Priority',
+        List = {'None', 'Lowest Health', 'Closest'},
+        Tooltip = 'Prioritizes specific targets when multiple targets are inside range boundaries.',
+        Default = 'None'
+    })
+
+    Targets = AimAssist:CreateTargets({ Players = true, Walls = true })
+    local methods = {'Damage', 'Distance'}
+    for i in sortmethods do if not table.find(methods, i) then table.insert(methods, i) end end
+    
+    ClickAim = AimAssist:CreateToggle({ Name = 'Click aim', Default = true })
+    Mouse = AimAssist:CreateToggle({Name = 'Require mouse down'})
+    StrafeIncrease = AimAssist:CreateToggle({Name = 'Strafe increase'})
+    BlockBreak = AimAssist:CreateToggle({Name = 'Check block break'})
+    KillauraTarget = AimAssist:CreateToggle({Name = 'Use killaura target'})
+    
+    AimSpeed = AimAssist:CreateSlider({ Name = 'Aim speed', Min = 1, Max = 20, Default = 6 })
+    Smoothness = AimAssist:CreateSlider({ Name = 'Smoothness', Min = 1, Max = 10, Default = 3 })
+    Distance = AimAssist:CreateSlider({ Name = 'Distance', Min = 1, Max = 30, Default = 30, Suffix = function(val) return val == 1 and 'stud' or 'studs' end })
+    Shake = AimAssist:CreateSlider({ Name = 'Shake', Min = 0, Max = 100, Default = 0 })
+    AngleSlider = AimAssist:CreateSlider({ Name = 'Max angle', Min = 1, Max = 360, Default = 70 })
+    Limit = AimAssist:CreateToggle({ Name = 'Limit to items' })
+    Sort = AimAssist:CreateDropdown({ Name = 'Target mode', List = methods, Default = 'Angle' })
+    AimPart = AimAssist:CreateDropdown({ Name = 'Target area', List = {'Center', 'Closest'}, Default = 'Center' })
+end)
