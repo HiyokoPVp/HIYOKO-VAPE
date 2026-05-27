@@ -2436,12 +2436,100 @@ run(function()
 	local AirhitChance
 	local AttackableCheck
 	local LegitAura = {}
+	local FastHits
+	local Legit
+	local FireRate
 	local Particles, Boxes = {}, {}
 	local anims, AnimDelay, AnimTween, armC0 = vape.Libraries.auraanims, tick()
-	local AttackRemote = {FireServer = function() end}
+	local AttackRemote = {
+		instance = nil,
+		FireServer = function(self, swingCooldown, ...)
+			return self.instance:FireServer(...)
+		end
+	}
 	task.spawn(function()
-		AttackRemote = bedwars.Client:Get(remotes.AttackEntity).instance
+		AttackRemote.instance = bedwars.Client:Get(remotes.AttackEntity).instance
 	end)
+
+	local function getAmmo(check)
+		for _, item in store.inventory.inventory.items do
+			if check.ammoItemTypes and table.find(check.ammoItemTypes, item.itemType) then
+				return item.itemType
+			end
+		end
+		return
+	end
+
+	local function getProjectiles()
+		local items = {}
+		for _, item in store.inventory.inventory.items do
+			local proj = bedwars.ItemMeta[item.itemType].projectileSource
+			local ammo = proj and getAmmo(proj)
+			if ammo and not table.find({'fireball', 'telepearl'}, ammo) then
+				table.insert(items, {
+					item,
+					ammo,
+					proj.projectileType(ammo),
+					proj
+				})
+			end
+		end
+		return items
+	end
+
+	local ProjectileDelay = {}
+	local function canShoot(proj)
+		return tick() > (ProjectileDelay[proj[1].itemType] or 0)
+	end
+
+	local responded = true
+	local function shootFunc(item, ammo, projectile, itemMeta, pos, ent, ign, legitswitch)
+		local meta = bedwars.ProjectileMeta[projectile]
+		local projSpeed, gravity = meta.launchVelocity, meta.gravitationalAcceleration or 196.2
+		local switched
+		if legitswitch then
+			local hotbar = getHotbar(item.tool)
+			if hotbar then
+				switched = switchItem(item.tool, 0.05)
+				hotbarSwitch(hotbar)
+			end
+		else
+			switched = switchItem(item.tool, 0.05)
+		end
+		local calc = prediction.SolveTrajectory(pos, projSpeed, gravity, ent.RootPart.Position, ent.RootPart.Velocity, workspace.Gravity, ent.HipHeight, ent.Jumping and 42.6 or nil, RaycastParams.new(), nil, lplr:GetNetworkPing())
+		if calc then
+			responded = false
+			targetinfo.Targets[ent] = tick() + 1
+
+			task.spawn(function()
+				local dir, id = CFrame.lookAt(pos, calc).LookVector, httpService:GenerateGUID(true)
+				local shootPosition = (CFrame.new(pos, calc) * CFrame.new(Vector3.new(-bedwars.BowConstantsTable.RelX, -bedwars.BowConstantsTable.RelY, -bedwars.BowConstantsTable.RelZ))).Position
+				local res = bedwars.Client:Get(remotes.FireProjectile).instance:InvokeServer(item.tool, ammo, projectile, shootPosition, pos, dir * projSpeed, id, {drawDurationSeconds = 1, shotId = httpService:GenerateGUID(false)}, workspace:GetServerTimeNow() - 0.045)
+				task.delay(lplr:GetNetworkPing(), function()
+					responded = true
+				end)
+				if not res then
+					ProjectileDelay[item.itemType] = tick()
+				else
+					notif('Killaura', 'fired '.. item.tool.Name, 1, 'info')
+					res.Parent = replicatedStorage
+					local shoot = itemMeta.launchSound
+					shoot = shoot and shoot[math.random(1, #shoot)] or nil
+					if shoot then
+						bedwars.SoundManager:playSound(shoot)
+					end
+				end
+			end)
+
+			ProjectileDelay[item.itemType] = tick() + itemMeta.fireDelaySec
+
+			if switched and not ign then
+				-- no wait needed
+			end
+		end
+	end
+
+
 
 	local function getAttackData()
 		if Mouse.Enabled then
@@ -2537,6 +2625,8 @@ run(function()
 				end
 
 				local swingCooldown = 0
+				local lastShot = tick()
+				local Usage = 1
 				repeat
 					local attacked, sword, meta = {}, getAttackData()
 					Attacking = false
@@ -2631,6 +2721,29 @@ run(function()
 											selfPosition = {value = pos}
 										}
 									})
+
+									if FastHits.Enabled and (FireRate.Value <= 0 or (tick() - lastShot) >= FireRate.Value) and responded and not entitylib.Wallcheck(entitylib.character.RootPart.Position, actualRoot.Position, {gameCamera, lplr.Character, v}) then
+										local projectiles = getProjectiles()
+
+										Usage += 1
+										if not projectiles[Usage] then
+											Usage = 1
+										end
+
+										if projectiles and projectiles[Usage] and canShoot(projectiles[Usage]) then
+											local item, ammo, projectile, itemMeta = unpack(projectiles[Usage])
+											shootFunc(item, ammo, projectile, itemMeta, selfpos, v, true, Legit.Enabled)
+
+											lastShot = tick()
+
+											task.delay(0.04, function()
+												local hotbar = sword and sword.tool and getHotbar(sword.tool) or nil
+												if hotbar then
+													hotbarSwitch(hotbar)
+												end
+											end)
+										end
+									end
 								end
 							end
 						end
@@ -2933,6 +3046,30 @@ run(function()
 	LegitAura = Killaura:CreateToggle({
 		Name = 'Swing only',
 		Tooltip = 'Only attacks while swinging manually'
+	})
+	FastHits = Killaura:CreateToggle({
+		Name = 'Fast Hits',
+		Tooltip = 'Deals more damage quicker using projectiles',
+		Default = false,
+		Function = function(call)
+			Legit.Object.Visible = call
+			FireRate.Object.Visible = call
+		end
+	})
+	Legit = Killaura:CreateToggle({
+		Name = 'Legit Switch',
+		Darker = true,
+		Visible = false,
+	})
+	FireRate = Killaura:CreateSlider({
+		Name = 'Fire rate',
+		Suffix = 's',
+		Min = 0,
+		Max = 2,
+		Decimal = 100,
+		Darker = true,
+		Visible = false,
+		Default = 0
 	})
 end)
 	
