@@ -3892,6 +3892,7 @@ run(function()
 	local Health
 	local Distance
 	local Equipment
+	local KitDisplay
 	local DrawingToggle
 	local Scale
 	local FontOption
@@ -3903,8 +3904,47 @@ run(function()
 	Folder.Parent = vape.gui
 	local methodused
 
-	-- アイコン名のリスト（共通化）
 	local EQUIPMENT_SLOTS = {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'}
+
+	-- KitDisplay: Normalモード用アイコン生成・更新
+	local function createKitIcon(nametag)
+		local icon = Instance.new('ImageLabel')
+		icon.Name = 'KitDisplayIcon'
+		icon.Size = UDim2.fromOffset(24, 24)
+		-- nametag右端の少し上に表示
+		icon.Position = UDim2.new(1, 4, 0, -4)
+		icon.BackgroundTransparency = 1
+		icon.Image = ''
+		icon.Parent = nametag
+		return icon
+	end
+
+	local function updateKitIcon(ent, nametag)
+		if not KitDisplay.Enabled then return end
+		if not ent.Player then return end
+		local kit = ent.Player:GetAttribute('PlayingAsKit')
+		local icon = nametag:FindFirstChild('KitDisplayIcon')
+		if not icon then
+			icon = createKitIcon(nametag)
+		end
+		icon.Image = (kit and kitImageIds[kit]) or kitImageIds['none'] or ''
+	end
+
+	local function removeKitIcon(nametag)
+		local icon = nametag:FindFirstChild('KitDisplayIcon')
+		if icon then icon:Destroy() end
+	end
+
+	-- KitDisplay: Drawingモード用テキスト生成
+	local function getKitText(ent)
+		if not KitDisplay.Enabled then return '' end
+		if not ent.Player then return '' end
+		local kit = ent.Player:GetAttribute('PlayingAsKit')
+		if not kit or kit == 'none' or kit == '' then return '' end
+		-- kit名のアンダースコアをスペースに変換して見やすく
+		local displayKit = kit:gsub('_', ' ')
+		return ' <'..displayKit..'>'
+	end
 
 	-- 装備アイコンをnametagに反映（Normal用）
 	local function updateEquipmentIcons(ent, nametag)
@@ -3965,7 +4005,6 @@ run(function()
 					Icon.Image = ''
 					Icon.Parent = nametag
 				end
-				-- 追加直後にアイコンを即反映
 				updateEquipmentIcons(ent, nametag)
 			end
 
@@ -3984,6 +4023,11 @@ run(function()
 			nametag.RichText = true
 			nametag.Parent = Folder
 			Reference[ent] = nametag
+
+			-- KitDisplay: 追加直後にアイコン反映
+			if KitDisplay.Enabled and ent.Player then
+				updateKitIcon(ent, nametag)
+			end
 		end,
 		Drawing = function(ent)
 			if not Targets.Players.Enabled and ent.Player then return end
@@ -4006,9 +4050,13 @@ run(function()
 				Strings[ent] = Strings[ent]..' '..math.round(ent.Health)
 			end
 
-			-- Drawingモードでも装備テキストを追加
 			if Equipment.Enabled then
 				Strings[ent] = Strings[ent]..getEquipmentText(ent)
+			end
+
+			-- KitDisplay: Drawingモードはテキストで追加
+			if KitDisplay.Enabled then
+				Strings[ent] = Strings[ent]..getKitText(ent)
 			end
 
 			if Distance.Enabled then
@@ -4066,9 +4114,7 @@ run(function()
 					Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
 				end
 
-				-- Equipment: NPCチェックを追加して安全に
 				if Equipment.Enabled and ent.Player then
-					-- アイコンが存在しない場合（後からEquipmentをオンにした等）は生成
 					if not nametag:FindFirstChild('Hand') then
 						for i, v in EQUIPMENT_SLOTS do
 							local Icon = Instance.new('ImageLabel')
@@ -4082,11 +4128,17 @@ run(function()
 					end
 					updateEquipmentIcons(ent, nametag)
 				elseif not Equipment.Enabled and ent.Player then
-					-- Equipmentがオフになったらアイコン削除
 					for _, slotName in EQUIPMENT_SLOTS do
 						local icon = nametag:FindFirstChild(slotName)
 						if icon then icon:Destroy() end
 					end
+				end
+
+				-- KitDisplay 更新
+				if KitDisplay.Enabled and ent.Player then
+					updateKitIcon(ent, nametag)
+				else
+					removeKitIcon(nametag)
 				end
 
 				local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
@@ -4107,16 +4159,19 @@ run(function()
 					Strings[ent] = Strings[ent]..' '..math.round(ent.Health)
 				end
 
-				
 				if Equipment.Enabled then
 					Strings[ent] = Strings[ent]..getEquipmentText(ent)
+				end
+
+				-- KitDisplay 更新
+				if KitDisplay.Enabled then
+					Strings[ent] = Strings[ent]..getKitText(ent)
 				end
 
 				if Distance.Enabled then
 					Strings[ent] = '[%s] '..Strings[ent]
 					nametag.Text.Text = entitylib.isAlive and string.format(Strings[ent], math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude)) or string.format(Strings[ent], 0)
 				else
-					
 					nametag.Text.Text = Strings[ent]
 				end
 
@@ -4321,6 +4376,15 @@ run(function()
 	})
 	Equipment = NameTags:CreateToggle({
 		Name = 'Equipment',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end
+	})
+	KitDisplay = NameTags:CreateToggle({
+		Name = 'Kit Display',
 		Function = function()
 			if NameTags.Enabled then
 				NameTags:Toggle()
