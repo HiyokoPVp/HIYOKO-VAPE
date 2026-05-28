@@ -1706,12 +1706,28 @@ local function ClickGuiAtMouse()
     local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
     local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
     for _, GuiObject in pairs(getGUI) do
-        if GuiObject:IsA("GuiButton") then
-            pcall(function() firesignal(GuiObject.MouseButton1Click) end)
-            pcall(function() firesignal(GuiObject.MouseButton1Down) end)
-            pcall(function() firesignal(GuiObject.MouseButton1Up) end)
-            pcall(function() firesignal(GuiObject.Activated) end)
-        end
+        -- GuiButtonじゃないやつも含めて全部試す
+        pcall(function() firesignal(GuiObject.MouseButton1Click) end)
+        pcall(function() firesignal(GuiObject.MouseButton1Down) end)
+        pcall(function() firesignal(GuiObject.MouseButton1Up) end)
+        pcall(function() firesignal(GuiObject.Activated) end)
+        pcall(function() firesignal(GuiObject.TouchTap) end)
+        
+        -- InputBeganとInputEndedも
+        pcall(function()
+            local inputObj = {
+                UserInputType = Enum.UserInputType.MouseButton1,
+                UserInputState = Enum.UserInputState.Begin
+            }
+            firesignal(GuiObject.InputBegan, inputObj)
+        end)
+        pcall(function()
+            local inputObj = {
+                UserInputType = Enum.UserInputType.MouseButton1,
+                UserInputState = Enum.UserInputState.End
+            }
+            firesignal(GuiObject.InputEnded, inputObj)
+        end)
     end
 end
 
