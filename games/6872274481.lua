@@ -1735,23 +1735,28 @@ run(function()
 				-- IgnoreGuiCheckオンならチェックスキップ、オフなら従来通り
 				local shouldRun = AutoClicker.IgnoreGuiCheck or not bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN)
 
-				if shouldRun then
-					if AutoClicker.GuiClickEnabled then
-						ClickGuiAtMouse()
-					end
+if shouldRun then
+    -- GUI開いてるときだけGuiClickする、通常戦闘中はしない
+    local guiOpen = bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN)
+    if AutoClicker.GuiClickEnabled and guiOpen then
+        ClickGuiAtMouse()
+    end
 
-					local blockPlacer = bedwars.BlockPlacementController.blockPlacer
-					if store.hand.toolType == 'block' and blockPlacer then
-						if (workspace:GetServerTimeNow() - bedwars.BlockCpsController.lastPlaceTimestamp) >= ((1 / 12) * 0.5) then
-							local mouseinfo = blockPlacer.clientManager:getBlockSelector():getMouseInfo(0)
-							if mouseinfo and mouseinfo.placementPosition == mouseinfo.placementPosition then
-								task.spawn(blockPlacer.placeBlock, blockPlacer, mouseinfo.placementPosition)
-							end
-						end
-					elseif store.hand.toolType == 'sword' then
-						bedwars.SwordController:swingSwordAtMouse(0.39)
-					end
-				end
+    -- GUI閉じてるときだけ戦闘処理
+    if not guiOpen then
+        local blockPlacer = bedwars.BlockPlacementController.blockPlacer
+        if store.hand.toolType == 'block' and blockPlacer then
+            if (workspace:GetServerTimeNow() - bedwars.BlockCpsController.lastPlaceTimestamp) >= ((1 / 12) * 0.5) then
+                local mouseinfo = blockPlacer.clientManager:getBlockSelector():getMouseInfo(0)
+                if mouseinfo and mouseinfo.placementPosition == mouseinfo.placementPosition then
+                    task.spawn(blockPlacer.placeBlock, blockPlacer, mouseinfo.placementPosition)
+                end
+            end
+        elseif store.hand.toolType == 'sword' then
+            bedwars.SwordController:swingSwordAtMouse(0.39)
+        end
+    end
+end
 
 				task.wait(1 / (store.hand.toolType == 'block' and BlockCPS or CPS).GetRandomValue())
 			until not AutoClicker.Enabled
