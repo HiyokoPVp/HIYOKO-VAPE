@@ -9340,45 +9340,37 @@ run(function()
 end)
 
 run(function()
-    local BCR
-    local Value
-    local old
-    local inf = math.huge 
+	local FastPlace
+	local CPS
 
-    BCR = vape.Categories.Blatant:CreateModule({
-        Name = "BlockCPSRemover",
-        Function = function(callback)
-            if callback then
-                -- ONになった瞬間のゲーム本来の制限値を1度だけ保存
-                if not old then
-                    old = bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] or 12
-                end
-                
-                bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] = (Value.Value == 0) and inf or Value.Value
-            else
-                
-                if old then
-                    bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] = old
-                    
-                end
-            end
-        end,
-    })
+	local old = bedwars.SharedConstants.BLOCK_PLACE_CPS
 
-    Value = BCR:CreateSlider({
-        Name = "CPS",
-        Suffix = "s",
-        Tooltip = "Changes the limit to the CPS cap (0 = remove)",
-        Default = 0,
-        Min = 0,
-        Max = 100,
-        Function = function(val)
-            
-            if BCR.Enabled then
-                bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] = (val == 0) and inf or val
-            end
-        end,
-    })
+	FastPlace = vape.Categories.World:CreateModule({
+		Name = 'Fast Place',
+		Alias = {'CPS', 'Block'},
+		Tooltip = 'Changes place delay',
+		Disabled = not canDebug,
+		Function = function(call)
+			bedwars.SharedConstants.BLOCK_PLACE_CPS = call and CPS.Value or old
+		end
+	})
+	CPS = FastPlace:CreateSlider({
+		Name = 'Cps',
+		Min = 1,
+		Max = 100,
+		Default = 13,
+		Function = function(val)
+			if FastPlace.Enabled then
+				bedwars.SharedConstants.BLOCK_PLACE_CPS = val
+			end
+		end
+	})
+	FastPlace:CreateButton({
+		Name = 'Reset to bedwars cps',
+		Function = function()
+			CPS:SetValue(12)
+		end
+	})
 end)
 run(function()
 	local Shaders
