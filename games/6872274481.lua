@@ -1722,7 +1722,7 @@ end
 				local shouldRun = AutoClicker.IgnoreGuiCheck or not guiOpen
 
 				if shouldRun then
-					if AutoClicker.GuiClickEnabled and guiOpen then
+					if AutoClicker.GuiClickEnabled then
 						ClickGuiAtMouse()
 					end
 
