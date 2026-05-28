@@ -9340,40 +9340,45 @@ run(function()
 end)
 
 run(function()
-	local BCR
-	local Value
-	local old
-	local inf = math.huge or 9e9
-	BCR = vape.Categories.Blatant:CreateModule({
-		Name = "BlockCPSRemover",
-		Function = function(callback)
-			if callback then
-				old = bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS']
-				bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] = Value.Value == 0 and inf or Value.Value
-			else
-				bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] = old
-				old = nil
-			end
-		end,
-	})
-	Value = BCR:CreateSlider({
-		Name = "CPS",
-		Suffix = "s",
-		Tooltip = "Changes the limit to the CPS cap(0 = remove)",
-		Default = 0,
-		Min = 0,
-		Max = 100,
-		Function = function()
-			if BCR.Enabled then
-				bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] = Value.Value == 0 and inf or Value.Value
-			else
-				if old == nil then old = 12 end
-				bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] = old
-				old = nil
-			end
-		end,
-		
-	})
+    local BCR
+    local Value
+    local old
+    local inf = math.huge 
+
+    BCR = vape.Categories.Blatant:CreateModule({
+        Name = "BlockCPSRemover",
+        Function = function(callback)
+            if callback then
+                -- ONになった瞬間のゲーム本来の制限値を1度だけ保存
+                if not old then
+                    old = bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] or 12
+                end
+                
+                bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] = (Value.Value == 0) and inf or Value.Value
+            else
+                
+                if old then
+                    bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] = old
+                    
+                end
+            end
+        end,
+    })
+
+    Value = BCR:CreateSlider({
+        Name = "CPS",
+        Suffix = "s",
+        Tooltip = "Changes the limit to the CPS cap (0 = remove)",
+        Default = 0,
+        Min = 0,
+        Max = 100,
+        Function = function(val)
+            
+            if BCR.Enabled then
+                bedwars.SharedConstants.CpsConstants['BLOCK_PLACE_CPS'] = (val == 0) and inf or val
+            end
+        end,
+    })
 end)
 run(function()
 	local Shaders
