@@ -1703,15 +1703,23 @@ run(function()
 
 	-- GuiClick用
 local function ClickGuiAtMouse()
+    local topZ = -math.huge
+    local topGUI = nil
+
     local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
-    local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
+    local getGUI = game:GetService("GuiService"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
+
     for _, GuiObject in pairs(getGUI) do
-        if GuiObject:IsA("GuiButton") then
-            pcall(function() firesignal(GuiObject.MouseButton1Click) end)
-            pcall(function() firesignal(GuiObject.MouseButton1Down) end)
-            pcall(function() firesignal(GuiObject.MouseButton1Up) end)
-            pcall(function() firesignal(GuiObject.Activated) end)
+        if GuiObject:IsA("GuiButton") and GuiObject.Visible and GuiObject.Active then
+            if GuiObject.ZIndex >= topZ then
+                topZ = GuiObject.ZIndex
+                topGUI = GuiObject
+            end
         end
+    end
+
+    if topGUI then
+        pcall(function() firesignal(topGUI.MouseButton1Click) end)
     end
 end
 
