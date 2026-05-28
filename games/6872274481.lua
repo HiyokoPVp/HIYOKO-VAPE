@@ -1,4 +1,4 @@
--- hiyoko vape ver 2.0 fixed
+-- hiyoko vape ver 2.1 fixed
 
 local run = function(func)
 	func()
@@ -1706,22 +1706,6 @@ run(function()
 		local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
 		for _, GuiObject in pairs(getGUI) do
 			pcall(function() firesignal(GuiObject.MouseButton1Click) end)
-			pcall(function() firesignal(GuiObject.MouseButton1Down) end)
-			pcall(function() firesignal(GuiObject.MouseButton1Up) end)
-			pcall(function() firesignal(GuiObject.Activated) end)
-			pcall(function() firesignal(GuiObject.TouchTap) end)
-			pcall(function()
-				firesignal(GuiObject.InputBegan, {
-					UserInputType = Enum.UserInputType.MouseButton1,
-					UserInputState = Enum.UserInputState.Begin
-				})
-			end)
-			pcall(function()
-				firesignal(GuiObject.InputEnded, {
-					UserInputType = Enum.UserInputType.MouseButton1,
-					UserInputState = Enum.UserInputState.End
-				})
-			end)
 		end
 	end
 
@@ -1732,31 +1716,28 @@ run(function()
 
 		Thread = task.delay(1 / 7, function()
 			repeat
-				-- IgnoreGuiCheckオンならチェックスキップ、オフなら従来通り
-				local shouldRun = AutoClicker.IgnoreGuiCheck or not bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN)
+				local guiOpen = bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN)
+				local shouldRun = AutoClicker.IgnoreGuiCheck or not guiOpen
 
-if shouldRun then
-    -- GUI開いてるときだけGuiClickする、通常戦闘中はしない
-    local guiOpen = bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN)
-    if AutoClicker.GuiClickEnabled and guiOpen then
-        ClickGuiAtMouse()
-    end
+				if shouldRun then
+					if AutoClicker.GuiClickEnabled and guiOpen then
+						ClickGuiAtMouse()
+					end
 
-    -- GUI閉じてるときだけ戦闘処理
-    if not guiOpen then
-        local blockPlacer = bedwars.BlockPlacementController.blockPlacer
-        if store.hand.toolType == 'block' and blockPlacer then
-            if (workspace:GetServerTimeNow() - bedwars.BlockCpsController.lastPlaceTimestamp) >= ((1 / 12) * 0.5) then
-                local mouseinfo = blockPlacer.clientManager:getBlockSelector():getMouseInfo(0)
-                if mouseinfo and mouseinfo.placementPosition == mouseinfo.placementPosition then
-                    task.spawn(blockPlacer.placeBlock, blockPlacer, mouseinfo.placementPosition)
-                end
-            end
-        elseif store.hand.toolType == 'sword' then
-            bedwars.SwordController:swingSwordAtMouse(0.39)
-        end
-    end
-end
+					if not guiOpen then
+						local blockPlacer = bedwars.BlockPlacementController.blockPlacer
+						if store.hand.toolType == 'block' and blockPlacer then
+							if (workspace:GetServerTimeNow() - bedwars.BlockCpsController.lastPlaceTimestamp) >= ((1 / 12) * 0.5) then
+								local mouseinfo = blockPlacer.clientManager:getBlockSelector():getMouseInfo(0)
+								if mouseinfo and mouseinfo.placementPosition == mouseinfo.placementPosition then
+									task.spawn(blockPlacer.placeBlock, blockPlacer, mouseinfo.placementPosition)
+								end
+							end
+						elseif store.hand.toolType == 'sword' then
+							bedwars.SwordController:swingSwordAtMouse(0.39)
+						end
+					end
+				end
 
 				task.wait(1 / (store.hand.toolType == 'block' and BlockCPS or CPS).GetRandomValue())
 			until not AutoClicker.Enabled
@@ -1827,7 +1808,6 @@ end
 		end
 	})
 
-	-- IgnoreGuiCheckトグル追加
 	AutoClicker:CreateToggle({
 		Name = 'IgnoreGuiCheck',
 		Default = false,
