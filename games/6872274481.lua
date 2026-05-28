@@ -1705,7 +1705,15 @@ run(function()
 		local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
 		local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
 		for _, GuiObject in pairs(getGUI) do
-			pcall(function() firesignal(GuiObject.MouseButton1Click) end)
+			if GuiObject:IsA("GuiButton") then
+				-- connectionsが存在するか確認してから発火
+				pcall(function()
+					local conns = getconnections(GuiObject.MouseButton1Click)
+					if conns and #conns > 0 then
+						firesignal(GuiObject.MouseButton1Click)
+					end
+				end)
+			end
 		end
 	end
 
