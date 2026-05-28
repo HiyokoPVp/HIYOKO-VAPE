@@ -15534,6 +15534,140 @@ run(function()
 end)
 
 run(function()
+    local SilentAim
+    local Strength
+    local Smoothness
+    local Distance
+    local Predict
+    local PredictStrength
+    local Humanize
+    local SyncSens
+    local Targets
+    local FOVLimit
+
+    local cache = {}
+    local oldSwing = nil
+    local originalReach = 3.8
+
+    local function getBestPart(ent)
+        if not ent.Character then return ent.RootPart end
+        if not cache[ent.Character] then cache[ent.Character] = ent.Character:GetChildren() end
+
+        local mousePos = inputService:GetMouseLocation()
+        local best, dist = nil, 9e9
+
+        for _, part in cache[ent.Character] do
+            if part:IsA('BasePart') then
+                local pos, onScreen = gameCamera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local d = (mousePos - Vector2.new(pos.X, pos.Y)).Magnitude
+                    if d < dist then
+                        dist = d
+                        best = part
+                    end
+                end
+            end
+        end
+        return best or ent.RootPart
+    end
+
+    local function predictPosition(ent)
+        if not Predict.Enabled then return ent.RootPart.Position end
+        local vel = ent.RootPart.AssemblyLinearVelocity
+        return ent.RootPart.Position + vel * (PredictStrength.Value * 0.024)
+    end
+
+    SilentAim = vape.Categories.Combat:CreateModule({
+        Name = 'Silent Aim',
+        Function = function(callback)
+            if callback then
+                oldSwing = bedwars.SwordController.swingSwordInRegion
+                originalReach = debug.getconstant(bedwars.SwordController.swingSwordInRegion, 6) or 3.8
+
+                SilentAim:Clean(runService.PostSimulation:Connect(function()
+                    if not entitylib.isAlive then return end
+
+                    local target = entitylib.EntityPosition({
+                        Range = Distance.Value,
+                        Part = 'RootPart',
+                        Wallcheck = Targets.Walls.Enabled,
+                        Players = Targets.Players.Enabled,
+                        NPCs = Targets.NPCs.Enabled,
+                    })
+
+                    if not target then return end
+
+                    local predicted = predictPosition(target)
+                    local localRoot = entitylib.character.RootPart
+                    local direction = predicted - localRoot.Position
+
+                    local angle = math.acos((localRoot.CFrame.LookVector * Vector3.new(1,0,1)):Dot(direction.Unit))
+                    if angle > math.rad(FOVLimit.Value) then return end
+
+                    local finalStrength = Strength.Value
+                    if SyncSens.Enabled then
+                        local sens = UserInputService.MouseSensitivity or 1
+                        finalStrength = finalStrength * (sens * 0.8 + 0.4)
+                    end
+
+                    bedwars.SwordController.swingSwordInRegion = function(self, region, ...)
+                        if typeof(region) == "Vector3" then
+                            local current = region.Unit
+                            local targetDir = direction.Unit
+                            local smoothed = current:Lerp(targetDir, finalStrength * 0.055)
+
+                            if Humanize.Enabled then
+                                smoothed = smoothed + Vector3.new(
+                                    (math.random() - 0.5) * 0.022,
+                                    (math.random() - 0.5) * 0.015,
+                                    (math.random() - 0.5) * 0.022
+                                )
+                            end
+
+                            local finalRegion = localRoot.Position + smoothed * region.Magnitude
+                            return oldSwing(self, finalRegion, ...)
+                        end
+                        return oldSwing(self, region, ...)
+                    end
+                end))
+            else
+                if oldSwing then
+                    bedwars.SwordController.swingSwordInRegion = oldSwing
+                end
+                pcall(function()
+                    debug.setconstant(bedwars.SwordController.swingSwordInRegion, 6, originalReach)
+                end)
+            end
+        end,
+        Tooltip = 'Helps your tracking'
+    })
+
+    Strength = SilentAim:CreateSlider({Name = 'Strength', Min = 1, Max = 30, Default = 9})
+    Smoothness = SilentAim:CreateSlider({Name = 'Smoothness', Min = 1, Max = 25, Default = 12})
+    Distance = SilentAim:CreateSlider({Name = 'Distance', Min = 5, Max = 40, Default = 28, Suffix = ' studs'})
+
+    Predict = SilentAim:CreateToggle({Name = 'Velocity Prediction', Default = true})
+    PredictStrength = SilentAim:CreateSlider({Name = 'Prediction', Min = 5, Max = 40, Default = 18})
+
+    Humanize = SilentAim:CreateToggle({Name = 'Humanize', Default = true})
+    SyncSens = SilentAim:CreateToggle({Name = 'Sync Sensitivity', Default = true})
+
+    Targets = SilentAim:CreateTargets({Players = true, Walls = true})
+
+    FOVLimit = SilentAim:CreateSlider({Name = 'FOV Limit', Min = 20, Max = 360, Default = 95})
+
+    SilentAim:Clean(entitylib.Events.EntityRemoving:Connect(function(ent)
+        cache[ent.Character] = nil
+    end))
+
+    SilentAim:Clean(function()
+        if oldSwing then
+            bedwars.SwordController.swingSwordInRegion = oldSwing
+        end
+    end)
+end)
+
+run(function()
 
 local Combat = vape.Categories.Combat
 
@@ -15561,12 +15695,31 @@ local function getTopGuiAtMouse()
     local mousePos = UIS:GetMouseLocation()
     local guis = game.Players.LocalPlayer.PlayerGui:GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
     
+    local candidates = {}
+    
     for _, gui in ipairs(guis) do
-        if gui.Visible and gui.Active and not gui:IsA("Frame") and not gui:IsA("TextLabel") and not gui:IsA("ImageLabel") then
-            return gui
+        if gui.Visible and gui.Active then
+            if gui:IsA("TextButton") or gui:IsA("ImageButton") or 
+               gui:IsA("TextBox") or gui:IsA("ImageButton") then
+                
+                table.insert(candidates, gui)
+            end
         end
     end
-    return nil
+    
+    if #candidates == 0 then return nil end
+    
+    -- ZIndexが高い順にソート（同じZIndexの場合は後ろにあるものを優先）
+    table.sort(candidates, function(a, b)
+        if a.ZIndex ~= b.ZIndex then
+            return a.ZIndex > b.ZIndex  -- 高いZIndexを優先
+        else
+            -- 同じZIndexの場合はリストの後ろにある方を優先（通常上に描画される）
+            return true
+        end
+    end)
+    
+    return candidates[1]
 end
 
 local function shouldClick()
@@ -15587,17 +15740,13 @@ local function startClicking()
         if not shouldClick() then return end
         
         local now = tick()
-        local interval = 1 / CPS
+        if now - lastClickTime < (1 / CPS) then return end
         
-        if now - lastClickTime >= interval then
-            local gui = getTopGuiAtMouse()
-            if gui then
-                pcall(function()
-                    firesignal(gui.MouseButton1Click)
-                    -- 必要なら以下も追加可能
-                    -- gui.InputBegan:Fire({UserInputType = Enum.UserInputType.MouseButton1})
-                end)
-            end
+        local gui = getTopGuiAtMouse()
+        if gui then
+            pcall(function()
+                firesignal(gui.MouseButton1Click)
+            end)
             lastClickTime = now
         end
     end)
@@ -15625,7 +15774,6 @@ AutoClicker:CreateToggle({
     Tooltip = "Turn AutoClicker ON/OFF"
 })
 
--- Mode
 AutoClicker:CreateDropdown({
     Name = "Mode",
     List = {"Hold", "Always"},
@@ -15636,7 +15784,6 @@ AutoClicker:CreateDropdown({
     Tooltip = "Hold = Click while holding LMB | Always = Constant clicking"
 })
 
--- CPS Slider
 AutoClicker:CreateSlider({
     Name = "CPS (Speed)",
     Min = 1,
@@ -15648,7 +15795,6 @@ AutoClicker:CreateSlider({
     Tooltip = "Clicks per second"
 })
 
--- Test Button
 AutoClicker:CreateButton({
     Name = "Single Click Test",
     Function = function()
@@ -15657,9 +15803,9 @@ AutoClicker:CreateButton({
             pcall(function()
                 firesignal(gui.MouseButton1Click)
             end)
-            
+            print("✅ Clicked:", gui.Name, "(ZIndex:", gui.ZIndex, ")")
         else
-            
+            print("❌ No clickable GUI under mouse")
         end
     end,
     Tooltip = "Manually trigger one click"
