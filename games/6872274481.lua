@@ -3893,6 +3893,7 @@ run(function()
 	local Distance
 	local Equipment
 	local KitDisplay
+	local EnchantDisplay
 	local DrawingToggle
 	local Scale
 	local FontOption
@@ -3906,12 +3907,151 @@ run(function()
 
 	local EQUIPMENT_SLOTS = {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'}
 
+	local kitImageIds = {
+		['none'] = "rbxassetid://16493320215",
+		["random"] = "rbxassetid://79773209697352",
+		["cowgirl"] = "rbxassetid://9155462968",
+		["davey"] = "rbxassetid://9155464612",
+		["warlock"] = "rbxassetid://15186338366",
+		["ember"] = "rbxassetid://9630017904",
+		["black_market_trader"] = "rbxassetid://18922642482",
+		["yeti"] = "rbxassetid://9166205917",
+		["scarab"] = "rbxassetid://137137517627492",
+		["defender"] = "rbxassetid://131690429591874",
+		["cactus"] = "rbxassetid://104436517801089",
+		["oasis"] = "rbxassetid://120283205213823",
+		["berserker"] = "rbxassetid://90258047545241",
+		["sword_shield"] = "rbxassetid://131690429591874",
+		["airbender"] = "rbxassetid://74712750354593",
+		["gun_blade"] = "rbxassetid://138231219644853",
+		["frost_hammer_kit"] = "rbxassetid://11838567073",
+		["spider_queen"] = "rbxassetid://95237509752482",
+		["archer"] = "rbxassetid://9224796984",
+		["axolotl"] = "rbxassetid://9155466713",
+		["baker"] = "rbxassetid://9155463919",
+		["barbarian"] = "rbxassetid://9166207628",
+		["builder"] = "rbxassetid://9155463708",
+		["necromancer"] = "rbxassetid://11343458097",
+		["cyber"] = "rbxassetid://9507126891",
+		["sorcerer"] = "rbxassetid://97940108361528",
+		["bigman"] = "rbxassetid://9155467211",
+		["spirit_assassin"] = "rbxassetid://10406002412",
+		["farmer_cletus"] = "rbxassetid://9155466936",
+		["ice_queen"] = "rbxassetid://9155466204",
+		["grim_reaper"] = "rbxassetid://9155467410",
+		["spirit_gardener"] = "rbxassetid://132108376114488",
+		["hannah"] = "rbxassetid://10726577232",
+		["shielder"] = "rbxassetid://9155464114",
+		["summoner"] = "rbxassetid://18922378956",
+		["glacial_skater"] = "rbxassetid://84628060516931",
+		["dragon_sword"] = "rbxassetid://16215630104",
+		["lumen"] = "rbxassetid://9630018371",
+		["flower_bee"] = "rbxassetid://101569742252812",
+		["jellyfish"] = "rbxassetid://18129974852",
+		["melody"] = "rbxassetid://9155464915",
+		["mimic"] = "rbxassetid://14783283296",
+		["miner"] = "rbxassetid://9166208461",
+		["nazar"] = "rbxassetid://18926951849",
+		["seahorse"] = "rbxassetid://11902552560",
+		["elk_master"] = "rbxassetid://15714972287",
+		["rebellion_leader"] = "rbxassetid://18926409564",
+		["void_hunter"] = "rbxassetid://122370766273698",
+		["taliyah"] = "rbxassetid://13989437601",
+		["angel"] = "rbxassetid://9166208240",
+		["harpoon"] = "rbxassetid://18250634847",
+		["void_walker"] = "rbxassetid://78915127961078",
+		["spirit_summoner"] = "rbxassetid://95760990786863",
+		["triple_shot"] = "rbxassetid://9166208149",
+		["void_knight"] = "rbxassetid://73636326782144",
+		["regent"] = "rbxassetid://9166208904",
+		["vulcan"] = "rbxassetid://9155465543",
+		["owl"] = "rbxassetid://12509401147",
+		["dasher"] = "rbxassetid://9155467645",
+		["disruptor"] = "rbxassetid://11596993583",
+		["wizard"] = "rbxassetid://13353923546",
+		["aery"] = "rbxassetid://9155463221",
+		["agni"] = "rbxassetid://17024640133",
+		["alchemist"] = "rbxassetid://9155462512",
+		["spearman"] = "rbxassetid://9166207341",
+		["beekeeper"] = "rbxassetid://9312831285",
+		["falconer"] = "rbxassetid://17022941869",
+		["bounty_hunter"] = "rbxassetid://9166208649",
+		["blood_assassin"] = "rbxassetid://12520290159",
+		["battery"] = "rbxassetid://10159166528",
+		["steam_engineer"] = "rbxassetid://15380413567",
+		["vesta"] = "rbxassetid://9568930198",
+		["beast"] = "rbxassetid://9155465124",
+		["dino_tamer"] = "rbxassetid://9872357009",
+		["drill"] = "rbxassetid://12955100280",
+		["elektra"] = "rbxassetid://13841413050",
+		["fisherman"] = "rbxassetid://9166208359",
+		["queen_bee"] = "rbxassetid://12671498918",
+		["card"] = "rbxassetid://13841410580",
+		["frosty"] = "rbxassetid://9166208762",
+		["gingerbread_man"] = "rbxassetid://9155464364",
+		["ghost_catcher"] = "rbxassetid://9224802656",
+		["tinker"] = "rbxassetid://17025762404",
+		["ignis"] = "rbxassetid://13835258938",
+		["oil_man"] = "rbxassetid://9166206259",
+		["jade"] = "rbxassetid://9166306816",
+		["dragon_slayer"] = "rbxassetid://10982192175",
+		["paladin"] = "rbxassetid://11202785737",
+		["pinata"] = "rbxassetid://10011261147",
+		["merchant"] = "rbxassetid://9872356790",
+		["metal_detector"] = "rbxassetid://9378298061",
+		["slime_tamer"] = "rbxassetid://15379766168",
+		["nyoka"] = "rbxassetid://17022941410",
+		["midnight"] = "rbxassetid://9155462763",
+		["pyro"] = "rbxassetid://9155464770",
+		["raven"] = "rbxassetid://9166206554",
+		["santa"] = "rbxassetid://9166206101",
+		["sheep_herder"] = "rbxassetid://9155465730",
+		["smoke"] = "rbxassetid://9155462247",
+		["spirit_catcher"] = "rbxassetid://9166207943",
+		["star_collector"] = "rbxassetid://9872356516",
+		["styx"] = "rbxassetid://17014536631",
+		["block_kicker"] = "rbxassetid://15382536098",
+		["trapper"] = "rbxassetid://9166206875",
+		["hatter"] = "rbxassetid://12509388633",
+		["ninja"] = "rbxassetid://15517037848",
+		["jailor"] = "rbxassetid://11664116980",
+		["warrior"] = "rbxassetid://9166207008",
+		["mage"] = "rbxassetid://10982191792",
+		["void_dragon"] = "rbxassetid://10982192753",
+		["cat"] = "rbxassetid://15350740470",
+		["wind_walker"] = "rbxassetid://9872355499",
+		['skeleton'] = "rbxassetid://120123419412119",
+		['winter_lady'] = "rbxassetid://83274578564074",
+		['soul_broker'] = 'rbxassetid://130409166262430'
+	}
+
+	-- ① KitMeta取得（PlayingAsKits優先、なければPlayingAsKit、なければnone）
+	local function getKitMeta(player)
+		local kit = player:GetAttribute('PlayingAsKits') or player:GetAttribute('PlayingAsKit') or 'none'
+		return bedwars.BedwarsKitMeta[kit] or bedwars.BedwarsKitMeta.none, kit
+	end
+
+	-- ② エンチャント画像をStatusEffectHudから取得
+	local function getEnchantImages(player)
+		local images = {}
+		local ok, hud = pcall(function()
+			return player.PlayerGui:WaitForChild('StatusEffectHudScreen', 0.1)
+				:WaitForChild('StatusEffectHud', 0.1)
+		end)
+		if not ok or not hud then return images end
+		for _, child in hud:GetChildren() do
+			if child:IsA('ImageLabel') and child.Image ~= '' then
+				table.insert(images, child.Image)
+			end
+		end
+		return images
+	end
+
 	-- KitDisplay: Normalモード用アイコン生成・更新
 	local function createKitIcon(nametag)
 		local icon = Instance.new('ImageLabel')
 		icon.Name = 'KitDisplayIcon'
 		icon.Size = UDim2.fromOffset(24, 24)
-		-- nametag右端の少し上に表示
 		icon.Position = UDim2.new(1, 4, 0, -4)
 		icon.BackgroundTransparency = 1
 		icon.Image = ''
@@ -3922,12 +4062,13 @@ run(function()
 	local function updateKitIcon(ent, nametag)
 		if not KitDisplay.Enabled then return end
 		if not ent.Player then return end
-		local kit = ent.Player:GetAttribute('PlayingAsKit')
+		local kitMeta, _ = getKitMeta(ent.Player)
 		local icon = nametag:FindFirstChild('KitDisplayIcon')
 		if not icon then
 			icon = createKitIcon(nametag)
 		end
-		icon.Image = (kit and kitImageIds[kit]) or kitImageIds['none'] or ''
+		-- BedwarsKitMetaのrenderImageを優先、なければkitImageIdsにフォールバック
+		icon.Image = (kitMeta and kitMeta.renderImage) or kitImageIds['none'] or ''
 	end
 
 	local function removeKitIcon(nametag)
@@ -3939,25 +4080,64 @@ run(function()
 	local function getKitText(ent)
 		if not KitDisplay.Enabled then return '' end
 		if not ent.Player then return '' end
-		local kit = ent.Player:GetAttribute('PlayingAsKit')
+		local _, kit = getKitMeta(ent.Player)
 		if not kit or kit == 'none' or kit == '' then return '' end
-		-- kit名のアンダースコアをスペースに変換して見やすく
 		local displayKit = kit:gsub('_', ' ')
 		return ' <'..displayKit..'>'
+	end
+
+	-- EnchantDisplay: Normalモード用アイコン群を生成・更新
+	local function updateEnchantIcons(ent, nametag)
+		if not EnchantDisplay.Enabled then return end
+		if not ent.Player then return end
+		-- 既存のEnchantアイコンを一旦全削除
+		for _, child in nametag:GetChildren() do
+			if child.Name:sub(1, 12) == 'EnchantIcon_' then
+				child:Destroy()
+			end
+		end
+		local images = getEnchantImages(ent.Player)
+		for i, img in images do
+			local icon = Instance.new('ImageLabel')
+			icon.Name = 'EnchantIcon_'..i
+			icon.Size = UDim2.fromOffset(20, 20)
+			-- nametag下部に横並び
+			icon.Position = UDim2.fromOffset((i - 1) * 22, nametag.AbsoluteSize.Y + 2)
+			icon.BackgroundTransparency = 1
+			icon.Image = img
+			icon.Parent = nametag
+		end
+	end
+
+	local function removeEnchantIcons(nametag)
+		for _, child in nametag:GetChildren() do
+			if child.Name:sub(1, 12) == 'EnchantIcon_' then
+				child:Destroy()
+			end
+		end
+	end
+
+	-- EnchantDisplay: Drawingモード用テキスト（エンチャント数だけ表示、画像は無理なので）
+	local function getEnchantText(ent)
+		if not EnchantDisplay.Enabled then return '' end
+		if not ent.Player then return '' end
+		local images = getEnchantImages(ent.Player)
+		if #images == 0 then return '' end
+		return ' [E:'..#images..']'
 	end
 
 	-- 装備アイコンをnametagに反映（Normal用）
 	local function updateEquipmentIcons(ent, nametag)
 		if not Equipment.Enabled then return end
 		if not ent.Player then return end
-		local kit = ent.Player:GetAttribute('PlayingAsKit')
+		local _, kit = getKitMeta(ent.Player)
 		local inventory = store.inventories[ent.Player]
 		if not inventory then return end
 		nametag.Hand.Image = bedwars.getIcon(inventory.hand or {itemType = ''}, true)
 		nametag.Helmet.Image = bedwars.getIcon(inventory.armor[4] or {itemType = ''}, true)
 		nametag.Chestplate.Image = bedwars.getIcon(inventory.armor[5] or {itemType = ''}, true)
 		nametag.Boots.Image = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true)
-		nametag.Kit.Image = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit].renderImage or ''
+		nametag.Kit.Image = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit] and bedwars.BedwarsKitMeta[kit].renderImage or ''
 	end
 
 	-- Drawingモード用の装備テキスト生成
@@ -3966,7 +4146,7 @@ run(function()
 		if not ent.Player then return '' end
 		local inventory = store.inventories[ent.Player]
 		if not inventory then return '' end
-		local kit = ent.Player:GetAttribute('PlayingAsKit')
+		local _, kit = getKitMeta(ent.Player)
 		local parts = {}
 		if inventory.hand and inventory.hand.itemType ~= '' then
 			table.insert(parts, inventory.hand.itemType)
@@ -4024,9 +4204,11 @@ run(function()
 			nametag.Parent = Folder
 			Reference[ent] = nametag
 
-			-- KitDisplay: 追加直後にアイコン反映
 			if KitDisplay.Enabled and ent.Player then
 				updateKitIcon(ent, nametag)
+			end
+			if EnchantDisplay.Enabled and ent.Player then
+				updateEnchantIcons(ent, nametag)
 			end
 		end,
 		Drawing = function(ent)
@@ -4054,9 +4236,12 @@ run(function()
 				Strings[ent] = Strings[ent]..getEquipmentText(ent)
 			end
 
-			-- KitDisplay: Drawingモードはテキストで追加
 			if KitDisplay.Enabled then
 				Strings[ent] = Strings[ent]..getKitText(ent)
+			end
+
+			if EnchantDisplay.Enabled then
+				Strings[ent] = Strings[ent]..getEnchantText(ent)
 			end
 
 			if Distance.Enabled then
@@ -4134,11 +4319,16 @@ run(function()
 					end
 				end
 
-				-- KitDisplay 更新
 				if KitDisplay.Enabled and ent.Player then
 					updateKitIcon(ent, nametag)
 				else
 					removeKitIcon(nametag)
+				end
+
+				if EnchantDisplay.Enabled and ent.Player then
+					updateEnchantIcons(ent, nametag)
+				else
+					removeEnchantIcons(nametag)
 				end
 
 				local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
@@ -4163,9 +4353,12 @@ run(function()
 					Strings[ent] = Strings[ent]..getEquipmentText(ent)
 				end
 
-				-- KitDisplay 更新
 				if KitDisplay.Enabled then
 					Strings[ent] = Strings[ent]..getKitText(ent)
+				end
+
+				if EnchantDisplay.Enabled then
+					Strings[ent] = Strings[ent]..getEnchantText(ent)
 				end
 
 				if Distance.Enabled then
@@ -4385,6 +4578,15 @@ run(function()
 	})
 	KitDisplay = NameTags:CreateToggle({
 		Name = 'Kit Display',
+		Function = function()
+			if NameTags.Enabled then
+				NameTags:Toggle()
+				NameTags:Toggle()
+			end
+		end
+	})
+	EnchantDisplay = NameTags:CreateToggle({
+		Name = 'Enchant Display',
 		Function = function()
 			if NameTags.Enabled then
 				NameTags:Toggle()
