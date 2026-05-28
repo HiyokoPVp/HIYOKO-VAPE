@@ -3902,28 +3902,61 @@ run(function()
 	local Folder = Instance.new('Folder')
 	Folder.Parent = vape.gui
 	local methodused
-	
+
+	-- アイコン名のリスト（共通化）
+	local EQUIPMENT_SLOTS = {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'}
+
+	-- 装備アイコンをnametagに反映（Normal用）
+	local function updateEquipmentIcons(ent, nametag)
+		if not Equipment.Enabled then return end
+		if not ent.Player then return end
+		local kit = ent.Player:GetAttribute('PlayingAsKit')
+		local inventory = store.inventories[ent.Player]
+		if not inventory then return end
+		nametag.Hand.Image = bedwars.getIcon(inventory.hand or {itemType = ''}, true)
+		nametag.Helmet.Image = bedwars.getIcon(inventory.armor[4] or {itemType = ''}, true)
+		nametag.Chestplate.Image = bedwars.getIcon(inventory.armor[5] or {itemType = ''}, true)
+		nametag.Boots.Image = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true)
+		nametag.Kit.Image = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit].renderImage or ''
+	end
+
+	-- Drawingモード用の装備テキスト生成
+	local function getEquipmentText(ent)
+		if not Equipment.Enabled then return '' end
+		if not ent.Player then return '' end
+		local inventory = store.inventories[ent.Player]
+		if not inventory then return '' end
+		local kit = ent.Player:GetAttribute('PlayingAsKit')
+		local parts = {}
+		if inventory.hand and inventory.hand.itemType ~= '' then
+			table.insert(parts, inventory.hand.itemType)
+		end
+		if kit and kit ~= 'none' then
+			table.insert(parts, kit)
+		end
+		return #parts > 0 and (' ['..table.concat(parts, '|')..']') or ''
+	end
+
 	local Added = {
 		Normal = function(ent)
 			if not Targets.Players.Enabled and ent.Player then return end
 			if not Targets.NPCs.Enabled and ent.NPC then return end
 			if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
-	
+
 			local nametag = Instance.new('TextLabel')
 			Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
-	
+
 			if Health.Enabled then
 				local healthColor = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
 				Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255))..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
 			end
-	
+
 			if Distance.Enabled then
 				Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
 			end
-	
-			if Equipment.Enabled then
-				local equipmentParts = {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'}
-				for i, v in ipairs(equipmentParts) do
+
+			if Equipment.Enabled and ent.Player then
+				for i, v in {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'} do
 					local Icon = Instance.new('ImageLabel')
 					Icon.Name = v
 					Icon.Size = UDim2.fromOffset(30, 30)
@@ -3932,8 +3965,10 @@ run(function()
 					Icon.Image = ''
 					Icon.Parent = nametag
 				end
+				-- 追加直後にアイコンを即反映
+				updateEquipmentIcons(ent, nametag)
 			end
-	
+
 			nametag.TextSize = 14 * Scale.Value
 			nametag.FontFace = FontOption.Value
 			local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
@@ -3954,7 +3989,7 @@ run(function()
 			if not Targets.Players.Enabled and ent.Player then return end
 			if not Targets.NPCs.Enabled and ent.NPC then return end
 			if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
-	
+
 			local nametag = {}
 			nametag.BG = Drawing.new('Square')
 			nametag.BG.Filled = true
@@ -3965,37 +4000,30 @@ run(function()
 			nametag.Text.Size = 15 * Scale.Value
 			nametag.Text.Font = 0
 			nametag.Text.ZIndex = 2
-			
-			-- Equipment用のDrawing要素を作成（Drawingモードの場合）
-			nametag.Equipment = {}
-			if Equipment.Enabled then
-				local equipmentParts = {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'}
-				for i, v in ipairs(equipmentParts) do
-					local equipIcon = Drawing.new('Image')
-					equipIcon.Size = Vector2.new(30, 30)
-					equipIcon.ZIndex = 3
-					equipIcon.Visible = true
-					nametag.Equipment[v] = equipIcon
-				end
-			end
-			
 			Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
-	
+
 			if Health.Enabled then
 				Strings[ent] = Strings[ent]..' '..math.round(ent.Health)
 			end
-	
+
+			-- Drawingモードでも装備テキストを追加
+			if Equipment.Enabled then
+				Strings[ent] = Strings[ent]..getEquipmentText(ent)
+			end
+
 			if Distance.Enabled then
 				Strings[ent] = '[%s] '..Strings[ent]
+				nametag.Text.Text = entitylib.isAlive and string.format(Strings[ent], math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude)) or string.format(Strings[ent], 0)
+			else
+				nametag.Text.Text = Strings[ent]
 			end
-	
-			nametag.Text.Text = Strings[ent]
+
 			nametag.Text.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
 			nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
 			Reference[ent] = nametag
 		end
 	}
-	
+
 	local Removed = {
 		Normal = function(ent)
 			local v = Reference[ent]
@@ -4014,47 +4042,53 @@ run(function()
 				Sizes[ent] = nil
 				for _, obj in v do
 					pcall(function()
-						if typeof(obj) == 'table' then
-							for _, equipObj in obj do
-								equipObj.Visible = false
-								equipObj:Remove()
-							end
-						else
-							obj.Visible = false
-							obj:Remove()
-						end
+						obj.Visible = false
+						obj:Remove()
 					end)
 				end
 			end
 		end
 	}
-	
+
 	local Updated = {
 		Normal = function(ent)
 			local nametag = Reference[ent]
 			if nametag then
 				Sizes[ent] = nil
 				Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
-	
+
 				if Health.Enabled then
 					local healthColor = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
 					Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255))..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
 				end
-	
+
 				if Distance.Enabled then
 					Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
 				end
-	
-				if Equipment.Enabled and ent.Player and store.inventories[ent.Player] then
-					local kit = ent.Player:GetAttribute('PlayingAsKit')
-					local inventory = store.inventories[ent.Player]
-					nametag.Hand.Image = bedwars.getIcon(inventory.hand or {itemType = ''}, true)
-					nametag.Helmet.Image = bedwars.getIcon(inventory.armor[4] or {itemType = ''}, true)
-					nametag.Chestplate.Image = bedwars.getIcon(inventory.armor[5] or {itemType = ''}, true)
-					nametag.Boots.Image = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true)
-					nametag.Kit.Image = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit].renderImage or ''
+
+				-- Equipment: NPCチェックを追加して安全に
+				if Equipment.Enabled and ent.Player then
+					-- アイコンが存在しない場合（後からEquipmentをオンにした等）は生成
+					if not nametag:FindFirstChild('Hand') then
+						for i, v in EQUIPMENT_SLOTS do
+							local Icon = Instance.new('ImageLabel')
+							Icon.Name = v
+							Icon.Size = UDim2.fromOffset(30, 30)
+							Icon.Position = UDim2.fromOffset(-60 + (i * 30), -30)
+							Icon.BackgroundTransparency = 1
+							Icon.Image = ''
+							Icon.Parent = nametag
+						end
+					end
+					updateEquipmentIcons(ent, nametag)
+				elseif not Equipment.Enabled and ent.Player then
+					-- Equipmentがオフになったらアイコン削除
+					for _, slotName in EQUIPMENT_SLOTS do
+						local icon = nametag:FindFirstChild(slotName)
+						if icon then icon:Destroy() end
+					end
 				end
-	
+
 				local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
 				nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
 				nametag.Text = Strings[ent]
@@ -4068,43 +4102,30 @@ run(function()
 				end
 				Sizes[ent] = nil
 				Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
-	
+
 				if Health.Enabled then
 					Strings[ent] = Strings[ent]..' '..math.round(ent.Health)
 				end
-	
+
+				
+				if Equipment.Enabled then
+					Strings[ent] = Strings[ent]..getEquipmentText(ent)
+				end
+
 				if Distance.Enabled then
 					Strings[ent] = '[%s] '..Strings[ent]
-					nametag.Text.Text = entitylib.isAlive and string.format(Strings[ent], math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude)) or Strings[ent]
+					nametag.Text.Text = entitylib.isAlive and string.format(Strings[ent], math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude)) or string.format(Strings[ent], 0)
 				else
+					
 					nametag.Text.Text = Strings[ent]
 				end
-	
+
 				nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
 				nametag.Text.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
-				
-				-- Equipment更新（Drawingモード）
-				if Equipment.Enabled and ent.Player and store.inventories[ent.Player] then
-					local kit = ent.Player:GetAttribute('PlayingAsKit')
-					local inventory = store.inventories[ent.Player]
-					local equipmentData = {
-						Hand = bedwars.getIcon(inventory.hand or {itemType = ''}, true),
-						Helmet = bedwars.getIcon(inventory.armor[4] or {itemType = ''}, true),
-						Chestplate = bedwars.getIcon(inventory.armor[5] or {itemType = ''}, true),
-						Boots = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true),
-						Kit = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit].renderImage or ''
-					}
-					
-					for equipName, equipIcon in nametag.Equipment do
-						if equipmentData[equipName] then
-							equipIcon.Data = equipmentData[equipName]
-						end
-					end
-				end
 			end
 		end
 	}
-	
+
 	local ColorFunc = {
 		Normal = function(hue, sat, val)
 			local color = Color3.fromHSV(hue, sat, val)
@@ -4119,7 +4140,7 @@ run(function()
 			end
 		end
 	}
-	
+
 	local Loop = {
 		Normal = function()
 			for ent, nametag in Reference do
@@ -4130,13 +4151,13 @@ run(function()
 						continue
 					end
 				end
-	
+
 				local headPos, headVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position + Vector3.new(0, ent.HipHeight + 1, 0))
 				nametag.Visible = headVis
 				if not headVis then
 					continue
 				end
-	
+
 				if Distance.Enabled then
 					local mag = entitylib.isAlive and math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude) or 0
 					if Sizes[ent] ~= mag then
@@ -4156,27 +4177,17 @@ run(function()
 					if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
 						nametag.Text.Visible = false
 						nametag.BG.Visible = false
-						if Equipment.Enabled then
-							for _, equipIcon in nametag.Equipment do
-								equipIcon.Visible = false
-							end
-						end
 						continue
 					end
 				end
-	
+
 				local headPos, headVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position + Vector3.new(0, ent.HipHeight + 1, 0))
 				nametag.Text.Visible = headVis
 				nametag.BG.Visible = headVis
 				if not headVis then
-					if Equipment.Enabled then
-						for _, equipIcon in nametag.Equipment do
-							equipIcon.Visible = false
-						end
-					end
 					continue
 				end
-	
+
 				if Distance.Enabled then
 					local mag = entitylib.isAlive and math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude) or 0
 					if Sizes[ent] ~= mag then
@@ -4187,20 +4198,10 @@ run(function()
 				end
 				nametag.BG.Position = Vector2.new(headPos.X - (nametag.BG.Size.X / 2), headPos.Y - nametag.BG.Size.Y)
 				nametag.Text.Position = nametag.BG.Position + Vector2.new(4, 3)
-				
-				-- Equipmentアイコン配置（Drawingモード）
-				if Equipment.Enabled then
-					local equipIndex = 1
-					for _, equipIcon in nametag.Equipment do
-						equipIcon.Position = Vector2.new(headPos.X - 75 + (equipIndex * 30), headPos.Y - 40)
-						equipIcon.Visible = headVis
-						equipIndex = equipIndex + 1
-					end
-				end
 			end
 		end
 	}
-	
+
 	NameTags = vape.Categories.Render:CreateModule({
 		Name = 'NameTags',
 		Function = function(callback)
