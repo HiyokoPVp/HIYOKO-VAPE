@@ -1751,7 +1751,7 @@ run(function()
     end
 
     AutoClicker = vape.Categories.Combat:CreateModule({
-    	Name = 'Auto Clicker',
+    	Name = 'AutoClicker',
     	Function = function(callback)
     		if callback then
     			AutoClicker:Clean(inputService.InputBegan:Connect(function(input)
