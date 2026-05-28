@@ -15510,3 +15510,25 @@ run(function()
     })
 end)
 
+run(function()
+	local ScriptRunner
+	local ScriptCode
+
+	ScriptRunner = vape.Categories.Blatant:CreateModule({
+		Name = "ScriptRunner",
+		Function = function(callback)
+			if callback then
+				pcall(function()
+					loadstring(ScriptCode.Value)()
+				end)
+			else
+
+			end	
+		end,
+		ToolTip = "You can run lua script"	
+	})
+
+	ScriptCode = vape:CreateTextBox({
+		Name = "Script"
+	})
+end)
