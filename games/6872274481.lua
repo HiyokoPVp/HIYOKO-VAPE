@@ -1702,14 +1702,13 @@ run(function()
 	local Thread
 
 local function ClickGuiAtMouse()
-    local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
-    local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
-    for _, GuiObject in pairs(getGUI) do
-        if GuiObject:IsA("GuiButton") then
-            pcall(function() firesignal(GuiObject.MouseButton1Click) end)
-            break -- 最初に見つかったボタンだけ押して終わり
-        end
-    end
+    local VIM = game:GetService("VirtualInputManager")
+    local MousePos = inputService:GetMouseLocation()
+    pcall(function()
+        VIM:SendMouseButtonEvent(MousePos.X, MousePos.Y, 0, true, game, 0)
+        task.wait(0.01)
+        VIM:SendMouseButtonEvent(MousePos.X, MousePos.Y, 0, false, game, 0)
+    end)
 end
 
 	local function AutoClick()
