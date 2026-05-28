@@ -15532,3 +15532,125 @@ run(function()
 		Name = "Script"
 	})
 end)
+
+run(function()
+
+local Combat = vape.Categories.Combat
+
+local AutoClicker = Combat:CreateModule({
+    Name = "GUI AutoClicker",
+    Function = function(callback)
+        if callback then
+            
+        else
+            
+        end
+    end,
+    Tooltip = "Automatically clicks GUI elements under your mouse"
+})
+
+-- Settings
+local Enabled = false
+local HoldMode = true
+
+local connection = nil
+
+local function getTopGuiAtMouse()
+    local mousePos = game:GetService("UserInputService"):GetMouseLocation()
+    local guis = game.Players.LocalPlayer.PlayerGui:GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
+    
+    for _, gui in ipairs(guis) do
+        if gui.Visible and gui.Active and (gui:IsA("TextButton") or gui:IsA("ImageButton") or gui:IsA("GuiButton")) then
+            return gui
+        end
+    end
+    return nil
+end
+
+local function startClicking()
+    if connection then return end
+    
+    connection = game:GetService("RunService").Heartbeat:Connect(function()
+        if not Enabled then return end
+        
+        local gui = getTopGuiAtMouse()
+        if gui then
+            pcall(function()
+                firesignal(gui.MouseButton1Click)
+            end)
+        end
+    end)
+end
+
+local function stopClicking()
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+end
+
+
+AutoClicker:CreateToggle({
+    Name = "Enabled",
+    Default = false,
+    Function = function(state)
+        Enabled = state
+        if state then
+            if not HoldMode then
+                startClicking()
+            end
+        else
+            stopClicking()
+        end
+    end,
+    Tooltip = "Turn AutoClicker ON/OFF"
+})
+
+
+AutoClicker:CreateDropdown({
+    Name = "Mode",
+    List = {"Hold", "Always"},
+    Default = "Hold",
+    Function = function(value)
+        HoldMode = (value == "Hold")
+        if Enabled then
+            if HoldMode then
+                stopClicking()
+            else
+                startClicking()
+            end
+        end
+    end,
+    Tooltip = "Hold = Click only while holding mouse button | Always = Constant clicking"
+})
+
+
+AutoClicker:CreateSlider({
+    Name = "CPS (Speed)",
+    Min = 1,
+    Max = 60,
+    Default = 20,
+    Function = function(value)
+        -- Heartbeat is very fast, CPS is approximate
+    end,
+    Tooltip = "Clicks per second (approximate)"
+})
+
+
+AutoClicker:CreateButton({
+    Name = "Single Click Test",
+    Function = function()
+        local gui = getTopGuiAtMouse()
+        if gui then
+            pcall(function()
+                firesignal(gui.MouseButton1Click)
+            end)
+            print("Clicked GUI once")
+        else
+            print("No GUI found under mouse")
+        end
+    end,
+    Tooltip = "Manually click the GUI under your mouse once"
+})
+
+end)
