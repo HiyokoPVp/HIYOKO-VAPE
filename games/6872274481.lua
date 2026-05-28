@@ -3922,7 +3922,8 @@ run(function()
 			end
 	
 			if Equipment.Enabled then
-				for i, v in {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'} do
+				local equipmentParts = {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'}
+				for i, v in ipairs(equipmentParts) do
 					local Icon = Instance.new('ImageLabel')
 					Icon.Name = v
 					Icon.Size = UDim2.fromOffset(30, 30)
@@ -3964,6 +3965,20 @@ run(function()
 			nametag.Text.Size = 15 * Scale.Value
 			nametag.Text.Font = 0
 			nametag.Text.ZIndex = 2
+			
+			-- Equipment用のDrawing要素を作成（Drawingモードの場合）
+			nametag.Equipment = {}
+			if Equipment.Enabled then
+				local equipmentParts = {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'}
+				for i, v in ipairs(equipmentParts) do
+					local equipIcon = Drawing.new('Image')
+					equipIcon.Size = Vector2.new(30, 30)
+					equipIcon.ZIndex = 3
+					equipIcon.Visible = true
+					nametag.Equipment[v] = equipIcon
+				end
+			end
+			
 			Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
 	
 			if Health.Enabled then
@@ -3999,8 +4014,15 @@ run(function()
 				Sizes[ent] = nil
 				for _, obj in v do
 					pcall(function()
-						obj.Visible = false
-						obj:Remove()
+						if typeof(obj) == 'table' then
+							for _, equipObj in obj do
+								equipObj.Visible = false
+								equipObj:Remove()
+							end
+						else
+							obj.Visible = false
+							obj:Remove()
+						end
 					end)
 				end
 			end
@@ -4023,7 +4045,7 @@ run(function()
 					Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
 				end
 	
-				if Equipment.Enabled and store.inventories[ent.Player] then
+				if Equipment.Enabled and ent.Player and store.inventories[ent.Player] then
 					local kit = ent.Player:GetAttribute('PlayingAsKit')
 					local inventory = store.inventories[ent.Player]
 					nametag.Hand.Image = bedwars.getIcon(inventory.hand or {itemType = ''}, true)
@@ -4060,6 +4082,25 @@ run(function()
 	
 				nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
 				nametag.Text.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+				
+				-- Equipment更新（Drawingモード）
+				if Equipment.Enabled and ent.Player and store.inventories[ent.Player] then
+					local kit = ent.Player:GetAttribute('PlayingAsKit')
+					local inventory = store.inventories[ent.Player]
+					local equipmentData = {
+						Hand = bedwars.getIcon(inventory.hand or {itemType = ''}, true),
+						Helmet = bedwars.getIcon(inventory.armor[4] or {itemType = ''}, true),
+						Chestplate = bedwars.getIcon(inventory.armor[5] or {itemType = ''}, true),
+						Boots = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true),
+						Kit = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit].renderImage or ''
+					}
+					
+					for equipName, equipIcon in nametag.Equipment do
+						if equipmentData[equipName] then
+							equipIcon.Data = equipmentData[equipName]
+						end
+					end
+				end
 			end
 		end
 	}
@@ -4115,6 +4156,11 @@ run(function()
 					if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
 						nametag.Text.Visible = false
 						nametag.BG.Visible = false
+						if Equipment.Enabled then
+							for _, equipIcon in nametag.Equipment do
+								equipIcon.Visible = false
+							end
+						end
 						continue
 					end
 				end
@@ -4123,6 +4169,11 @@ run(function()
 				nametag.Text.Visible = headVis
 				nametag.BG.Visible = headVis
 				if not headVis then
+					if Equipment.Enabled then
+						for _, equipIcon in nametag.Equipment do
+							equipIcon.Visible = false
+						end
+					end
 					continue
 				end
 	
@@ -4136,6 +4187,16 @@ run(function()
 				end
 				nametag.BG.Position = Vector2.new(headPos.X - (nametag.BG.Size.X / 2), headPos.Y - nametag.BG.Size.Y)
 				nametag.Text.Position = nametag.BG.Position + Vector2.new(4, 3)
+				
+				-- Equipmentアイコン配置（Drawingモード）
+				if Equipment.Enabled then
+					local equipIndex = 1
+					for _, equipIcon in nametag.Equipment do
+						equipIcon.Position = Vector2.new(headPos.X - 75 + (equipIndex * 30), headPos.Y - 40)
+						equipIcon.Visible = headVis
+						equipIndex = equipIndex + 1
+					end
+				end
 			end
 		end
 	}
