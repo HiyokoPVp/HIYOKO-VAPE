@@ -1707,7 +1707,7 @@ local function ClickGuiAtMouse()
     local topGUI = nil
 
     local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
-    local getGUI = game:GetService("GuiService"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
+    local getGUI = game:GetService("Players").LocalPlayer:GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
 
     for _, GuiObject in pairs(getGUI) do
         if GuiObject:IsA("GuiButton") and GuiObject.Visible and GuiObject.Active then
