@@ -1701,14 +1701,18 @@ run(function()
 	local BlockCPS = {}
 	local Thread
 
+	-- GuiClick用
 local function ClickGuiAtMouse()
-    local VIM = game:GetService("VirtualInputManager")
-    local MousePos = inputService:GetMouseLocation()
-    pcall(function()
-        VIM:SendMouseButtonEvent(MousePos.X, MousePos.Y, 0, true, game, 0)
-        task.wait(0.01)
-        VIM:SendMouseButtonEvent(MousePos.X, MousePos.Y, 0, false, game, 0)
-    end)
+    local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
+    local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
+    for _, GuiObject in pairs(getGUI) do
+        if GuiObject:IsA("GuiButton") then
+            pcall(function() firesignal(GuiObject.MouseButton1Click) end)
+            pcall(function() firesignal(GuiObject.MouseButton1Down) end)
+            pcall(function() firesignal(GuiObject.MouseButton1Up) end)
+            pcall(function() firesignal(GuiObject.Activated) end)
+        end
+    end
 end
 
 	local function AutoClick()
@@ -1718,28 +1722,22 @@ end
 
 		Thread = task.delay(1 / 7, function()
 			repeat
-				local guiOpen = bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN)
-				local shouldRun = AutoClicker.IgnoreGuiCheck or not guiOpen
-
-				if shouldRun then
+					-- GuiClickオンなら先にGUIクリック試みる
 					if AutoClicker.GuiClickEnabled then
 						ClickGuiAtMouse()
 					end
 
-					if not guiOpen then
-						local blockPlacer = bedwars.BlockPlacementController.blockPlacer
-						if store.hand.toolType == 'block' and blockPlacer then
-							if (workspace:GetServerTimeNow() - bedwars.BlockCpsController.lastPlaceTimestamp) >= ((1 / 12) * 0.5) then
-								local mouseinfo = blockPlacer.clientManager:getBlockSelector():getMouseInfo(0)
-								if mouseinfo and mouseinfo.placementPosition == mouseinfo.placementPosition then
-									task.spawn(blockPlacer.placeBlock, blockPlacer, mouseinfo.placementPosition)
-								end
+					local blockPlacer = bedwars.BlockPlacementController.blockPlacer
+					if store.hand.toolType == 'block' and blockPlacer then
+						if (workspace:GetServerTimeNow() - bedwars.BlockCpsController.lastPlaceTimestamp) >= ((1 / 12) * 0.5) then
+							local mouseinfo = blockPlacer.clientManager:getBlockSelector():getMouseInfo(0)
+							if mouseinfo and mouseinfo.placementPosition == mouseinfo.placementPosition then
+								task.spawn(blockPlacer.placeBlock, blockPlacer, mouseinfo.placementPosition)
 							end
-						elseif store.hand.toolType == 'sword' then
-							bedwars.SwordController:swingSwordAtMouse(0.39)
 						end
+					elseif store.hand.toolType == 'sword' then
+						bedwars.SwordController:swingSwordAtMouse(0.39)
 					end
-				end
 
 				task.wait(1 / (store.hand.toolType == 'block' and BlockCPS or CPS).GetRandomValue())
 			until not AutoClicker.Enabled
@@ -1802,19 +1800,12 @@ end
 		end
 	})
 
+	-- GuiClickトグル追加
 	AutoClicker:CreateToggle({
 		Name = 'GuiClick',
 		Default = false,
 		Function = function(callback)
 			AutoClicker.GuiClickEnabled = callback
-		end
-	})
-
-	AutoClicker:CreateToggle({
-		Name = 'IgnoreGuiCheck',
-		Default = false,
-		Function = function(callback)
-			AutoClicker.IgnoreGuiCheck = callback
 		end
 	})
 
