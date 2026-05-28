@@ -1702,15 +1702,18 @@ run(function()
 	local Thread
 
 	-- GuiClick用
-	local function ClickGuiAtMouse()
-		local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
-		local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
-		for _, GuiObject in pairs(getGUI) do
-			if GuiObject:IsA("GuiButton") then
-				GuiObject.MouseButton1Click:Fire()
-			end
-		end
-	end
+local function ClickGuiAtMouse()
+    local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
+    local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
+    for _, GuiObject in pairs(getGUI) do
+        if GuiObject:IsA("GuiButton") then
+            pcall(function() firesignal(GuiObject.MouseButton1Click) end)
+            pcall(function() firesignal(GuiObject.MouseButton1Down) end)
+            pcall(function() firesignal(GuiObject.MouseButton1Up) end)
+            pcall(function() firesignal(GuiObject.Activated) end)
+        end
+    end
+end
 
 	local function AutoClick()
 		if Thread then
