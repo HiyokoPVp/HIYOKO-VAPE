@@ -1701,21 +1701,16 @@ run(function()
 	local BlockCPS = {}
 	local Thread
 
-	local function ClickGuiAtMouse()
-		local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
-		local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
-		for _, GuiObject in pairs(getGUI) do
-			if GuiObject:IsA("GuiButton") then
-				-- connectionsが存在するか確認してから発火
-				pcall(function()
-					local conns = getconnections(GuiObject.MouseButton1Click)
-					if conns and #conns > 0 then
-						firesignal(GuiObject.MouseButton1Click)
-					end
-				end)
-			end
-		end
-	end
+local function ClickGuiAtMouse()
+    local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
+    local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
+    for _, GuiObject in pairs(getGUI) do
+        if GuiObject:IsA("GuiButton") then
+            pcall(function() firesignal(GuiObject.MouseButton1Click) end)
+            break -- 最初に見つかったボタンだけ押して終わり
+        end
+    end
+end
 
 	local function AutoClick()
 		if Thread then
