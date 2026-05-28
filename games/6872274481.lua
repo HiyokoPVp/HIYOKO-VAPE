@@ -15528,7 +15528,7 @@ run(function()
 		ToolTip = "You can run lua script"	
 	})
 
-	ScriptCode = vape:CreateTextBox({
+	ScriptCode = ScriptRunner:CreateTextBox({
 		Name = "Script"
 	})
 end)
