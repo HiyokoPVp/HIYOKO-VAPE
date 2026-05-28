@@ -1700,15 +1700,31 @@ run(function()
 	local CPS
 	local BlockCPS = {}
 	local Thread
-	
+
+	-- GuiClick用
+	local function ClickGuiAtMouse()
+		local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
+		local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
+		for _, GuiObject in pairs(getGUI) do
+			if GuiObject:IsA("GuiButton") then
+				GuiObject.MouseButton1Click:Fire()
+			end
+		end
+	end
+
 	local function AutoClick()
 		if Thread then
 			task.cancel(Thread)
 		end
-	
+
 		Thread = task.delay(1 / 7, function()
 			repeat
 				if not bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN) then
+					-- GuiClickオンなら先にGUIクリック試みる
+					if AutoClicker.GuiClickEnabled then
+						ClickGuiAtMouse()
+					end
+
 					local blockPlacer = bedwars.BlockPlacementController.blockPlacer
 					if store.hand.toolType == 'block' and blockPlacer then
 						if (workspace:GetServerTimeNow() - bedwars.BlockCpsController.lastPlaceTimestamp) >= ((1 / 12) * 0.5) then
@@ -1721,12 +1737,12 @@ run(function()
 						bedwars.SwordController:swingSwordAtMouse(0.39)
 					end
 				end
-	
+
 				task.wait(1 / (store.hand.toolType == 'block' and BlockCPS or CPS).GetRandomValue())
 			until not AutoClicker.Enabled
 		end)
 	end
-	
+
 	AutoClicker = vape.Categories.Combat:CreateModule({
 		Name = 'AutoClicker',
 		Function = function(callback)
@@ -1736,14 +1752,14 @@ run(function()
 						AutoClick()
 					end
 				end))
-	
+
 				AutoClicker:Clean(inputService.InputEnded:Connect(function(input)
 					if input.UserInputType == Enum.UserInputType.MouseButton1 and Thread then
 						task.cancel(Thread)
 						Thread = nil
 					end
 				end))
-	
+
 				if inputService.TouchEnabled then
 					pcall(function()
 						AutoClicker:Clean(lplr.PlayerGui.MobileUI['2'].MouseButton1Down:Connect(AutoClick))
@@ -1764,6 +1780,7 @@ run(function()
 		end,
 		Tooltip = 'Hold attack button to automatically click'
 	})
+
 	CPS = AutoClicker:CreateTwoSlider({
 		Name = 'CPS',
 		Min = 1,
@@ -1771,6 +1788,7 @@ run(function()
 		DefaultMin = 7,
 		DefaultMax = 7
 	})
+
 	AutoClicker:CreateToggle({
 		Name = 'Place Blocks',
 		Default = true,
@@ -1780,6 +1798,16 @@ run(function()
 			end
 		end
 	})
+
+	-- GuiClickトグル追加
+	AutoClicker:CreateToggle({
+		Name = 'GuiClick',
+		Default = false,
+		Function = function(callback)
+			AutoClicker.GuiClickEnabled = callback
+		end
+	})
+
 	BlockCPS = AutoClicker:CreateTwoSlider({
 		Name = 'Block CPS',
 		Min = 1,
