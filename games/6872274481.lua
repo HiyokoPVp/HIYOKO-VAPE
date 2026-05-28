@@ -1,4 +1,4 @@
--- hiyoko vape ver 1.9 fixed
+-- hiyoko vape ver 2.0 fixed
 
 local run = function(func)
 	func()
@@ -1701,35 +1701,29 @@ run(function()
 	local BlockCPS = {}
 	local Thread
 
-	-- GuiClick用
-local function ClickGuiAtMouse()
-    local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
-    local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
-    for _, GuiObject in pairs(getGUI) do
-        -- GuiButtonじゃないやつも含めて全部試す
-        pcall(function() firesignal(GuiObject.MouseButton1Click) end)
-        pcall(function() firesignal(GuiObject.MouseButton1Down) end)
-        pcall(function() firesignal(GuiObject.MouseButton1Up) end)
-        pcall(function() firesignal(GuiObject.Activated) end)
-        pcall(function() firesignal(GuiObject.TouchTap) end)
-        
-        -- InputBeganとInputEndedも
-        pcall(function()
-            local inputObj = {
-                UserInputType = Enum.UserInputType.MouseButton1,
-                UserInputState = Enum.UserInputState.Begin
-            }
-            firesignal(GuiObject.InputBegan, inputObj)
-        end)
-        pcall(function()
-            local inputObj = {
-                UserInputType = Enum.UserInputType.MouseButton1,
-                UserInputState = Enum.UserInputState.End
-            }
-            firesignal(GuiObject.InputEnded, inputObj)
-        end)
-    end
-end
+	local function ClickGuiAtMouse()
+		local MousePos = inputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
+		local getGUI = lplr:WaitForChild("PlayerGui"):GetGuiObjectsAtPosition(MousePos.X, MousePos.Y)
+		for _, GuiObject in pairs(getGUI) do
+			pcall(function() firesignal(GuiObject.MouseButton1Click) end)
+			pcall(function() firesignal(GuiObject.MouseButton1Down) end)
+			pcall(function() firesignal(GuiObject.MouseButton1Up) end)
+			pcall(function() firesignal(GuiObject.Activated) end)
+			pcall(function() firesignal(GuiObject.TouchTap) end)
+			pcall(function()
+				firesignal(GuiObject.InputBegan, {
+					UserInputType = Enum.UserInputType.MouseButton1,
+					UserInputState = Enum.UserInputState.Begin
+				})
+			end)
+			pcall(function()
+				firesignal(GuiObject.InputEnded, {
+					UserInputType = Enum.UserInputType.MouseButton1,
+					UserInputState = Enum.UserInputState.End
+				})
+			end)
+		end
+	end
 
 	local function AutoClick()
 		if Thread then
@@ -1738,8 +1732,10 @@ end
 
 		Thread = task.delay(1 / 7, function()
 			repeat
-				if not bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN) then
-					-- GuiClickオンなら先にGUIクリック試みる
+				-- IgnoreGuiCheckオンならチェックスキップ、オフなら従来通り
+				local shouldRun = AutoClicker.IgnoreGuiCheck or not bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN)
+
+				if shouldRun then
 					if AutoClicker.GuiClickEnabled then
 						ClickGuiAtMouse()
 					end
@@ -1818,12 +1814,20 @@ end
 		end
 	})
 
-	-- GuiClickトグル追加
 	AutoClicker:CreateToggle({
 		Name = 'GuiClick',
 		Default = false,
 		Function = function(callback)
 			AutoClicker.GuiClickEnabled = callback
+		end
+	})
+
+	-- IgnoreGuiCheckトグル追加
+	AutoClicker:CreateToggle({
+		Name = 'IgnoreGuiCheck',
+		Default = false,
+		Function = function(callback)
+			AutoClicker.IgnoreGuiCheck = callback
 		end
 	})
 
