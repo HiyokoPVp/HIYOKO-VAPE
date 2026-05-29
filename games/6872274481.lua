@@ -16035,72 +16035,42 @@ end)
 
 run(function()
 	local PlaceReach
-	local ReachValue
+	local PlaceRange
 	local Mode
-	local SmoothPlacement
 	
-	local oldPlaceBlockFunc = nil
-	local blockPlacer = nil
+	local oldGetMouseInfo = nil
 	
-	PlaceReach = vape.Categories.Blatant:CreateModule({
+	PlaceReach = vape.Categories.Combat:CreateModule({
 		Name = "Place Reach",
 		Function = function(callback)
 			if callback then
-				-- BlockPlacerを取得
-				if not blockPlacer then
-					blockPlacer = store.blockPlacer or bedwars.BlockPlacer.new(bedwars.BlockEngine, 'wool_white')
+				if not oldGetMouseInfo then
+					oldGetMouseInfo = bedwars.BlockSelector.getMouseInfo
 				end
 				
-				if not oldPlaceBlockFunc and blockPlacer then
-					oldPlaceBlockFunc = blockPlacer.placeBlock
-				end
-				
-				if blockPlacer and oldPlaceBlockFunc then
-					blockPlacer.placeBlock = function(self, blockPosition)
-						if not PlaceReach.Enabled then
-							return oldPlaceBlockFunc(self, blockPosition)
-						end
-						
-						local character = entitylib.character
-						if not character or not character.RootPart then
-							return oldPlaceBlockFunc(self, blockPosition)
-						end
-						
-						local localPos = character.RootPart.Position
-						local targetPos = blockPosition * 3  -- ブロック座標 → ワールド座標
-						local distance = (localPos - targetPos).Magnitude
-						
-						-- Reachを超えていてもExtendモードなら置く
-						if distance > ReachValue.Value + 4 and Mode.Value == "Smooth" then
-							if SmoothPlacement.Enabled then
-								local direction = (targetPos - localPos).Unit
-								local safePos = localPos + direction * (ReachValue.Value - 6)
-								
-								character.RootPart.CFrame = CFrame.lookAt(safePos, targetPos)
-								task.wait(0.025)
-							else
-								return false
-							end
-						end
-						
-						-- 最終的に元のplaceBlockを呼ぶ
-						return oldPlaceBlockFunc(self, blockPosition)
+				bedwars.BlockSelector.getMouseInfo = function(...)
+					local self, selectType, args = ...
+					if not args then args = {} end
+					
+					-- Select == 0 が Placement（置く時）
+					if selectType == 0 and PlaceReach.Enabled then
+						args.range = PlaceRange.Value
 					end
+					
+					return oldGetMouseInfo(self, selectType, args)
 				end
 				
 			else
-				-- 元に戻す
-				if blockPlacer and oldPlaceBlockFunc then
-					blockPlacer.placeBlock = oldPlaceBlockFunc
+				if oldGetMouseInfo then
+					bedwars.BlockSelector.getMouseInfo = oldGetMouseInfo
+					oldGetMouseInfo = nil
 				end
 			end
 		end,
-		Tooltip = "Deep hook into BlockPlacer.placeBlock to extend placement reach"
+		Tooltip = "Extends block placement reach using BlockSelector hook (same as old BlockReach)"
 	})
 	
-	-- ==================== Settings ====================
-	
-	ReachValue = PlaceReach:CreateSlider({
+	PlaceRange = PlaceReach:CreateSlider({
 		Name = "Place Range",
 		Min = 10,
 		Max = 60,
@@ -16110,21 +16080,17 @@ run(function()
 		end
 	})
 	
-	Mode = PlaceReach:CreateDropdown({
-		Name = "Mode",
-		List = {"Extend", "Smooth"},
-		Default = "Extend"
-	})
-	
-	SmoothPlacement = PlaceReach:CreateToggle({
-		Name = "Smooth Placement",
-		Default = true
+	PlaceReach:CreateButton({
+		Name = "Reset to Default",
+		Function = function()
+			PlaceRange:SetValue(24)
+		end
 	})
 	
 	-- Cleanup
 	PlaceReach:Clean(function()
-		if blockPlacer and oldPlaceBlockFunc then
-			blockPlacer.placeBlock = oldPlaceBlockFunc
+		if oldGetMouseInfo then
+			bedwars.BlockSelector.getMouseInfo = oldGetMouseInfo
 		end
 	end)
 end)
