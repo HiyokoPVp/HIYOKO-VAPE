@@ -15914,3 +15914,121 @@ run(function()
 		end	
 	})
 end)
+
+run(function()
+	local Fakelag
+	local Enabled = false
+	local Strength
+	local WaitTime
+	local Chance
+	local Mode
+	local OnlyMoving
+	
+	local oldVelocity = {}
+	local connection
+	
+	Fakelag = vape.Categories.Blatant:CreateModule({
+		Name = 'Fakelag',
+		Function = function(callback)
+			Enabled = callback
+			
+			if callback then
+				connection = runService.Heartbeat:Connect(function()
+					if not entitylib.isAlive or not isnetworkowner(entitylib.character.RootPart) then return end
+					
+					local root = entitylib.character.RootPart
+					local vel = root.AssemblyLinearVelocity
+					
+					
+					if OnlyMoving.Enabled and vel.Magnitude < 2 then
+						return
+					end
+					
+					if math.random(1, 100) > Chance.Value then return end
+					
+					local waitDuration = WaitTime.GetRandomValue() / 1000
+					
+					
+					oldVelocity[root] = vel
+					
+					if Mode.Value == 'Basic' then
+						root.AssemblyLinearVelocity = Vector3.zero
+						task.wait(waitDuration)
+						root.AssemblyLinearVelocity = vel * (Strength.Value / 100)
+						
+					elseif Mode.Value == 'Advanced' then
+						
+						local oldCFrame = root.CFrame
+						root.AssemblyLinearVelocity = Vector3.zero
+						task.wait(waitDuration)
+						root.CFrame = oldCFrame
+						root.AssemblyLinearVelocity = vel * (Strength.Value / 100)
+						
+					elseif Mode.Value == 'Random' then
+						local intensity = Strength.Value / 100
+						root.AssemblyLinearVelocity = Vector3.new(
+							vel.X * (1 - math.random() * intensity),
+							vel.Y,
+							vel.Z * (1 - math.random() * intensity)
+						)
+						task.wait(waitDuration * math.random(0.6, 1.4))
+						root.AssemblyLinearVelocity = vel
+					end
+				end)
+			else
+				if connection then
+					connection:Disconnect()
+					connection = nil
+				end
+				
+				for part, v in oldVelocity do
+					if part and part.Parent then
+						part.AssemblyLinearVelocity = v
+					end
+				end
+				table.clear(oldVelocity)
+			end
+		end,
+		Tooltip = 'Makes you look laggy to enemies (Desync effect)'
+	})
+	
+	Mode = Fakelag:CreateDropdown({
+		Name = 'Mode',
+		List = {'Basic', 'Advanced', 'Random'},
+		Default = 'Advanced',
+		Tooltip = 'Basic: Simple choke\nAdvanced: Position rewind + choke\nRandom: Variable lag'
+	})
+	
+	Strength = Fakelag:CreateSlider({
+		Name = 'Strength',
+		Min = 10,
+		Max = 300,
+		Default = 120,
+		Suffix = '%',
+		Tooltip = 'How strong the fakelag effect is'
+	})
+	
+	WaitTime = Fakelag:CreateTwoSlider({
+		Name = 'Wait Time',
+		Min = 10,
+		Max = 250,
+		DefaultMin = 40,
+		DefaultMax = 110,
+		Suffix = 'ms'
+	})
+	
+	Chance = Fakelag:CreateSlider({
+		Name = 'Chance',
+		Min = 10,
+		Max = 100,
+		Default = 85,
+		Suffix = '%',
+		Tooltip = 'How often fakelag triggers'
+	})
+	
+	OnlyMoving = Fakelag:CreateToggle({
+		Name = 'Only When Moving',
+		Default = true,
+		Tooltip = 'Only activate when you are moving'
+	})
+end)
