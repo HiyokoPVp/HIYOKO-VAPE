@@ -15916,121 +15916,150 @@ run(function()
 end)
 
 run(function()
-	local Fakelag
-	local Enabled = false
-	local Strength
-	local WaitTime
-	local Chance
-	local Mode
-	local OnlyMoving
-	
-	local oldVelocity = {}
-	local connection
-	
-	Fakelag = vape.Categories.Blatant:CreateModule({
-		Name = 'Fakelag',
-		Function = function(callback)
-			Enabled = callback
-			
-			if callback then
-				connection = runService.Heartbeat:Connect(function()
-					if not entitylib.isAlive or not isnetworkowner(entitylib.character.RootPart) then return end
-					
-					local root = entitylib.character.RootPart
-					local vel = root.AssemblyLinearVelocity
-					
-					
-					if OnlyMoving.Enabled and vel.Magnitude < 2 then
-						return
-					end
-					
-					if math.random(1, 100) > Chance.Value then return end
-					
-					local waitDuration = WaitTime.GetRandomValue() / 1000
-					
-					
-					oldVelocity[root] = vel
-					
-					if Mode.Value == 'Basic' then
-						root.AssemblyLinearVelocity = Vector3.zero
-						task.wait(waitDuration)
-						root.AssemblyLinearVelocity = vel * (Strength.Value / 100)
-						
-					elseif Mode.Value == 'Advanced' then
-						
-						local oldCFrame = root.CFrame
-						root.AssemblyLinearVelocity = Vector3.zero
-						task.wait(waitDuration)
-						root.CFrame = oldCFrame
-						root.AssemblyLinearVelocity = vel * (Strength.Value / 100)
-						
-					elseif Mode.Value == 'Random' then
-						local intensity = Strength.Value / 100
-						root.AssemblyLinearVelocity = Vector3.new(
-							vel.X * (1 - math.random() * intensity),
-							vel.Y,
-							vel.Z * (1 - math.random() * intensity)
-						)
-						task.wait(waitDuration * math.random(0.6, 1.4))
-						root.AssemblyLinearVelocity = vel
-					end
-				end)
-			else
-				if connection then
-					connection:Disconnect()
-					connection = nil
-				end
-				
-				for part, v in oldVelocity do
-					if part and part.Parent then
-						part.AssemblyLinearVelocity = v
-					end
-				end
-				table.clear(oldVelocity)
-			end
-		end,
-		Tooltip = 'Makes you look laggy to enemies (Desync effect)'
-	})
-	
-	Mode = Fakelag:CreateDropdown({
-		Name = 'Mode',
-		List = {'Basic', 'Advanced', 'Random'},
-		Default = 'Advanced',
-		Tooltip = 'Basic: Simple choke\nAdvanced: Position rewind + choke\nRandom: Variable lag'
-	})
-	
-	Strength = Fakelag:CreateSlider({
-		Name = 'Strength',
-		Min = 10,
-		Max = 300,
-		Default = 120,
-		Suffix = '%',
-		Tooltip = 'How strong the fakelag effect is'
-	})
-	
-	WaitTime = Fakelag:CreateTwoSlider({
-		Name = 'Wait Time',
-		Min = 10,
-		Max = 250,
-		DefaultMin = 40,
-		DefaultMax = 110,
-		Suffix = 'ms'
-	})
-	
-	Chance = Fakelag:CreateSlider({
-		Name = 'Chance',
-		Min = 10,
-		Max = 100,
-		Default = 85,
-		Suffix = '%',
-		Tooltip = 'How often fakelag triggers'
-	})
-	
-	OnlyMoving = Fakelag:CreateToggle({
-		Name = 'Only When Moving',
-		Default = true,
-		Tooltip = 'Only activate when you are moving'
-	})
+    local DesyncFakelag = vape.Categories.Blatant:CreateModule({
+        Name = 'Fakelag',
+        Function = function(callback)
+            if callback then
+                task.spawn(startDesyncFakelag)
+            else
+                stopDesyncFakelag()
+            end
+        end,
+        Tooltip = 'Advanced Fakelag using desync hitbox method (harder to hit + lag effect)'
+    })
+
+    local heartbeatConn = nil
+    local originalCFrame = nil
+    local lastApplyTime = 0
+
+    local function startDesyncFakelag()
+        local ent = entitylib.LocalEntity
+        if not ent or not ent.RootPart then return end
+        
+        local root = ent.RootPart
+        originalCFrame = root.CFrame
+
+        heartbeatConn = game:GetService("RunService").Heartbeat:Connect(function()
+            if not DesyncFakelag.Enabled or not root or not root.Parent then return end
+            
+            local now = tick()
+            local vel = root.AssemblyLinearVelocity
+            local isMoving = vel.Magnitude > 2
+
+            if OnlyMoving.Enabled and not isMoving then
+                root.CFrame = originalCFrame or root.CFrame
+                return
+            end
+
+            -- Chance判定
+            if math.random(1, 100) > Chance.Value then
+                root.CFrame = originalCFrame or root.CFrame
+                return
+            end
+
+            local realCF = root.CFrame
+            local waitDuration = WaitTime.GetRandomValue() / 1000
+
+            -- Mode別処理
+            if Mode.Value == 'Basic' then
+                root.AssemblyLinearVelocity = Vector3.zero
+                task.wait(waitDuration)
+                root.AssemblyLinearVelocity = vel * (Strength.Value / 100)
+
+            elseif Mode.Value == 'Advanced' then
+                -- Desync Hitbox方式 + Fakelag
+                local fakeCF = realCF 
+                    * CFrame.new(0, -Offset.Value, 0) 
+                    * CFrame.Angles(0, math.rad(Angle.Value), 0)
+
+                root.CFrame = fakeCF
+                task.wait(waitDuration)
+                root.CFrame = realCF
+                root.AssemblyLinearVelocity = vel * (Strength.Value / 100)
+
+            elseif Mode.Value == 'Random' then
+                local intensity = Strength.Value / 100
+                root.AssemblyLinearVelocity = Vector3.new(
+                    vel.X * (1 - math.random() * intensity),
+                    vel.Y,
+                    vel.Z * (1 - math.random() * intensity)
+                )
+                task.wait(waitDuration * math.random(0.6, 1.4))
+                root.CFrame = realCF
+            end
+        end)
+    end
+
+    local function stopDesyncFakelag()
+        if heartbeatConn then
+            heartbeatConn:Disconnect()
+            heartbeatConn = nil
+        end
+        
+        if originalCFrame and entitylib.LocalEntity and entitylib.LocalEntity.RootPart then
+            entitylib.LocalEntity.RootPart.CFrame = originalCFrame
+        end
+    end
+
+    -- ==================== Settings ====================
+
+    Mode = DesyncFakelag:CreateDropdown({
+        Name = 'Mode',
+        List = {'Basic', 'Advanced', 'Random'},
+        Default = 'Advanced',
+        Tooltip = 'Basic: Velocity choke\nAdvanced: Position + Velocity desync\nRandom: Variable intensity'
+    })
+
+    Strength = DesyncFakelag:CreateSlider({
+        Name = 'Strength',
+        Min = 10,
+        Max = 300,
+        Default = 120,
+        Suffix = '%',
+        Tooltip = 'Fakelag strength multiplier'
+    })
+
+    WaitTime = DesyncFakelag:CreateTwoSlider({
+        Name = 'Wait Time',
+        Min = 10,
+        Max = 250,
+        DefaultMin = 40,
+        DefaultMax = 110,
+        Suffix = 'ms'
+    })
+
+    Chance = DesyncFakelag:CreateSlider({
+        Name = 'Chance',
+        Min = 10,
+        Max = 100,
+        Default = 85,
+        Suffix = '%',
+        Tooltip = 'How often the fakelag triggers'
+    })
+
+    OnlyMoving = DesyncFakelag:CreateToggle({
+        Name = 'Only When Moving',
+        Default = true,
+        Tooltip = 'Only activate when moving'
+    })
+
+    -- Desync Hitbox風の追加設定
+    Offset = DesyncFakelag:CreateSlider({
+        Name = 'Desync Offset',
+        Min = 0.1,
+        Max = 3.0,
+        Default = 0.95,
+        Decimal = 10,
+        Suffix = "studs"
+    })
+
+    Angle = DesyncFakelag:CreateSlider({
+        Name = 'Angle Offset',
+        Min = 0,
+        Max = 40,
+        Default = 12,
+        Suffix = "°"
+    })
 end)
 
 run(function()
