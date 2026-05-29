@@ -15795,3 +15795,80 @@ run(function()
 		end
 	})
 end)
+
+run(function()
+    local DesyncHitbox = vape.Categories.Blatant:CreateModule({
+        Name = 'Desync Hitbox',
+        Function = function(callback)
+            if callback then
+                DesyncHitbox:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
+                    if ent == entitylib.LocalEntity then
+                        task.wait(0.5)
+                        startDesync()
+                    end
+                end))
+                task.spawn(startDesync)
+            else
+                stopDesync()
+            end
+        end,
+        Tooltip = 'Desync - Makes you hard to hit'
+    })
+
+    local heartbeatConn = nil
+    local originalCFrame = nil
+
+    local function startDesync()
+        local ent = entitylib.LocalEntity
+        if not ent or not ent.RootPart then return end
+        
+        local root = ent.RootPart
+        originalCFrame = root.CFrame
+
+        heartbeatConn = game:GetService("RunService").Heartbeat:Connect(function()
+            if not DesyncHitbox.Enabled or not root then return end
+            
+            local realCF = root.CFrame
+            
+            local fakeCF = realCF 
+                * CFrame.new(0, -Offset.Value, 0) 
+                * CFrame.Angles(0, math.rad(Angle.Value), 0)
+
+            root.CFrame = fakeCF
+
+            game:GetService("RunService").RenderStepped:Wait()
+            root.CFrame = realCF
+        end)
+    end
+
+    local function stopDesync()
+        if heartbeatConn then
+            heartbeatConn:Disconnect()
+            heartbeatConn = nil
+        end
+        
+        if originalCFrame and entitylib.LocalEntity and entitylib.LocalEntity.RootPart then
+            entitylib.LocalEntity.RootPart.CFrame = originalCFrame
+        end
+    end
+
+    Offset = DesyncHitbox:CreateSlider({
+        Name = 'Desync Offset',
+        Min = 0.1,
+        Max = 2.8,
+        Default = 0.95,
+        Decimal = 10,
+        Function = function() end,
+        Suffix = "studs"
+    })
+
+    Angle = DesyncHitbox:CreateSlider({
+        Name = 'Angle Offset',
+        Min = 0,
+        Max = 35,
+        Default = 12,
+        Decimal = 0,
+        Function = function() end,
+        Suffix = "°"
+    })
+end)
