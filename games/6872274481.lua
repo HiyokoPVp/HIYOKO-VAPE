@@ -16034,243 +16034,113 @@ run(function()
 end)
 
 run(function()
-	local ResourceESP
-	local Distance
-	local Scale
-	local Font
-	local BackgroundTransparency
-	local TextTransparency
-	local YOffset
+	local PlaceReach
+	local ReachValue
+	local Mode
+	local WallCheck
+	local SmoothPlacement
 	
-	local ShowIron, ShowDiamond, ShowEmerald
-	local IronColor, DiamondColor, EmeraldColor
+	local oldPlaceBlock
 	
-	local Reference = {}
-	local connection
-	
-	local function getPlayerResources(plr)
-		if not plr then return {iron = 0, diamond = 0, emerald = 0} end
-		
-		local res = {iron = 0, diamond = 0, emerald = 0}
-		local inv = store.inventories[plr]
-		
-		if inv and inv.inventory and inv.inventory.items then
-			for _, item in ipairs(inv.inventory.items) do
-				local name = item.itemType:lower()
-				if name:find("iron") then
-					res.iron += item.amount or 0
-				elseif name:find("diamond") then
-					res.diamond += item.amount or 0
-				elseif name:find("emerald") then
-					res.emerald += item.amount or 0
-				end
-			end
-		end
-		return res
-	end
-	
-	local function createESP(ent)
-		if Reference[ent] then return end
-		
-		local billboard = Instance.new("BillboardGui")
-		billboard.Name = "ResourceESP"
-		billboard.Adornee = ent.RootPart
-		billboard.AlwaysOnTop = true
-		billboard.Size = UDim2.new(0, 190, 0, 85)
-		billboard.StudsOffset = Vector3.new(0, YOffset.Value, 0)
-		billboard.Parent = vape.gui
-		
-		local mainFrame = Instance.new("Frame")
-		mainFrame.Size = UDim2.new(1, 0, 1, 0)
-		mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-		mainFrame.BackgroundTransparency = BackgroundTransparency.Value
-		mainFrame.BorderSizePixel = 0
-		mainFrame.Parent = billboard
-		
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0, 10)
-		corner.Parent = mainFrame
-		
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(50, 50, 50)
-		stroke.Thickness = 1.2
-		stroke.Parent = mainFrame
-		
-		local layout = Instance.new("UIListLayout")
-		layout.Padding = UDim.new(0, 6)  -- 重なり防止のためPaddingを増やした
-		layout.SortOrder = Enum.SortOrder.LayoutOrder
-		layout.Parent = mainFrame
-		
-		Reference[ent] = {
-			Billboard = billboard,
-			Frame = mainFrame
-		}
-	end
-	
-	local function updateESP(ent)
-		local ref = Reference[ent]
-		if not ref then return end
-		
-		local resources = getPlayerResources(ent.Player)
-		local distance = (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude
-		
-		if Distance.Value > 0 and distance > Distance.Value then
-			ref.Billboard.Enabled = false
-			return
-		end
-		
-		ref.Billboard.Enabled = true
-		
-		-- 既存の子をクリア（タイトル以外）
-		for _, child in ipairs(ref.Frame:GetChildren()) do
-			if child:IsA("Frame") then
-				child:Destroy()
-			end
-		end
-		
-		local rowHeight = 24 * Scale.Value
-		
-		-- Iron
-		if ShowIron.Enabled and resources.iron > 0 then
-			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, rowHeight)
-			row.BackgroundTransparency = 1
-			row.Parent = ref.Frame
-			
-			local icon = Instance.new("ImageLabel")
-			icon.Size = UDim2.new(0, 20, 0, 20)
-			icon.Position = UDim2.new(0, 10, 0.5, -10)
-			icon.BackgroundTransparency = 1
-			icon.Image = bedwars.getIcon({itemType = "iron"}, true)
-			icon.Parent = row
-			
-			local label = Instance.new("TextLabel")
-			label.Text = "Iron × " .. resources.iron
-			label.Position = UDim2.new(0, 38, 0, 0)
-			label.Size = UDim2.new(1, -50, 1, 0)
-			label.BackgroundTransparency = 1
-			label.TextColor3 = Color3.fromHSV(IronColor.Hue, IronColor.Sat, IronColor.Value)
-			label.TextXAlignment = Enum.TextXAlignment.Left
-			label.Font = Enum.Font[Font.Value]
-			label.TextSize = 15 * Scale.Value
-			label.TextTransparency = TextTransparency.Value
-			label.Parent = row
-		end
-		
-		-- Diamond
-		if ShowDiamond.Enabled and resources.diamond > 0 then
-			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, rowHeight)
-			row.BackgroundTransparency = 1
-			row.Parent = ref.Frame
-			
-			local icon = Instance.new("ImageLabel")
-			icon.Size = UDim2.new(0, 20, 0, 20)
-			icon.Position = UDim2.new(0, 10, 0.5, -10)
-			icon.BackgroundTransparency = 1
-			icon.Image = bedwars.getIcon({itemType = "diamond"}, true)
-			icon.Parent = row
-			
-			local label = Instance.new("TextLabel")
-			label.Text = "Diamond × " .. resources.diamond
-			label.Position = UDim2.new(0, 38, 0, 0)
-			label.Size = UDim2.new(1, -50, 1, 0)
-			label.BackgroundTransparency = 1
-			label.TextColor3 = Color3.fromHSV(DiamondColor.Hue, DiamondColor.Sat, DiamondColor.Value)
-			label.TextXAlignment = Enum.TextXAlignment.Left
-			label.Font = Enum.Font[Font.Value]
-			label.TextSize = 15 * Scale.Value
-			label.TextTransparency = TextTransparency.Value
-			label.Parent = row
-		end
-		
-		-- Emerald
-		if ShowEmerald.Enabled and resources.emerald > 0 then
-			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, rowHeight)
-			row.BackgroundTransparency = 1
-			row.Parent = ref.Frame
-			
-			local icon = Instance.new("ImageLabel")
-			icon.Size = UDim2.new(0, 20, 0, 20)
-			icon.Position = UDim2.new(0, 10, 0.5, -10)
-			icon.BackgroundTransparency = 1
-			icon.Image = bedwars.getIcon({itemType = "emerald"}, true)
-			icon.Parent = row
-			
-			local label = Instance.new("TextLabel")
-			label.Text = "Emerald × " .. resources.emerald
-			label.Position = UDim2.new(0, 38, 0, 0)
-			label.Size = UDim2.new(1, -50, 1, 0)
-			label.BackgroundTransparency = 1
-			label.TextColor3 = Color3.fromHSV(EmeraldColor.Hue, EmeraldColor.Sat, EmeraldColor.Value)
-			label.TextXAlignment = Enum.TextXAlignment.Left
-			label.Font = Enum.Font[Font.Value]
-			label.TextSize = 15 * Scale.Value
-			label.TextTransparency = TextTransparency.Value
-			label.Parent = row
-		end
-	end
-	
-	-- ==================== モジュール ====================
-	ResourceESP = vape.Categories.Render:CreateModule({
-		Name = 'ResourceESP',
+	PlaceReach = vape.Categories.Blatant:CreateModule({
+		Name = "Place Reach",
 		Function = function(callback)
 			if callback then
-				for _, ent in ipairs(entitylib.List) do
-					if ent.Player then createESP(ent) end
+				if not oldPlaceBlock then
+					oldPlaceBlock = bedwars.placeBlock
 				end
 				
-				connection = runService.Heartbeat:Connect(function()
-					for _, ent in ipairs(entitylib.List) do
-						if ent.Player and ent.RootPart then
-							if not Reference[ent] then createESP(ent) end
-							updateESP(ent)
+				bedwars.placeBlock = function(pos, item)
+					if not PlaceReach.Enabled then 
+						return oldPlaceBlock(pos, item) 
+					end
+					
+					local localPos = entitylib.isAlive and entitylib.character.RootPart.Position or Vector3.zero
+					local distance = (localPos - pos).Magnitude
+					
+					-- Basic distance check
+					if distance > ReachValue.Value + 3 then
+						if Mode.Value == "Extend" then
+							-- Still allow extended placement
+						else
+							return false
 						end
 					end
-				end)
-			else
-				if connection then connection:Disconnect() end
-				for _, ref in pairs(Reference) do
-					if ref.Billboard then ref.Billboard:Destroy() end
+					
+					-- WallCheck
+					if WallCheck.Enabled and entitylib.isAlive then
+						local rayParams = RaycastParams.new()
+						rayParams.FilterDescendantsInstances = {lplr.Character, gameCamera}
+						rayParams.FilterType = Enum.RaycastFilterType.Exclude
+						rayParams.IgnoreWater = true
+						
+						local direction = (pos - localPos)
+						local ray = workspace:Raycast(localPos, direction, rayParams)
+						
+						if ray and ray.Instance and (ray.Position - localPos).Magnitude < distance - 3 then
+							-- Wall detected between player and target position
+							return false
+						end
+					end
+					
+					-- Smooth Placement
+					if Mode.Value == "Smooth" and SmoothPlacement.Enabled and entitylib.isAlive then
+						local direction = (pos - localPos).Unit
+						local safePos = localPos + direction * math.min(ReachValue.Value - 6, distance - 6)
+						
+						if (safePos - localPos).Magnitude > 2 then
+							entitylib.character.RootPart.CFrame = CFrame.lookAt(safePos, pos)
+							task.wait(0.025)
+						end
+					end
+					
+					return oldPlaceBlock(pos, item)
 				end
-				table.clear(Reference)
+				
+			else
+				if oldPlaceBlock then
+					bedwars.placeBlock = oldPlaceBlock
+				end
 			end
 		end,
-		Tooltip = 'Shows players resources with clean UI'
+		Tooltip = "Extends block placement reach with wall check"
 	})
 	
-	Distance = ResourceESP:CreateSlider({ Name = 'Distance', Min = 0, Max = 300, Default = 180, Suffix = 'studs' })
-	Scale = ResourceESP:CreateSlider({ Name = 'Scale', Min = 0.7, Max = 1.6, Default = 1.05, Decimal = 10 })
-	YOffset = ResourceESP:CreateSlider({ Name = 'Y Offset', Min = -8, Max = 25, Default = 5, Suffix = 'studs' })
+	-- ==================== Settings ====================
 	
-	Font = ResourceESP:CreateDropdown({
-		Name = 'Font',
-		List = {'GothamBold', 'GothamSemibold', 'SourceSansBold', 'Roboto'},
-		Default = 'GothamBold'
+	ReachValue = PlaceReach:CreateSlider({
+		Name = "Place Range",
+		Min = 10,
+		Max = 50,
+		Default = 28,
+		Suffix = function(val)
+			return val == 1 and "stud" or "studs"
+		end
 	})
 	
-	BackgroundTransparency = ResourceESP:CreateSlider({
-		Name = 'Background Transparency',
-		Min = 0,
-		Max = 1,
-		Default = 0.35,
-		Decimal = 100
+	WallCheck = PlaceReach:CreateToggle({
+		Name = "Wall Check",
+		Default = true,
+		Tooltip = "Prevents placing through walls"
 	})
 	
-	TextTransparency = ResourceESP:CreateSlider({
-		Name = 'Text Transparency',
-		Min = 0,
-		Max = 1,
-		Default = 0,
-		Decimal = 100
+	Mode = PlaceReach:CreateDropdown({
+		Name = "Mode",
+		List = {"Extend", "Smooth"},
+		Default = "Extend",
+		Tooltip = "Extend = Place at full range\nSmooth = Move slightly before placing"
 	})
 	
-	ShowIron = ResourceESP:CreateToggle({ Name = 'Show Iron', Default = true })
-	ShowDiamond = ResourceESP:CreateToggle({ Name = 'Show Diamond', Default = true })
-	ShowEmerald = ResourceESP:CreateToggle({ Name = 'Show Emerald', Default = true })
+	SmoothPlacement = PlaceReach:CreateToggle({
+		Name = "Smooth Placement",
+		Default = true,
+		Tooltip = "Slightly move before placing (more legit)"
+	})
 	
-	IronColor = ResourceESP:CreateColorSlider({ Name = 'Iron Color', DefaultHue = 0.08 })
-	DiamondColor = ResourceESP:CreateColorSlider({ Name = 'Diamond Color', DefaultHue = 0.58 })
-	EmeraldColor = ResourceESP:CreateColorSlider({ Name = 'Emerald Color', DefaultHue = 0.32 })
+	-- Cleanup
+	PlaceReach:Clean(function()
+		if oldPlaceBlock then
+			bedwars.placeBlock = oldPlaceBlock
+		end
+	end)
 end)
