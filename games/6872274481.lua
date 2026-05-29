@@ -15801,13 +15801,10 @@ run(function()
         Name = 'Desync Hitbox',
         Function = function(callback)
             if callback then
-				entitylib.Events.EntityAdded:Connect(function(ent)
-				        if ent == entitylib.LocalEntity then
-                        task.wait(0.5)
-                        startDesync()
-                    end
-                task.spawn(startDesync)
-				end)
+                local ent = entitylib.LocalEntity
+                if ent and ent.RootPart then
+                    startDesync()
+                end
             else
                 stopDesync()
             end
@@ -15817,25 +15814,34 @@ run(function()
 
     local heartbeatConn = nil
     local originalCFrame = nil
+    local isDesyncing = false
 
     local function startDesync()
+        if isDesyncing then return end
+        
         local ent = entitylib.LocalEntity
         if not ent or not ent.RootPart then return end
         
+        isDesyncing = true
         local root = ent.RootPart
         originalCFrame = root.CFrame
 
+        if heartbeatConn then
+            heartbeatConn:Disconnect()
+        end
+
         heartbeatConn = game:GetService("RunService").Heartbeat:Connect(function()
-            if not DesyncHitbox.Enabled or not root then return end
+            if not DesyncHitbox.Enabled or not root or not root.Parent then
+                stopDesync()
+                return
+            end
             
             local realCF = root.CFrame
-            
             local fakeCF = realCF 
                 * CFrame.new(0, -Offset.Value, 0) 
                 * CFrame.Angles(0, math.rad(Angle.Value), 0)
 
             root.CFrame = fakeCF
-
             game:GetService("RunService").RenderStepped:Wait()
             root.CFrame = realCF
         end)
@@ -15846,6 +15852,8 @@ run(function()
             heartbeatConn:Disconnect()
             heartbeatConn = nil
         end
+        
+        isDesyncing = false
         
         if originalCFrame and entitylib.LocalEntity and entitylib.LocalEntity.RootPart then
             entitylib.LocalEntity.RootPart.CFrame = originalCFrame
@@ -15930,6 +15938,7 @@ run(function()
 
     local heartbeatConn = nil
     local lastTriggerTime = 0
+    local pendingTask = nil
 
     local function startDesyncFakelag()
         local ent = entitylib.LocalEntity
@@ -15941,56 +15950,72 @@ run(function()
             if not DesyncFakelag.Enabled or not root or not root.Parent then return end
 
             local now = tick()
-            if now - lastTriggerTime < 0.05 then return end -- 過剰実行防止
+            if now - lastTriggerTime < 0.05 then return end
 
             local vel = root.AssemblyLinearVelocity
             local isMoving = vel.Magnitude > 2
 
             if OnlyMoving.Enabled and not isMoving then return end
 
-            -- Chance判定
             if math.random(1, 100) > Chance.Value then return end
 
+            -- 前のタスクをキャンセル
+            if pendingTask then
+                task.cancel(pendingTask)
+                pendingTask = nil
+            end
+
             lastTriggerTime = now
-            local waitDuration = WaitTime.GetRandomValue() / 1000
+            local waitDuration = (WaitTime:GetRandomValue() or 75) / 1000
             local realCF = root.CFrame
             local realVel = vel
+            local mode = Mode.Value
 
-            if Mode.Value == 'Basic' then
+            if mode == 'Basic' then
                 root.AssemblyLinearVelocity = Vector3.zero
-                task.delay(waitDuration, function()
+                pendingTask = task.delay(waitDuration, function()
                     if root and root.Parent then
-                        root.AssemblyLinearVelocity = realVel * (Strength.Value / 100)
+                        pcall(function()
+                            root.AssemblyLinearVelocity = realVel * math.max(0.1, Strength.Value / 100)
+                        end)
                     end
                 end)
 
-            elseif Mode.Value == 'Advanced' then
-                -- Desync + Fakelag
+            elseif mode == 'Advanced' then
                 local fakeCF = realCF 
-                    * CFrame.new(0, -Offset.Value, 0) 
-                    * CFrame.Angles(0, math.rad(Angle.Value), 0)
+                    * CFrame.new(0, -math.clamp(Offset.Value, 0.1, 3.0), 0) 
+                    * CFrame.Angles(0, math.rad(math.clamp(Angle.Value, 0, 40)), 0)
 
-                root.CFrame = fakeCF
-                root.AssemblyLinearVelocity = Vector3.zero
+                pcall(function()
+                    root.CFrame = fakeCF
+                    root.AssemblyLinearVelocity = Vector3.zero
+                end)
 
-                task.delay(waitDuration, function()
+                pendingTask = task.delay(waitDuration, function()
                     if root and root.Parent then
-                        root.CFrame = realCF
-                        root.AssemblyLinearVelocity = realVel * (Strength.Value / 100)
+                        pcall(function()
+                            root.CFrame = realCF
+                            root.AssemblyLinearVelocity = realVel * math.max(0.1, Strength.Value / 100)
+                        end)
                     end
                 end)
 
-            elseif Mode.Value == 'Random' then
-                local intensity = Strength.Value / 100
-                root.AssemblyLinearVelocity = Vector3.new(
-                    realVel.X * (1 - math.random() * intensity),
-                    realVel.Y,
-                    realVel.Z * (1 - math.random() * intensity)
-                )
+            elseif mode == 'Random' then
+                local intensity = math.clamp(Strength.Value / 100, 0.1, 3)
+                pcall(function()
+                    root.AssemblyLinearVelocity = Vector3.new(
+                        realVel.X * (1 - math.random() * intensity),
+                        realVel.Y,
+                        realVel.Z * (1 - math.random() * intensity)
+                    )
+                end)
                 
-                task.delay(waitDuration * math.random(0.6, 1.4), function()
+                local randomWait = waitDuration * math.random(6, 14) / 10
+                pendingTask = task.delay(randomWait, function()
                     if root and root.Parent then
-                        root.AssemblyLinearVelocity = realVel
+                        pcall(function()
+                            root.AssemblyLinearVelocity = realVel
+                        end)
                     end
                 end)
             end
@@ -15998,6 +16023,10 @@ run(function()
     end
 
     local function stopDesyncFakelag()
+        if pendingTask then
+            task.cancel(pendingTask)
+            pendingTask = nil
+        end
         if heartbeatConn then
             heartbeatConn:Disconnect()
             heartbeatConn = nil
