@@ -16037,73 +16037,65 @@ run(function()
 	local PlaceReach
 	local ReachValue
 	local Mode
-	local WallCheck
 	local SmoothPlacement
 	
-	local oldPlaceBlock = nil
+	local oldPlaceBlockFunc = nil
+	local blockPlacer = nil
 	
 	PlaceReach = vape.Categories.Blatant:CreateModule({
 		Name = "Place Reach",
 		Function = function(callback)
 			if callback then
-				-- 初回のみ元の関数を保存
-				if not oldPlaceBlock then
-					oldPlaceBlock = bedwars.placeBlock
+				-- BlockPlacerを取得
+				if not blockPlacer then
+					blockPlacer = store.blockPlacer or bedwars.BlockPlacer.new(bedwars.BlockEngine, 'wool_white')
 				end
 				
-				-- placeBlockを直接フック
-				bedwars.placeBlock = function(pos, item)
-					if not PlaceReach.Enabled then
-						return oldPlaceBlock(pos, item)
-					end
-					
-					local character = entitylib.character
-					if not character or not character.RootPart then
-						return oldPlaceBlock(pos, item)
-					end
-					
-					local localPos = character.RootPart.Position
-					local distance = (localPos - pos).Magnitude
-					
-					-- WallCheck
-					if WallCheck.Enabled then
-						local rayParams = RaycastParams.new()
-						rayParams.FilterDescendantsInstances = {lplr.Character, gameCamera}
-						rayParams.FilterType = Enum.RaycastFilterType.Exclude
-						rayParams.IgnoreWater = true
-						
-						local ray = workspace:Raycast(localPos, (pos - localPos), rayParams)
-						
-						if ray and (ray.Position - localPos).Magnitude < distance - 4 then
-							return false -- 壁がある場合は置かない
+				if not oldPlaceBlockFunc and blockPlacer then
+					oldPlaceBlockFunc = blockPlacer.placeBlock
+				end
+				
+				if blockPlacer and oldPlaceBlockFunc then
+					blockPlacer.placeBlock = function(self, blockPosition)
+						if not PlaceReach.Enabled then
+							return oldPlaceBlockFunc(self, blockPosition)
 						end
-					end
-					
-					-- Reach超過時でもExtendモードなら強制的に置く
-					if distance > ReachValue.Value + 3 and Mode.Value == "Smooth" then
-						if SmoothPlacement.Enabled then
-							local direction = (pos - localPos).Unit
-							local safePos = localPos + direction * (ReachValue.Value - 5)
-							
-							character.RootPart.CFrame = CFrame.lookAt(safePos, pos)
-							task.wait(0.025)
-						else
-							return false
+						
+						local character = entitylib.character
+						if not character or not character.RootPart then
+							return oldPlaceBlockFunc(self, blockPosition)
 						end
+						
+						local localPos = character.RootPart.Position
+						local targetPos = blockPosition * 3  -- ブロック座標 → ワールド座標
+						local distance = (localPos - targetPos).Magnitude
+						
+						-- Reachを超えていてもExtendモードなら置く
+						if distance > ReachValue.Value + 4 and Mode.Value == "Smooth" then
+							if SmoothPlacement.Enabled then
+								local direction = (targetPos - localPos).Unit
+								local safePos = localPos + direction * (ReachValue.Value - 6)
+								
+								character.RootPart.CFrame = CFrame.lookAt(safePos, targetPos)
+								task.wait(0.025)
+							else
+								return false
+							end
+						end
+						
+						-- 最終的に元のplaceBlockを呼ぶ
+						return oldPlaceBlockFunc(self, blockPosition)
 					end
-					
-					-- 最終的に元の関数を呼ぶ
-					return oldPlaceBlock(pos, item)
 				end
 				
 			else
-				-- 元の関数に戻す
-				if oldPlaceBlock then
-					bedwars.placeBlock = oldPlaceBlock
+				-- 元に戻す
+				if blockPlacer and oldPlaceBlockFunc then
+					blockPlacer.placeBlock = oldPlaceBlockFunc
 				end
 			end
 		end,
-		Tooltip = "Extends block placement reach by hooking bedwars.placeBlock directly"
+		Tooltip = "Deep hook into BlockPlacer.placeBlock to extend placement reach"
 	})
 	
 	-- ==================== Settings ====================
@@ -16111,14 +16103,11 @@ run(function()
 	ReachValue = PlaceReach:CreateSlider({
 		Name = "Place Range",
 		Min = 10,
-		Max = 50,
-		Default = 30,
-		Suffix = function(val) return val == 1 and "stud" or "studs" end
-	})
-	
-	WallCheck = PlaceReach:CreateToggle({
-		Name = "Wall Check",
-		Default = true
+		Max = 60,
+		Default = 35,
+		Suffix = function(val)
+			return val == 1 and "stud" or "studs"
+		end
 	})
 	
 	Mode = PlaceReach:CreateDropdown({
@@ -16134,8 +16123,8 @@ run(function()
 	
 	-- Cleanup
 	PlaceReach:Clean(function()
-		if oldPlaceBlock then
-			bedwars.placeBlock = oldPlaceBlock
+		if blockPlacer and oldPlaceBlockFunc then
+			blockPlacer.placeBlock = oldPlaceBlockFunc
 		end
 	end)
 end)
