@@ -16038,14 +16038,12 @@ run(function()
 	local Distance
 	local Scale
 	local Font
-	local DiamondColor
-	local EmeraldColor
-	local IronColor
-	local Offset
-	local ShowIron
-	local ShowDiamond
-	local ShowEmerald
+	local BackgroundTransparency
 	local TextTransparency
+	local YOffset
+	
+	local ShowIron, ShowDiamond, ShowEmerald
+	local IronColor, DiamondColor, EmeraldColor
 	
 	local Reference = {}
 	local connection
@@ -16053,12 +16051,12 @@ run(function()
 	local function getPlayerResources(plr)
 		if not plr then return {iron = 0, diamond = 0, emerald = 0} end
 		
-		-- vapeのstoreから優先的に取得
+		local res = {iron = 0, diamond = 0, emerald = 0}
 		local inv = store.inventories[plr]
+		
 		if inv and inv.inventory and inv.inventory.items then
-			local res = {iron = 0, diamond = 0, emerald = 0}
 			for _, item in ipairs(inv.inventory.items) do
-				local name = item.itemType
+				local name = item.itemType:lower()
 				if name:find("iron") then
 					res.iron += item.amount or 0
 				elseif name:find("diamond") then
@@ -16067,31 +16065,8 @@ run(function()
 					res.emerald += item.amount or 0
 				end
 			end
-			return res
 		end
-		
-		-- ReplicatedStorageから直接取得（フォールバック）
-		local suc, invFolder = pcall(function()
-			return replicatedStorage.Inventories:FindFirstChild(plr.Name)
-		end)
-		
-		if suc and invFolder then
-			local res = {iron = 0, diamond = 0, emerald = 0}
-			for _, child in ipairs(invFolder:GetChildren()) do
-				local amount = child:GetAttribute("Amount") or 0
-				local name = child.Name:lower()
-				if name:find("iron") then
-					res.iron += amount
-				elseif name:find("diamond") then
-					res.diamond += amount
-				elseif name:find("emerald") then
-					res.emerald += amount
-				end
-			end
-			return res
-		end
-		
-		return {iron = 0, diamond = 0, emerald = 0}
+		return res
 	end
 	
 	local function createESP(ent)
@@ -16101,29 +16076,40 @@ run(function()
 		billboard.Name = "ResourceESP"
 		billboard.Adornee = ent.RootPart
 		billboard.AlwaysOnTop = true
-		billboard.Size = UDim2.new(0, 180, 0, 60)
-		billboard.StudsOffset = Vector3.new(0, 3, 0)
+		billboard.Size = UDim2.new(0, 190, 0, 85)
+		billboard.StudsOffset = Vector3.new(0, YOffset.Value, 0)
 		billboard.Parent = vape.gui
 		
-		local frame = Instance.new("Frame")
-		frame.Size = UDim2.new(1, 0, 1, 0)
-		frame.BackgroundTransparency = 1
-		frame.Parent = billboard
+		local mainFrame = Instance.new("Frame")
+		mainFrame.Size = UDim2.new(1, 0, 1, 0)
+		mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+		mainFrame.BackgroundTransparency = BackgroundTransparency.Value
+		mainFrame.BorderSizePixel = 0
+		mainFrame.Parent = billboard
+		
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 10)
+		corner.Parent = mainFrame
+		
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(50, 50, 50)
+		stroke.Thickness = 1.2
+		stroke.Parent = mainFrame
 		
 		local layout = Instance.new("UIListLayout")
-		layout.FillDirection = Enum.FillDirection.Vertical
-		layout.Padding = UDim.new(0, 2)
-		layout.Parent = frame
+		layout.Padding = UDim.new(0, 6)  -- 重なり防止のためPaddingを増やした
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Parent = mainFrame
 		
 		Reference[ent] = {
 			Billboard = billboard,
-			Frame = frame
+			Frame = mainFrame
 		}
 	end
 	
 	local function updateESP(ent)
 		local ref = Reference[ent]
-		if not ref or not ref.Frame then return end
+		if not ref then return end
 		
 		local resources = getPlayerResources(ent.Player)
 		local distance = (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude
@@ -16135,150 +16121,156 @@ run(function()
 		
 		ref.Billboard.Enabled = true
 		
-		ref.Frame:ClearAllChildren()
+		-- 既存の子をクリア（タイトル以外）
+		for _, child in ipairs(ref.Frame:GetChildren()) do
+			if child:IsA("Frame") then
+				child:Destroy()
+			end
+		end
 		
-		local texts = {}
+		local rowHeight = 24 * Scale.Value
 		
+		-- Iron
 		if ShowIron.Enabled and resources.iron > 0 then
+			local row = Instance.new("Frame")
+			row.Size = UDim2.new(1, 0, 0, rowHeight)
+			row.BackgroundTransparency = 1
+			row.Parent = ref.Frame
+			
+			local icon = Instance.new("ImageLabel")
+			icon.Size = UDim2.new(0, 20, 0, 20)
+			icon.Position = UDim2.new(0, 10, 0.5, -10)
+			icon.BackgroundTransparency = 1
+			icon.Image = bedwars.getIcon({itemType = "iron"}, true)
+			icon.Parent = row
+			
 			local label = Instance.new("TextLabel")
-			label.Text = "Iron: " .. resources.iron
+			label.Text = "Iron × " .. resources.iron
+			label.Position = UDim2.new(0, 38, 0, 0)
+			label.Size = UDim2.new(1, -50, 1, 0)
+			label.BackgroundTransparency = 1
 			label.TextColor3 = Color3.fromHSV(IronColor.Hue, IronColor.Sat, IronColor.Value)
-			label.TextTransparency = TextTransparency.Value
-			label.BackgroundTransparency = 1
+			label.TextXAlignment = Enum.TextXAlignment.Left
 			label.Font = Enum.Font[Font.Value]
-			label.TextSize = 14 * Scale.Value
-			label.Size = UDim2.new(1, 0, 0, 18 * Scale.Value)
-			label.Parent = ref.Frame
+			label.TextSize = 15 * Scale.Value
+			label.TextTransparency = TextTransparency.Value
+			label.Parent = row
 		end
 		
+		-- Diamond
 		if ShowDiamond.Enabled and resources.diamond > 0 then
+			local row = Instance.new("Frame")
+			row.Size = UDim2.new(1, 0, 0, rowHeight)
+			row.BackgroundTransparency = 1
+			row.Parent = ref.Frame
+			
+			local icon = Instance.new("ImageLabel")
+			icon.Size = UDim2.new(0, 20, 0, 20)
+			icon.Position = UDim2.new(0, 10, 0.5, -10)
+			icon.BackgroundTransparency = 1
+			icon.Image = bedwars.getIcon({itemType = "diamond"}, true)
+			icon.Parent = row
+			
 			local label = Instance.new("TextLabel")
-			label.Text = "Diamond: " .. resources.diamond
-			label.TextColor3 = Color3.fromHSV(DiamondColor.Hue, DiamondColor.Sat, DiamondColor.Value)
-			label.TextTransparency = TextTransparency.Value
+			label.Text = "Diamond × " .. resources.diamond
+			label.Position = UDim2.new(0, 38, 0, 0)
+			label.Size = UDim2.new(1, -50, 1, 0)
 			label.BackgroundTransparency = 1
+			label.TextColor3 = Color3.fromHSV(DiamondColor.Hue, DiamondColor.Sat, DiamondColor.Value)
+			label.TextXAlignment = Enum.TextXAlignment.Left
 			label.Font = Enum.Font[Font.Value]
-			label.TextSize = 14 * Scale.Value
-			label.Size = UDim2.new(1, 0, 0, 18 * Scale.Value)
-			label.Parent = ref.Frame
+			label.TextSize = 15 * Scale.Value
+			label.TextTransparency = TextTransparency.Value
+			label.Parent = row
 		end
 		
+		-- Emerald
 		if ShowEmerald.Enabled and resources.emerald > 0 then
+			local row = Instance.new("Frame")
+			row.Size = UDim2.new(1, 0, 0, rowHeight)
+			row.BackgroundTransparency = 1
+			row.Parent = ref.Frame
+			
+			local icon = Instance.new("ImageLabel")
+			icon.Size = UDim2.new(0, 20, 0, 20)
+			icon.Position = UDim2.new(0, 10, 0.5, -10)
+			icon.BackgroundTransparency = 1
+			icon.Image = bedwars.getIcon({itemType = "emerald"}, true)
+			icon.Parent = row
+			
 			local label = Instance.new("TextLabel")
-			label.Text = "Emerald: " .. resources.emerald
-			label.TextColor3 = Color3.fromHSV(EmeraldColor.Hue, EmeraldColor.Sat, EmeraldColor.Value)
-			label.TextTransparency = TextTransparency.Value
+			label.Text = "Emerald × " .. resources.emerald
+			label.Position = UDim2.new(0, 38, 0, 0)
+			label.Size = UDim2.new(1, -50, 1, 0)
 			label.BackgroundTransparency = 1
+			label.TextColor3 = Color3.fromHSV(EmeraldColor.Hue, EmeraldColor.Sat, EmeraldColor.Value)
+			label.TextXAlignment = Enum.TextXAlignment.Left
 			label.Font = Enum.Font[Font.Value]
-			label.TextSize = 14 * Scale.Value
-			label.Size = UDim2.new(1, 0, 0, 18 * Scale.Value)
-			label.Parent = ref.Frame
+			label.TextSize = 15 * Scale.Value
+			label.TextTransparency = TextTransparency.Value
+			label.Parent = row
 		end
 	end
 	
+	-- ==================== モジュール ====================
 	ResourceESP = vape.Categories.Render:CreateModule({
 		Name = 'ResourceESP',
 		Function = function(callback)
 			if callback then
-				
 				for _, ent in ipairs(entitylib.List) do
-					if ent.Player then
-						createESP(ent)
-					end
+					if ent.Player then createESP(ent) end
 				end
 				
 				connection = runService.Heartbeat:Connect(function()
 					for _, ent in ipairs(entitylib.List) do
 						if ent.Player and ent.RootPart then
-							if not Reference[ent] then
-								createESP(ent)
-							end
+							if not Reference[ent] then createESP(ent) end
 							updateESP(ent)
 						end
 					end
 				end)
 			else
-				if connection then
-					connection:Disconnect()
-					connection = nil
-				end
-				
+				if connection then connection:Disconnect() end
 				for _, ref in pairs(Reference) do
-					if ref.Billboard then
-						ref.Billboard:Destroy()
-					end
+					if ref.Billboard then ref.Billboard:Destroy() end
 				end
 				table.clear(Reference)
 			end
 		end,
-		Tooltip = 'Shows players current Iron, Diamond, and Emerald count'
+		Tooltip = 'Shows players resources with clean UI'
 	})
 	
-	Distance = ResourceESP:CreateSlider({
-		Name = 'Distance',
-		Min = 0,
-		Max = 300,
-		Default = 150,
-		Suffix = 'studs'
-	})
-	
-	Scale = ResourceESP:CreateSlider({
-		Name = 'Scale',
-		Min = 0.5,
-		Max = 2,
-		Default = 1,
-		Decimal = 10
-	})
+	Distance = ResourceESP:CreateSlider({ Name = 'Distance', Min = 0, Max = 300, Default = 180, Suffix = 'studs' })
+	Scale = ResourceESP:CreateSlider({ Name = 'Scale', Min = 0.7, Max = 1.6, Default = 1.05, Decimal = 10 })
+	YOffset = ResourceESP:CreateSlider({ Name = 'Y Offset', Min = -8, Max = 25, Default = 5, Suffix = 'studs' })
 	
 	Font = ResourceESP:CreateDropdown({
 		Name = 'Font',
-		List = {'Gotham', 'GothamBold', 'GothamSemibold', 'SourceSans', 'SourceSansBold'},
+		List = {'GothamBold', 'GothamSemibold', 'SourceSansBold', 'Roboto'},
 		Default = 'GothamBold'
 	})
 	
-	Offset = ResourceESP:CreateSlider({
-		Name = 'Y Offset',
-		Min = -10,
-		Max = 15,
-		Default = 3,
-		Suffix = 'studs'
+	BackgroundTransparency = ResourceESP:CreateSlider({
+		Name = 'Background Transparency',
+		Min = 0,
+		Max = 1,
+		Default = 0.35,
+		Decimal = 100
 	})
 	
 	TextTransparency = ResourceESP:CreateSlider({
-		Name = 'Transparency',
+		Name = 'Text Transparency',
 		Min = 0,
 		Max = 1,
 		Default = 0,
 		Decimal = 100
 	})
 	
-	ShowIron = ResourceESP:CreateToggle({
-		Name = 'Show Iron',
-		Default = true
-	})
+	ShowIron = ResourceESP:CreateToggle({ Name = 'Show Iron', Default = true })
+	ShowDiamond = ResourceESP:CreateToggle({ Name = 'Show Diamond', Default = true })
+	ShowEmerald = ResourceESP:CreateToggle({ Name = 'Show Emerald', Default = true })
 	
-	ShowDiamond = ResourceESP:CreateToggle({
-		Name = 'Show Diamond',
-		Default = true
-	})
-	
-	ShowEmerald = ResourceESP:CreateToggle({
-		Name = 'Show Emerald',
-		Default = true
-	})
-	
-	DiamondColor = ResourceESP:CreateColorSlider({
-		Name = 'Diamond Color',
-		DefaultHue = 0.6
-	})
-	
-	EmeraldColor = ResourceESP:CreateColorSlider({
-		Name = 'Emerald Color',
-		DefaultHue = 0.3
-	})
-	
-	IronColor = ResourceESP:CreateColorSlider({
-		Name = 'Iron Color',
-		DefaultHue = 0
-	})
+	IronColor = ResourceESP:CreateColorSlider({ Name = 'Iron Color', DefaultHue = 0.08 })
+	DiamondColor = ResourceESP:CreateColorSlider({ Name = 'Diamond Color', DefaultHue = 0.58 })
+	EmeraldColor = ResourceESP:CreateColorSlider({ Name = 'Emerald Color', DefaultHue = 0.32 })
 end)
