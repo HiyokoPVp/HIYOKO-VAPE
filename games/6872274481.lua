@@ -15801,13 +15801,13 @@ run(function()
         Name = 'Desync Hitbox',
         Function = function(callback)
             if callback then
-                DesyncHitbox:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
-                    if ent == entitylib.LocalEntity then
+				entitylib.Events.EntityAdded:Connect(function(ent)
+				        if ent == entitylib.LocalEntity then
                         task.wait(0.5)
                         startDesync()
                     end
-                end))
                 task.spawn(startDesync)
+				end)
             else
                 stopDesync()
             end
@@ -15920,72 +15920,79 @@ run(function()
         Name = 'Fakelag',
         Function = function(callback)
             if callback then
-                task.spawn(startDesyncFakelag)
+                startDesyncFakelag()
             else
                 stopDesyncFakelag()
             end
         end,
-        Tooltip = 'Advanced Fakelag using desync hitbox method (harder to hit + lag effect)'
+        Tooltip = 'Advanced Fakelag + Desync Hitbox (hard to hit)'
     })
 
     local heartbeatConn = nil
-    local originalCFrame = nil
-    local lastApplyTime = 0
+    local lastTriggerTime = 0
 
     local function startDesyncFakelag()
         local ent = entitylib.LocalEntity
         if not ent or not ent.RootPart then return end
-        
+
         local root = ent.RootPart
-        originalCFrame = root.CFrame
 
         heartbeatConn = game:GetService("RunService").Heartbeat:Connect(function()
             if not DesyncFakelag.Enabled or not root or not root.Parent then return end
-            
+
             local now = tick()
+            if now - lastTriggerTime < 0.05 then return end -- 過剰実行防止
+
             local vel = root.AssemblyLinearVelocity
             local isMoving = vel.Magnitude > 2
 
-            if OnlyMoving.Enabled and not isMoving then
-                root.CFrame = originalCFrame or root.CFrame
-                return
-            end
+            if OnlyMoving.Enabled and not isMoving then return end
 
             -- Chance判定
-            if math.random(1, 100) > Chance.Value then
-                root.CFrame = originalCFrame or root.CFrame
-                return
-            end
+            if math.random(1, 100) > Chance.Value then return end
 
-            local realCF = root.CFrame
+            lastTriggerTime = now
             local waitDuration = WaitTime.GetRandomValue() / 1000
+            local realCF = root.CFrame
+            local realVel = vel
 
-            -- Mode別処理
             if Mode.Value == 'Basic' then
                 root.AssemblyLinearVelocity = Vector3.zero
-                task.wait(waitDuration)
-                root.AssemblyLinearVelocity = vel * (Strength.Value / 100)
+                task.delay(waitDuration, function()
+                    if root and root.Parent then
+                        root.AssemblyLinearVelocity = realVel * (Strength.Value / 100)
+                    end
+                end)
 
             elseif Mode.Value == 'Advanced' then
-                -- Desync Hitbox方式 + Fakelag
+                -- Desync + Fakelag
                 local fakeCF = realCF 
                     * CFrame.new(0, -Offset.Value, 0) 
                     * CFrame.Angles(0, math.rad(Angle.Value), 0)
 
                 root.CFrame = fakeCF
-                task.wait(waitDuration)
-                root.CFrame = realCF
-                root.AssemblyLinearVelocity = vel * (Strength.Value / 100)
+                root.AssemblyLinearVelocity = Vector3.zero
+
+                task.delay(waitDuration, function()
+                    if root and root.Parent then
+                        root.CFrame = realCF
+                        root.AssemblyLinearVelocity = realVel * (Strength.Value / 100)
+                    end
+                end)
 
             elseif Mode.Value == 'Random' then
                 local intensity = Strength.Value / 100
                 root.AssemblyLinearVelocity = Vector3.new(
-                    vel.X * (1 - math.random() * intensity),
-                    vel.Y,
-                    vel.Z * (1 - math.random() * intensity)
+                    realVel.X * (1 - math.random() * intensity),
+                    realVel.Y,
+                    realVel.Z * (1 - math.random() * intensity)
                 )
-                task.wait(waitDuration * math.random(0.6, 1.4))
-                root.CFrame = realCF
+                
+                task.delay(waitDuration * math.random(0.6, 1.4), function()
+                    if root and root.Parent then
+                        root.AssemblyLinearVelocity = realVel
+                    end
+                end)
             end
         end)
     end
@@ -15995,10 +16002,6 @@ run(function()
             heartbeatConn:Disconnect()
             heartbeatConn = nil
         end
-        
-        if originalCFrame and entitylib.LocalEntity and entitylib.LocalEntity.RootPart then
-            entitylib.LocalEntity.RootPart.CFrame = originalCFrame
-        end
     end
 
     -- ==================== Settings ====================
@@ -16007,7 +16010,6 @@ run(function()
         Name = 'Mode',
         List = {'Basic', 'Advanced', 'Random'},
         Default = 'Advanced',
-        Tooltip = 'Basic: Velocity choke\nAdvanced: Position + Velocity desync\nRandom: Variable intensity'
     })
 
     Strength = DesyncFakelag:CreateSlider({
@@ -16015,8 +16017,7 @@ run(function()
         Min = 10,
         Max = 300,
         Default = 120,
-        Suffix = '%',
-        Tooltip = 'Fakelag strength multiplier'
+        Suffix = '%'
     })
 
     WaitTime = DesyncFakelag:CreateTwoSlider({
@@ -16033,17 +16034,14 @@ run(function()
         Min = 10,
         Max = 100,
         Default = 85,
-        Suffix = '%',
-        Tooltip = 'How often the fakelag triggers'
+        Suffix = '%'
     })
 
     OnlyMoving = DesyncFakelag:CreateToggle({
         Name = 'Only When Moving',
-        Default = true,
-        Tooltip = 'Only activate when moving'
+        Default = true
     })
 
-    -- Desync Hitbox風の追加設定
     Offset = DesyncFakelag:CreateSlider({
         Name = 'Desync Offset',
         Min = 0.1,
