@@ -7960,7 +7960,7 @@ run(function()
 	end
 	
 	Breaker = vape.Categories.Minigames:CreateModule({
-		Name = 'Breaker',
+		Name = 'Nuker',
 		Function = function(callback)
 			if callback then
 				for _ = 1, 30 do
@@ -15871,4 +15871,46 @@ run(function()
         Function = function() end,
         Suffix = "°"
     })
+end)
+
+run(function()
+	local Lighting = game:GetService("Lighting")
+	local Fullbright
+
+	local function enableFullBright()
+	Lighting.Ambient = Color3.new(1, 1, 1)
+	Lighting.Brightness = 2
+	Lighting.ClockTime = 14
+	Lighting.FogEnd = 100000
+	Lighting.FogStart = 0
+	Lighting.GlobalShadows = false
+	
+	Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+	Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+	Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+	end
+
+	local function DisabledFullBright()
+	Lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
+	Lighting.Brightness = 1
+	Lighting.ClockTime = 14
+	Lighting.FogEnd = 100000
+	Lighting.FogStart = 0
+	Lighting.GlobalShadows = true
+	
+	Lighting.ColorShift_Bottom = Color3.new(0, 0, 0)
+	Lighting.ColorShift_Top = Color3.new(0, 0, 0)
+	Lighting.OutdoorAmbient = Color3.new(0.5, 0.5, 0.5)
+	end
+	
+	Fullbright = vape.Categories.Render:CreateModule({
+		Name = "FullBright",
+		Function = function(callback)
+			if callback then
+				enableFullBright()
+			else
+				DisabledFullBright()
+			end	
+		end	
+	})
 end)
