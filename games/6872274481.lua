@@ -16150,49 +16150,84 @@ run(function()
     local Camera = workspace.CurrentCamera
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
+    local UserInputService = game:GetService("UserInputService")
 
     -- Internal State
     local state = {
         lockedTarget = nil,
         lastTargetPos = Vector3.new(),
-        lastTick = tick()
+        lastTick = tick(),
+        randomGen = Random.new(),
+        renderConnection = nil
     }
 
     -- Helper: Weapon Check
     local function isHoldingWeapon()
-        if not entitylib.character then return false end
-        local tool = entitylib.character:FindFirstChildOfClass("Tool")
+        local char = entitylib.LocalEntity and entitylib.LocalEntity.Character
+        if not char then return false end
+        local tool = char:FindFirstChildOfClass("Tool")
         if tool then
-            return string.find(tool.Name:lower(), "sword") or tool.ToolTip == "Sword"
+            local name = tool.Name:lower()
+            return string.find(name, "sword") ~= nil or tool:FindFirstChild("Blade")
         end
         return false
     end
 
-    -- Helper: Smoothing (Reduced dampening for accuracy)
-    local function getSmoothFactor(speed, smooth)
+    -- Helper: Target Validation
+    local function isTargetStillValid(target, maxDistance)
+        if not target or not target.RootPart or not target.Parent then return false end
+        local char = entitylib.LocalEntity and entitylib.LocalEntity.Character
+        if not char or not char.RootPart then return false end
+        
+        local dist = (target.RootPart.Position - char.RootPart.Position).Magnitude
+        return dist <= maxDistance
+    end
+
+    -- Helper: Smoothing
+    local function getSmoothFactor(speed, smoothnessEnabled, smooth)
+        if not smoothnessEnabled then
+            return math.clamp(speed / 9, 0.1, 1.0)
+        end
         local raw = speed / 9 
-        local damp = 1 - ((smooth - 1) / 25) -- Much less dampening
+        local damp = 1 - ((smooth - 1) / 25)
         return math.clamp(raw * damp, 0.1, 1.0) 
     end
 
-    -- Helper: Target Validation
+    -- Helper: Click Aim Check
+    local function canClickAim(settings)
+        if not settings.ClickAim then return true end
+        
+        if type(bedwars) ~= "table" then return true end
+        
+        local sc = bedwars.SwordController
+        if not sc or type(sc) ~= "table" then return true end
+        
+        if not sc.lastAttack or type(sc.lastAttack) ~= "number" then return true end
+        
+        local serverTime = workspace:GetServerTimeNow()
+        if type(serverTime) ~= "number" then return true end
+        
+        return (serverTime - sc.lastAttack) <= 0.4
+    end
+
+    -- Helper: Get Target
     local function getTarget(settings)
-        if not entitylib.isAlive then return nil end
+        local localEnt = entitylib.LocalEntity
+        if not localEnt or not entitylib.isAlive then return nil end
         if not isHoldingWeapon() then return nil end
+
+        local char = localEnt.Character
+        if not char then return nil end
 
         if settings.ShopCheck then
             if LocalPlayer.PlayerGui:FindFirstChild("ItemShop") then return nil end
         end
 
-        if settings.ClickAim then
-            if bedwars and bedwars.SwordController then
-                local sc = bedwars.SwordController
-                if not sc or not sc.lastAttack or (workspace:GetServerTimeNow() - sc.lastAttack) > 0.4 then return nil end
-            end
-        end
+        if not canClickAim(settings) then return nil end
 
         local ent = nil
 
+        -- Priority lock check
         if settings.Priority and state.lockedTarget then
             if isTargetStillValid(state.lockedTarget, settings.Distance) then
                 return state.lockedTarget
@@ -16201,34 +16236,51 @@ run(function()
             end
         end
 
-        if settings.UseKillaura and store and store.KillauraTarget then
+        -- Killaura integration
+        if settings.UseKillaura and type(store) == "table" and store.KillauraTarget then
             local ka = store.KillauraTarget
-            if ka.RootPart and (ka.RootPart.Position - entitylib.character.RootPart.Position).Magnitude <= settings.Distance then
-                ent = ka
+            if ka and ka.RootPart then
+                local dist = (ka.RootPart.Position - char.RootPart.Position).Magnitude
+                if dist <= settings.Distance then
+                    ent = ka
+                end
             end
         end
 
+        -- Default targeting
         if not ent then
+            local sortFunc = nil
+            if type(sortmethods) == "table" and sortmethods[settings.Sort] then
+                sortFunc = sortmethods[settings.Sort]
+            end
+            
             ent = entitylib.EntityPosition({
                 Range = settings.Distance,
                 Part = 'RootPart',
                 Wallcheck = settings.Walls,
                 Players = settings.Players,
                 NPCs = settings.NPCs,
-                Sort = sortmethods[settings.Sort]
+                Sort = sortFunc
             })
         end
 
+        -- FOV check
         if ent and ent.RootPart then
-            local origin = Camera.CFrame.Position
-            local lookVec = Camera.CFrame.LookVector
-            local dirToTarget = (ent.RootPart.Position - origin).Unit
-            local angle = math.deg(math.acos(math.clamp(lookVec:Dot(dirToTarget), -1, 1)))
-            
-            if angle > settings.FOV then return nil end
+            pcall(function()
+                local origin = Camera.CFrame.Position
+                local lookVec = Camera.CFrame.LookVector
+                local dirToTarget = (ent.RootPart.Position - origin).Unit
+                local dotProd = math.clamp(lookVec:Dot(dirToTarget), -1, 1)
+                local angle = math.deg(math.acos(dotProd))
+                
+                if angle > settings.FOV then ent = nil end
+            end)
         end
 
-        if ent and settings.Priority then state.lockedTarget = ent end
+        if ent and settings.Priority then 
+            state.lockedTarget = ent 
+        end
+        
         return ent
     end
 
@@ -16236,40 +16288,52 @@ run(function()
         Name = "TrackingAssist",
         Function = function(callback)
             if callback then
+                -- Enable
                 state.lockedTarget = nil
                 state.lastTargetPos = Vector3.new()
                 state.lastTick = tick()
 
-                TrackingAssist:Clean(RunService.RenderStepped:Connect(function()
+                if state.renderConnection then
+                    state.renderConnection:Disconnect()
+                    state.renderConnection = nil
+                end
+
+                state.renderConnection = RunService.RenderStepped:Connect(function()
+                    -- Nil check for Enabled
+                    if not TrackingAssist or TrackingAssist.Enabled ~= true then return end
+
                     local settings = {
-                        PredictionEnabled = PredictionToggle.Enabled,
-                        PredictionAmount = PredictionSlider.Value,
-                        SmoothnessEnabled = SmoothnessToggle.Enabled,
-                        SmoothnessVal = SmoothnessSlider.Value,
-                        SpeedVal = SpeedSlider.Value,
-                        ShakeEnabled = ShakeToggle.Enabled,
-                        ShakeVal = ShakeSlider.Value,
-                        StrafeEnabled = StrafeToggle.Enabled,
-                        AimPart = PartDropdown.Value,
-                        FOV = FOVSlider.Value,
-                        Distance = DistanceSlider.Value,
-                        Priority = PriorityToggle.Enabled,
-                        Walls = Targets.Walls.Enabled,
-                        Players = Targets.Players.Enabled,
-                        NPCs = Targets.NPCs.Enabled,
-                        Sort = SortDropdown.Value,
-                        UseKillaura = KillauraToggle.Enabled,
-                        ClickAim = ClickAimToggle.Enabled,
-                        ShopCheck = ShopCheckToggle.Enabled
+                        PredictionEnabled = PredictionToggle and PredictionToggle.Enabled or false,
+                        PredictionAmount = PredictionSlider and PredictionSlider.Value or 60,
+                        SmoothnessEnabled = SmoothnessToggle and SmoothnessToggle.Enabled or false,
+                        SmoothnessVal = SmoothnessSlider and SmoothnessSlider.Value or 1,
+                        SpeedVal = SpeedSlider and SpeedSlider.Value or 12,
+                        ShakeEnabled = ShakeToggle and ShakeToggle.Enabled or false,
+                        ShakeVal = ShakeSlider and ShakeSlider.Value or 3,
+                        StrafeEnabled = StrafeToggle and StrafeToggle.Enabled or false,
+                        AimPart = PartDropdown and PartDropdown.Value or "Head",
+                        FOV = FOVSlider and FOVSlider.Value or 90,
+                        Distance = DistanceSlider and DistanceSlider.Value or 25,
+                        Priority = PriorityToggle and PriorityToggle.Enabled or false,
+                        Walls = Targets and Targets.Walls and Targets.Walls.Enabled or false,
+                        Players = Targets and Targets.Players and Targets.Players.Enabled or true,
+                        NPCs = Targets and Targets.NPCs and Targets.NPCs.Enabled or false,
+                        Sort = SortDropdown and SortDropdown.Value or "Distance",
+                        UseKillaura = KillauraToggle and KillauraToggle.Enabled or false,
+                        ClickAim = ClickAimToggle and ClickAimToggle.Enabled or true,
+                        ShopCheck = ShopCheckToggle and ShopCheckToggle.Enabled or false
                     }
 
-                    local dt = tick() - state.lastTick
-                    state.lastTick = tick()
+                    local currentTick = tick()
+                    local dt = math.max(currentTick - state.lastTick, 0.0001)
+                    state.lastTick = currentTick
 
                     local ent = getTarget(settings)
-                    if not ent then return end
+                    if not ent or not ent.RootPart then return end
 
-                    targetinfo.Targets[ent] = tick() + 1
+                    if type(targetinfo) == "table" and targetinfo.Targets then
+                        targetinfo.Targets[ent] = tick() + 1
+                    end
                     
                     local char = ent.Character
                     local root = ent.RootPart
@@ -16278,75 +16342,79 @@ run(function()
                     if char and settings.AimPart ~= "Root" then
                         if settings.AimPart == "Head" then
                             local h = char:FindFirstChild("Head")
-                            currentPos = h and h.Position + Vector3.new(0, 0.5, 0) or currentPos
+                            if h then
+                                currentPos = h.Position + Vector3.new(0, 0.5, 0)
+                            end
                         elseif settings.AimPart == "Torso" then
                             local t = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
-                            currentPos = t and t.Position or currentPos
+                            if t then
+                                currentPos = t.Position
+                            end
                         end
                     end
 
-                    -- === ROBUST PREDICTION ===
                     local targetPos = currentPos
 
+                    -- PREDICTION
                     if settings.PredictionEnabled then
-                        -- 1. Calculate Manual Velocity (Delta)
-                        -- This tracks VISUAL movement, not laggy server physics
                         local rawVelocity = (currentPos - state.lastTargetPos) / dt
 
-                        -- 2. Clamp Velocity (Anti-Jitter)
-                        -- Prevents aiming at the moon if they teleport/lag
+                        -- Anti-jitter clamping
                         rawVelocity = Vector3.new(
                             math.clamp(rawVelocity.X, -25, 25),
                             math.clamp(rawVelocity.Y, -25, 25),
                             math.clamp(rawVelocity.Z, -25, 25)
                         )
 
-                        -- 3. Jump Compensation
-                        -- If they are in the air, ensure we predict upward
+                        -- Jump compensation
                         local hum = char and char:FindFirstChild("Humanoid")
                         if hum then
-                            local stateType = hum:GetState()
-                            if stateType == Enum.HumanoidStateType.Freefall or stateType == Enum.HumanoidStateType.Jumping then
-                                -- Add a bit of upward velocity if Y is moving up, or gravity if down
-                                if rawVelocity.Y > 0 then
-                                    rawVelocity = Vector3.new(rawVelocity.X, rawVelocity.Y * 1.5, rawVelocity.Z)
+                            pcall(function()
+                                local stateType = hum:GetState()
+                                if stateType == Enum.HumanoidStateType.Freefall or stateType == Enum.HumanoidStateType.Jumping then
+                                    if rawVelocity.Y > 0 then
+                                        rawVelocity = Vector3.new(rawVelocity.X, rawVelocity.Y * 1.5, rawVelocity.Z)
+                                    end
                                 end
-                            end
+                            end)
                         end
 
-                        -- 4. Apply Time
-                        -- Slider value (ms) converted to seconds. Increased divisor for more range.
                         local timeStep = settings.PredictionAmount / 800 
-                        
                         targetPos = currentPos + (rawVelocity * timeStep)
                     end
 
-                    -- Update last position for next frame
                     state.lastTargetPos = currentPos
 
                     -- SHAKE
                     if settings.ShakeEnabled then
                         local shake = settings.ShakeVal / 25
                         targetPos = targetPos + Vector3.new(
-                            (Random.new():NextNumber() - 0.5) * shake,
-                            (Random.new():NextNumber() - 0.5) * shake,
-                            (Random.new():NextNumber() - 0.5) * shake
+                            (state.randomGen:NextNumber() - 0.5) * shake,
+                            (state.randomGen:NextNumber() - 0.5) * shake,
+                            (state.randomGen:NextNumber() - 0.5) * shake
                         )
                     end
 
                     -- CAMERA MOVEMENT
-                    local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, targetPos)
-                    local alpha = getSmoothFactor(settings.SpeedVal, settings.SmoothnessEnabled and settings.SmoothnessVal or 0)
+                    pcall(function()
+                        local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, targetPos)
+                        local alpha = getSmoothFactor(settings.SpeedVal, settings.SmoothnessEnabled, settings.SmoothnessVal)
 
-                    if settings.StrafeEnabled then
-                        if inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D) then
-                            alpha = alpha * 1.2
+                        if settings.StrafeEnabled then
+                            if UserInputService:IsKeyDown(Enum.KeyCode.A) or UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                                alpha = alpha * 1.2
+                            end
                         end
-                    end
 
-                    Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, math.min(alpha * (dt * 60), 1))
-                end))
+                        Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, math.min(alpha * (dt * 60), 1))
+                    end)
+                end)
             else
+                -- Disable
+                if state.renderConnection then
+                    state.renderConnection:Disconnect()
+                    state.renderConnection = nil
+                end
                 state.lockedTarget = nil
             end
         end
@@ -16354,8 +16422,14 @@ run(function()
 
     -- UI
     local Targets = TrackingAssist:CreateTargets({ Players = true, Walls = true })
-    local sortList = {'Damage', 'Distance'}
-    for i, v in pairs(sortmethods) do if not table.find(sortList, i) then table.insert(sortList, i) end end
+    local sortList = {'Distance', 'Damage'}
+    if type(sortmethods) == "table" then
+        for i, v in pairs(sortmethods) do 
+            if not table.find(sortList, i) then 
+                table.insert(sortList, i) 
+            end 
+        end
+    end
 
     local SortDropdown = TrackingAssist:CreateDropdown({ Name = "Sort", List = sortList, Default = "Distance" })
     local PartDropdown = TrackingAssist:CreateDropdown({ Name = "Aim Part", List = {"Torso", "Head", "Root"}, Default = "Head" })
@@ -16382,5 +16456,6 @@ run(function()
     task.defer(function()
         if SmoothnessSlider then SmoothnessSlider.Object.Visible = SmoothnessToggle.Enabled end
         if PredictionSlider then PredictionSlider.Object.Visible = PredictionToggle.Enabled end
+        if ShakeSlider then ShakeSlider.Object.Visible = ShakeToggle.Enabled end
     end)
 end)
