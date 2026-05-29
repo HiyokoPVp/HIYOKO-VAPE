@@ -16086,11 +16086,4 @@ run(function()
 			PlaceRange:SetValue(24)
 		end
 	})
-	
-	-- Cleanup
-	PlaceReach:Clean(function()
-		if oldGetMouseInfo then
-			bedwars.BlockSelector.getMouseInfo = oldGetMouseInfo
-		end
-	end)
 end)
