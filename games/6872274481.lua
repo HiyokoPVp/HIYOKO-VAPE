@@ -16040,70 +16040,70 @@ run(function()
 	local WallCheck
 	local SmoothPlacement
 	
-	local oldPlaceBlock
+	local oldPlaceBlock = nil
 	
 	PlaceReach = vape.Categories.Blatant:CreateModule({
 		Name = "Place Reach",
 		Function = function(callback)
 			if callback then
+				-- 初回のみ元の関数を保存
 				if not oldPlaceBlock then
 					oldPlaceBlock = bedwars.placeBlock
 				end
 				
+				-- placeBlockを直接フック
 				bedwars.placeBlock = function(pos, item)
-					if not PlaceReach.Enabled then 
-						return oldPlaceBlock(pos, item) 
+					if not PlaceReach.Enabled then
+						return oldPlaceBlock(pos, item)
 					end
 					
-					local localPos = entitylib.isAlive and entitylib.character.RootPart.Position or Vector3.zero
+					local character = entitylib.character
+					if not character or not character.RootPart then
+						return oldPlaceBlock(pos, item)
+					end
+					
+					local localPos = character.RootPart.Position
 					local distance = (localPos - pos).Magnitude
 					
-					-- Basic distance check
-					if distance > ReachValue.Value + 3 then
-						if Mode.Value == "Extend" then
-							-- Still allow extended placement
-						else
-							return false
-						end
-					end
-					
 					-- WallCheck
-					if WallCheck.Enabled and entitylib.isAlive then
+					if WallCheck.Enabled then
 						local rayParams = RaycastParams.new()
 						rayParams.FilterDescendantsInstances = {lplr.Character, gameCamera}
 						rayParams.FilterType = Enum.RaycastFilterType.Exclude
 						rayParams.IgnoreWater = true
 						
-						local direction = (pos - localPos)
-						local ray = workspace:Raycast(localPos, direction, rayParams)
+						local ray = workspace:Raycast(localPos, (pos - localPos), rayParams)
 						
-						if ray and ray.Instance and (ray.Position - localPos).Magnitude < distance - 3 then
-							-- Wall detected between player and target position
+						if ray and (ray.Position - localPos).Magnitude < distance - 4 then
+							return false -- 壁がある場合は置かない
+						end
+					end
+					
+					-- Reach超過時でもExtendモードなら強制的に置く
+					if distance > ReachValue.Value + 3 and Mode.Value == "Smooth" then
+						if SmoothPlacement.Enabled then
+							local direction = (pos - localPos).Unit
+							local safePos = localPos + direction * (ReachValue.Value - 5)
+							
+							character.RootPart.CFrame = CFrame.lookAt(safePos, pos)
+							task.wait(0.025)
+						else
 							return false
 						end
 					end
 					
-					-- Smooth Placement
-					if Mode.Value == "Smooth" and SmoothPlacement.Enabled and entitylib.isAlive then
-						local direction = (pos - localPos).Unit
-						local safePos = localPos + direction * math.min(ReachValue.Value - 6, distance - 6)
-						
-						if (safePos - localPos).Magnitude > 2 then
-							entitylib.character.RootPart.CFrame = CFrame.lookAt(safePos, pos)
-							task.wait(0.025)
-						end
-					end
-					
+					-- 最終的に元の関数を呼ぶ
 					return oldPlaceBlock(pos, item)
 				end
 				
 			else
+				-- 元の関数に戻す
 				if oldPlaceBlock then
 					bedwars.placeBlock = oldPlaceBlock
 				end
 			end
 		end,
-		Tooltip = "Extends block placement reach with wall check"
+		Tooltip = "Extends block placement reach by hooking bedwars.placeBlock directly"
 	})
 	
 	-- ==================== Settings ====================
@@ -16112,29 +16112,24 @@ run(function()
 		Name = "Place Range",
 		Min = 10,
 		Max = 50,
-		Default = 28,
-		Suffix = function(val)
-			return val == 1 and "stud" or "studs"
-		end
+		Default = 30,
+		Suffix = function(val) return val == 1 and "stud" or "studs" end
 	})
 	
 	WallCheck = PlaceReach:CreateToggle({
 		Name = "Wall Check",
-		Default = true,
-		Tooltip = "Prevents placing through walls"
+		Default = true
 	})
 	
 	Mode = PlaceReach:CreateDropdown({
 		Name = "Mode",
 		List = {"Extend", "Smooth"},
-		Default = "Extend",
-		Tooltip = "Extend = Place at full range\nSmooth = Move slightly before placing"
+		Default = "Extend"
 	})
 	
 	SmoothPlacement = PlaceReach:CreateToggle({
 		Name = "Smooth Placement",
-		Default = true,
-		Tooltip = "Slightly move before placing (more legit)"
+		Default = true
 	})
 	
 	-- Cleanup
