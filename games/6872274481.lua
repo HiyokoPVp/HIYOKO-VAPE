@@ -16213,143 +16213,105 @@ end)
 
 run(function()
     local AutoDodge
-    local Mode
-    local Range
+    local DetectRange
+    local DodgeHeight
+    local ReturnDelay
     local Chance
-    local Duration
+    local Enabled
 
-    local oldroot, clone = nil, nil
-    local dodging = false
-
-    local function createClone()
-        if not entitylib.isAlive or dodging then return end
-        dodging = true
-
-        local char = lplr.Character
-        oldroot = entitylib.character.HumanoidRootPart
-
-        char.Parent = replicatedStorage
-
-        clone = oldroot:Clone()
-        clone.Transparency = 0.7
-        clone.Parent = char
-
-        oldroot.Parent = gameCamera
-        oldroot.Transparency = 1
-
-        Instance.new('Highlight', oldroot).FillColor = Color3.fromRGB(255, 50, 50)
-
-        lplr.Character.PrimaryPart = clone
-        entitylib.character.HumanoidRootPart = clone
-        entitylib.character.RootPart = clone
-
-        char.Parent = workspace
-
-        -- Weld修正
-        for _, v in char:GetDescendants() do
-            if (v:IsA('Weld') or v:IsA('Motor6D')) then
-                if v.Part0 == oldroot then v.Part0 = clone end
-                if v.Part1 == oldroot then v.Part1 = clone end
-            end
-        end
-    end
-
-    local function revertClone()
-        if not oldroot then return end
-
-        local char = lplr.Character
-        if char then
-            char.Parent = replicatedStorage
-            oldroot.Parent = char
-            lplr.Character.PrimaryPart = oldroot
-            entitylib.character.HumanoidRootPart = oldroot
-            entitylib.character.RootPart = oldroot
-            char.Parent = workspace
-        end
-
-        if clone then
-            clone:Destroy()
-            clone = nil
-        end
-
-        if oldroot then
-            oldroot.Transparency = 1
-            oldroot = nil
-        end
-        dodging = false
-    end
+    local isDodging = false
 
     AutoDodge = vape.Categories.Blatant:CreateModule({
-        Name = 'Smart Auto Dodge',
+        Name = 'Auto Dodge',
         Tooltip = '',
         Function = function(callback)
             if callback then
                 AutoDodge:Clean(runService.Heartbeat:Connect(function()
-                    if not entitylib.isAlive then return end
+                    if not entitylib.isAlive or isDodging then return end
 
+                    local root = entitylib.character.RootPart
                     local nearest = entitylib.EntityPosition({
-                        Range = Range.Value,
+                        Range = DetectRange.Value,
                         Players = true,
                         NPCs = false,
                         Wallcheck = false,
                     })
 
                     if nearest and math.random(1, 100) <= Chance.Value then
-                        if not dodging then
-                            createClone()
-                            task.delay(Duration.Value, function()
-                                if AutoDodge.Enabled then
-                                    revertClone()
-                                end
-                            end)
-                        end
-                    elseif dodging and not nearest then
-                        revertClone()
+                        isDodging = true
+
+                        local originalPos = root.Position
+                        local upPos = originalPos + Vector3.new(0, DodgeHeight.Value, 0)
+
+                        -- 上にテレポート
+                        root.CFrame = CFrame.new(upPos, nearest.RootPart.Position)
+
+                        -- 指定時間後に地面に戻す
+                        task.delay(ReturnDelay.Value, function()
+                            if entitylib.isAlive and AutoDodge.Enabled then
+                                local groundPos = originalPos
+                                -- 安全に少し上から戻す
+                                root.CFrame = CFrame.new(groundPos + Vector3.new(0, 3, 0))
+                            end
+                            isDodging = false
+                        end)
                     end
                 end))
             else
-                revertClone()
+                isDodging = false
             end
         end,
     })
 
-    Mode = AutoDodge:CreateDropdown({
-        Name = 'Dodge Mode',
-        List = {'Clone', 'Velocity Flick', 'Both'},
-        Default = 'Clone',
+    DetectRange = AutoDodge:CreateSlider({
+        Name = 'Detect Range',
+        Min = 10,
+        Max = 30,
+        Default = 20,
+        Suffix = ' studs',
     })
 
-    Range = AutoDodge:CreateSlider({
-        Name = 'Detect Range',
-        Min = 6,
-        Max = 30,
+    DodgeHeight = AutoDodge:CreateSlider({
+        Name = 'Dodge Height',
+        Min = 12,
+        Max = 25,
         Default = 18,
         Suffix = ' studs',
     })
 
-    Chance = AutoDodge:CreateSlider({
-        Name = 'Dodge Chance',
-        Min = 10,
-        Max = 100,
-        Default = 85,
-        Suffix = '%',
-    })
-
-    Duration = AutoDodge:CreateSlider({
-        Name = 'Dodge Duration',
-        Min = 0.1,
-        Max = 1.2,
-        Default = 0.45,
+    ReturnDelay = AutoDodge:CreateSlider({
+        Name = 'Return Delay',
+        Min = 0.05,
+        Max = 0.35,
+        Default = 0.12,
         Decimal = 100,
         Suffix = ' sec',
     })
 
+    Chance = AutoDodge:CreateSlider({
+        Name = 'Dodge Chance',
+        Min = 30,
+        Max = 100,
+        Default = 88,
+        Suffix = '%',
+    })
+
     AutoDodge:CreateButton({
-        Name = 'Manual Dodge',
+        Name = 'Manual Vertical Dodge',
         Function = function()
-            if entitylib.isAlive and not dodging then
-                createClone()
-                task.delay(0.5, revertClone)
+            if entitylib.isAlive and not isDodging then
+                isDodging = true
+                local root = entitylib.character.RootPart
+                local originalPos = root.Position
+                
+                root.CFrame = CFrame.new(originalPos + Vector3.new(0, 18, 0))
+                
+                task.delay(0.12, function()
+                    if entitylib.isAlive then
+                        root.CFrame = CFrame.new(originalPos + Vector3.new(0, 3, 0))
+                    end
+                    isDodging = false
+                end)
             end
         end,
     })
