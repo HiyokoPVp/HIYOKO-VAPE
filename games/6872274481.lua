@@ -16145,113 +16145,37 @@ run(function()
 end)
 
 run(function()
-    local KnockbackBoost
-    local BoostStrength
-    local BoostMethod
-    local BoostDuration
+    local DamageBoost
 
-    KnockbackBoost = vape.Categories.Blatant:CreateModule({
-        Name = 'DamageBoost',
-        Tooltip = 'Boosts you in your direction when hit by knockback',
-        Function = function(callback)
-            if callback then
-                KnockbackBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-                    if not entitylib.isAlive then return end
-                    if damageTable.entityInstance ~= lplr.Character then return end
+    local stack = 0
 
-                    local rootPart = lplr.Character:FindFirstChild('HumanoidRootPart')
-                    if not rootPart then return end
+    DamageBoost = vape.Categories.Blatant:CreateModule({
+    	Name = 'Damage Boost',
+    	Tooltip = 'Gives extra speed boost when damaged',
+    	Function = function(callback)
+    		if callback then
+    			DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
+    				if
+    					entitylib.isAlive
+    					and tick() > stack
+    					and damageTable.entityInstance == lplr.Character
+    					and not LongJump.Enabled
+    				then
+    					local horizontal = (
+    						damageTable.knockbackMultiplier and damageTable.knockbackMultiplier.horizontal or 0
+    					)
+    					knockbackSpeed = bedwars.KnockbackUtil.calculateKnockbackVelocity(Vector3.one, 1, {
+    						vertical = 0,
+    						horizontal = horizontal,
+    					}).Magnitude * (0.9 + lplr:GetNetworkPing())
 
-                    local knockbackData = damageTable.knockbackMultiplier
-                    if not knockbackData then return end
-
-                    local facingDirection = rootPart.CFrame.LookVector.Unit
-
-                    local knockbackVel = bedwars.KnockbackUtil.calculateKnockbackVelocity(
-                        Vector3.one,
-                        1,
-                        {
-                            vertical = knockbackData.vertical or 0,
-                            horizontal = knockbackData.horizontal or 0
-                        }
-                    )
-
-                    local multiplier = BoostStrength.Value / 100
-                    local boostAmount = knockbackVel.Magnitude * multiplier
-                    local duration = BoostDuration.Value
-
-                    task.spawn(function()
-                        local startTime = tick()
-                        local connection
-
-                        if BoostMethod.Value == "AssemblyLinearVelocity" or BoostMethod.Value == "Velocity" then
-                            -- Velocity系は毎フレーム速度を加算
-                            connection = game:GetService("RunService").Heartbeat:Connect(function()
-                                if tick() - startTime >= duration then
-                                    connection:Disconnect()
-                                    return
-                                end
-
-                                local boostVel = facingDirection * boostAmount * 0.035  -- フレーム補正
-
-                                if BoostMethod.Value == "AssemblyLinearVelocity" then
-                                    rootPart.AssemblyLinearVelocity += boostVel
-                                else
-                                    rootPart.Velocity += boostVel
-                                end
-                            end)
-
-                        elseif BoostMethod.Value == "CFrame" then
-                            -- CFrameは滑らかに移動
-                            connection = game:GetService("RunService").Heartbeat:Connect(function()
-                                if tick() - startTime >= duration then
-                                    connection:Disconnect()
-                                    return
-                                end
-
-                                local move = facingDirection * (boostAmount * 0.028 * CFrameMultiplier.Value)
-                                rootPart.CFrame += CFrame.new(move)
-                            end)
-                        end
-                    end)
-                end))
-            end
-        end,
-    })
-
-    -- ==================== Settings ====================
-
-    BoostMethod = KnockbackBoost:CreateDropdown({
-        Name = 'Method',
-        List = {'AssemblyLinearVelocity', 'Velocity', 'CFrame'},
-        Default = 'AssemblyLinearVelocity',
-        Tooltip = 'AssemblyLinearVelocity = 最も安定\nVelocity = 旧式\nCFrame = 非常に強い'
-    })
-
-    BoostStrength = KnockbackBoost:CreateSlider({
-        Name = 'Boost Strength',
-        Min = 50,
-        Max = 1000,
-        Default = 200,
-        Suffix = '%'
-    })
-
-    BoostDuration = KnockbackBoost:CreateSlider({
-        Name = 'Boost Duration',
-        Min = 0.1,
-        Max = 1.5,
-        Default = 0.35,
-        Suffix = 's',
-        DecimalPlaces = 2
-    })
-
-    -- CFrame専用
-    local CFrameMultiplier = KnockbackBoost:CreateSlider({
-        Name = 'CFrame Multiplier',
-        Min = 0.5,
-        Max = 4,
-        Default = 1.8,
-        Suffix = 'x',
-        Visible = function() return BoostMethod.Value == "CFrame" end
+    					if knockbackSpeed then
+    						stack = tick() + (knockbackSpeed / 45)
+    						knockbackBoost = tick() + (horizontal / 3.5)
+    					end
+    				end
+    			end))
+    		end
+    	end,
     })
 end)
