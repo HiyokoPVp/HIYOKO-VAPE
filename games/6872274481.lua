@@ -16145,55 +16145,102 @@ run(function()
 end)
 
 run(function()
-    local KnockbackBoost
-
-    KnockbackBoost = vape.Categories.Blatant:CreateModule({
-        Name = 'Knockback Boost',
-        Tooltip = 'Boosts you in your direction when hit by knockback',
-        Function = function(callback)
-            if callback then
-                KnockbackBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-                    if
-                        entitylib.isAlive
-                        and damageTable.entityInstance == lplr.Character
-                    then
-                        local rootPart = lplr.Character:FindFirstChild('HumanoidRootPart')
-                        if not rootPart then return end
-
-                        local knockbackData = damageTable.knockbackMultiplier
-                        if not knockbackData then return end
-
-                        -- Get your facing direction
-                        local facingDirection = rootPart.CFrame.LookVector
-                        
-                        -- Calculate knockback velocity
-                        local knockbackVel = bedwars.KnockbackUtil.calculateKnockbackVelocity(
-                            Vector3.one,
-                            1,
-                            {
-                                vertical = knockbackData.vertical or 0,
-                                horizontal = knockbackData.horizontal or 0
-                            }
-                        )
-
-                        local multiplier = BoostStrength.Value / 100
-                        
-                        -- Boost in your facing direction
-                        local boostVelocity = facingDirection * knockbackVel.Magnitude * multiplier
-                        
-                        rootPart.AssemblyLinearVelocity = rootPart.AssemblyLinearVelocity + boostVelocity
-                    end
-                end))
-            end
-        end,
-    })
-
-    -- Settings
-    BoostStrength = KnockbackBoost:CreateSlider({
-        Name = 'Boost Strength',
-        Min = 50,
-        Max = 500,
-        Default = 150,
-        Suffix = '%'
-    })
+	local DamageBoost
+	local BoostStrength
+	local BoostDirection
+	local BoostDuration
+	local MinDamageThreshold
+	
+	local boostConnection
+	local lastBoostTime = 0
+	
+	DamageBoost = vape.Categories.Blatant:CreateModule({
+		Name = 'DamageBoost',
+		Tooltip = '',
+		Function = function(callback)
+			if callback then
+				boostConnection = vapeEvents.EntityDamageEvent.Event:Connect(function(data)
+					if not entitylib.isAlive then return end
+					if data.entityInstance ~= lplr.Character then return end
+					
+					local damage = data.damage or 0
+					if damage < MinDamageThreshold.Value then return end
+					
+					local now = tick()
+					if now - lastBoostTime < 0.15 then return end -- 連発防止
+					lastBoostTime = now
+					
+					local root = entitylib.character.RootPart
+					if not root then return end
+					
+					local boostDir = Vector3.new(0, 0, 0)
+					
+					if BoostDirection.Value == 'Away from Attacker' and data.fromPosition then
+						boostDir = (root.Position - data.fromPosition).Unit
+					elseif BoostDirection.Value == 'Forward' then
+						boostDir = root.CFrame.LookVector
+					elseif BoostDirection.Value == 'Backward' then
+						boostDir = -root.CFrame.LookVector
+					elseif BoostDirection.Value == 'Upward' then
+						boostDir = Vector3.new(0, 1, 0)
+					else
+						boostDir = root.AssemblyLinearVelocity.Unit
+					end
+					
+					if boostDir.Magnitude < 0.1 then
+						boostDir = root.CFrame.LookVector
+					end
+					
+					local strength = BoostStrength.Value
+					local impulse = boostDir * strength * 35
+					
+					-- Y成分を少し強めに（飛びやすくなる）
+					impulse = impulse + Vector3.new(0, strength * 8, 0)
+					
+					root:ApplyImpulse(impulse)
+					
+					-- 短時間だけCustomPhysicalPropertiesで滑らかに
+					task.delay(0.08, function()
+						if root and root.Parent then
+							root.AssemblyLinearVelocity += boostDir * (strength * 6)
+						end
+					end)
+				end)
+			else
+				if boostConnection then
+					boostConnection:Disconnect()
+					boostConnection = nil
+				end
+			end
+		end
+	})
+	
+	BoostStrength = DamageBoost:CreateSlider({
+		Name = 'Boost Strength',
+		Min = 10,
+		Max = 120,
+		Default = 65,
+		Suffix = ' strength'
+	})
+	
+	BoostDirection = DamageBoost:CreateDropdown({
+		Name = 'Boost Direction',
+		List = {'Away from Attacker', 'Forward', 'Backward', 'Upward', 'Velocity Direction'},
+		Default = 'Away from Attacker'
+	})
+	
+	MinDamageThreshold = DamageBoost:CreateSlider({
+		Name = 'Minimum Damage',
+		Min = 1,
+		Max = 30,
+		Default = 8,
+		Suffix = ' dmg'
+	})
+	
+	-- 追加オプション
+	DamageBoost:CreateToggle({
+		Name = 'Only When Knockback',
+		Default = true,
+		Tooltip = 'Only boost when attacking'
+	})
 end)
