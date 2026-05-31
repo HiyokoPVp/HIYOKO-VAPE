@@ -16145,63 +16145,55 @@ run(function()
 end)
 
 run(function()
-	local DamageBoost
-	local BoostStrength
-	
-	local boostConnection
-	
-	DamageBoost = vape.Categories.Blatant:CreateModule({
-		Name = 'DamageBoost',
-		Tooltip = '',
-		Function = function(callback)
-			if callback then
-				boostConnection = vapeEvents.EntityDamageEvent.Event:Connect(function(data)
-					if not entitylib.isAlive then return end
-					if data.entityInstance ~= lplr.Character then return end
-					
-					-- エンティティからの攻撃のみ（FallDamageなどは除外）
-					if not data.fromEntity then return end
-					if data.damageType == "FallDamage" or data.damageType == "Void" then return end
-					
-					-- ノックバックがある場合のみ
-					if not data.knockbackMultiplier or data.knockbackMultiplier <= 0 then return end
-					
-					local root = entitylib.character.RootPart
-					if not root then return end
-					
-					-- 自分の向いている方向（水平前方）
-					local forward = root.CFrame.LookVector * Vector3.new(1, 0, 1)
-					if forward.Magnitude < 0.1 then return end
-					forward = forward.Unit
-					
-					-- ブースト適用
-					local strength = BoostStrength.Value
-					local impulse = forward * strength * 38 + Vector3.new(0, 24, 0) -- 前方 + 少し上方向
-					
-					root:ApplyImpulse(impulse)
-					
-					-- 追加加速
-					task.delay(0.05, function()
-						if root and root.Parent then
-							root.AssemblyLinearVelocity += forward * (strength * 0.35)
-						end
-					end)
-				end)
-			else
-				if boostConnection then
-					boostConnection:Disconnect()
-					boostConnection = nil
-				end
-			end
-		end
-	})
-	
-	-- 強さ調整オプション
-	BoostStrength = DamageBoost:CreateSlider({
-		Name = 'Boost Strength',
-		Min = 20,
-		Max = 150,
-		Default = 85,
-		Suffix = ''
-	})
+    local KnockbackBoost
+
+    KnockbackBoost = vape.Categories.Blatant:CreateModule({
+        Name = 'DamageBoost',
+        Tooltip = 'Boosts you in your direction when hit by knockback',
+        Function = function(callback)
+            if callback then
+                KnockbackBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
+                    if
+                        entitylib.isAlive
+                        and damageTable.entityInstance == lplr.Character
+                    then
+                        local rootPart = lplr.Character:FindFirstChild('HumanoidRootPart')
+                        if not rootPart then return end
+
+                        local knockbackData = damageTable.knockbackMultiplier
+                        if not knockbackData then return end
+
+                        -- Get your facing direction
+                        local facingDirection = rootPart.CFrame.LookVector
+                        
+                        -- Calculate knockback velocity
+                        local knockbackVel = bedwars.KnockbackUtil.calculateKnockbackVelocity(
+                            Vector3.one,
+                            1,
+                            {
+                                vertical = knockbackData.vertical or 0,
+                                horizontal = knockbackData.horizontal or 0
+                            }
+                        )
+
+                        local multiplier = BoostStrength.Value / 100
+                        
+                        -- Boost in your facing direction
+                        local boostVelocity = facingDirection * knockbackVel.Magnitude * multiplier
+                        
+                        rootPart.AssemblyLinearVelocity = rootPart.AssemblyLinearVelocity + boostVelocity
+                    end
+                end))
+            end
+        end,
+    })
+
+    -- Settings
+    BoostStrength = KnockbackBoost:CreateSlider({
+        Name = 'Boost Strength',
+        Min = 50,
+        Max = 500,
+        Default = 150,
+        Suffix = '%'
+    })
 end)
