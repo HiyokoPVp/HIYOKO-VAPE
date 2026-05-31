@@ -16148,6 +16148,7 @@ run(function()
     local KnockbackBoost
     local BoostStrength
     local BoostMethod
+    local BoostDuration
 
     KnockbackBoost = vape.Categories.Blatant:CreateModule({
         Name = 'DamageBoost',
@@ -16164,7 +16165,7 @@ run(function()
                     local knockbackData = damageTable.knockbackMultiplier
                     if not knockbackData then return end
 
-                    local facingDirection = rootPart.CFrame.LookVector
+                    local facingDirection = rootPart.CFrame.LookVector.Unit
 
                     local knockbackVel = bedwars.KnockbackUtil.calculateKnockbackVelocity(
                         Vector3.one,
@@ -16177,22 +16178,42 @@ run(function()
 
                     local multiplier = BoostStrength.Value / 100
                     local boostAmount = knockbackVel.Magnitude * multiplier
+                    local duration = BoostDuration.Value
 
-                    if BoostMethod.Value == "AssemblyLinearVelocity" then
-                        -- AssemblyLinearVelocity（推奨・安定）
-                        local boostVelocity = facingDirection * boostAmount
-                        rootPart.AssemblyLinearVelocity += boostVelocity
+                    task.spawn(function()
+                        local startTime = tick()
+                        local connection
 
-                    elseif BoostMethod.Value == "Velocity" then
-                        -- 旧式 Velocity（互換用）
-                        local boostVelocity = facingDirection * boostAmount
-                        rootPart.Velocity += boostVelocity
+                        if BoostMethod.Value == "AssemblyLinearVelocity" or BoostMethod.Value == "Velocity" then
+                            -- Velocity系は毎フレーム速度を加算
+                            connection = game:GetService("RunService").Heartbeat:Connect(function()
+                                if tick() - startTime >= duration then
+                                    connection:Disconnect()
+                                    return
+                                end
 
-                    elseif BoostMethod.Value == "CFrame" then
-                        -- CFrame方式（強力だが不安定）
-                        local boostOffset = facingDirection * (boostAmount * 0.035)
-                        rootPart.CFrame += CFrame.new(boostOffset)
-                    end
+                                local boostVel = facingDirection * boostAmount * 0.035  -- フレーム補正
+
+                                if BoostMethod.Value == "AssemblyLinearVelocity" then
+                                    rootPart.AssemblyLinearVelocity += boostVel
+                                else
+                                    rootPart.Velocity += boostVel
+                                end
+                            end)
+
+                        elseif BoostMethod.Value == "CFrame" then
+                            -- CFrameは滑らかに移動
+                            connection = game:GetService("RunService").Heartbeat:Connect(function()
+                                if tick() - startTime >= duration then
+                                    connection:Disconnect()
+                                    return
+                                end
+
+                                local move = facingDirection * (boostAmount * 0.028 * CFrameMultiplier.Value)
+                                rootPart.CFrame += CFrame.new(move)
+                            end)
+                        end
+                    end)
                 end))
             end
         end,
@@ -16204,7 +16225,7 @@ run(function()
         Name = 'Method',
         List = {'AssemblyLinearVelocity', 'Velocity', 'CFrame'},
         Default = 'AssemblyLinearVelocity',
-        Tooltip = 'AssemblyLinearVelocity = 現在最も安定\nVelocity = 旧式\nCFrame = 非常に強いが不安定'
+        Tooltip = 'AssemblyLinearVelocity = 最も安定\nVelocity = 旧式\nCFrame = 非常に強い'
     })
 
     BoostStrength = KnockbackBoost:CreateSlider({
@@ -16215,7 +16236,16 @@ run(function()
         Suffix = '%'
     })
 
-    -- CFrame専用調整
+    BoostDuration = KnockbackBoost:CreateSlider({
+        Name = 'Boost Duration',
+        Min = 0.1,
+        Max = 1.5,
+        Default = 0.35,
+        Suffix = 's',
+        DecimalPlaces = 2
+    })
+
+    -- CFrame専用
     local CFrameMultiplier = KnockbackBoost:CreateSlider({
         Name = 'CFrame Multiplier',
         Min = 0.5,
