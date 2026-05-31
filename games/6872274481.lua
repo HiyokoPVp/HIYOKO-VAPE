@@ -16213,106 +16213,207 @@ end)
 
 run(function()
     local AutoDodge
-    local DetectRange
-    local DodgeHeight
-    local ReturnDelay
-    local Chance
-    local Enabled
+    local Targets
+    local Melee
+    local Range
 
-    local isDodging = false
+    local oldroot, clone, hip = nil, nil, 2.5
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Include
+    rayParams.RespectCanCollide = true
+
+    local function doClone()
+    	if entitylib.isAlive and oldroot and oldroot.Parent then
+    		return true
+    	end
+
+    	if entitylib.isAlive and entitylib.character.Humanoid.Health > 0 then
+    		hip = entitylib.character.Humanoid.HipHeight
+    		oldroot = entitylib.character.HumanoidRootPart
+    		if not lplr.Character.Parent then
+    			return false
+    		end
+
+    		lplr.Character.Parent = replicatedStorage
+    		clone = oldroot:Clone()
+    		clone.Parent = lplr.Character
+    		oldroot.Parent = gameCamera
+    		oldroot.Transparency = 1
+    		Instance.new('Highlight', oldroot)
+    		clone.CFrame = oldroot.CFrame
+    		clone.Velocity = oldroot.Velocity
+
+    		lplr.Character.PrimaryPart = clone
+    		entitylib.character.HumanoidRootPart = clone
+    		entitylib.character.RootPart = clone
+    		lplr.Character.Parent = workspace
+
+    		for _, v in lplr.Character:GetDescendants() do
+    			if v:IsA('Weld') or v:IsA('Motor6D') then
+    				if v.Part0 == oldroot then
+    					v.Part0 = clone
+    				end
+    				if v.Part1 == oldroot then
+    					v.Part1 = clone
+    				end
+    			end
+    		end
+
+    		return true
+    	end
+
+    	return false
+    end
+
+    local function revertClone()
+    	if not oldroot or not oldroot:IsDescendantOf(workspace) or not entitylib.isAlive then
+    		return false
+    	end
+
+    	lplr.Character.Parent = replicatedStorage
+    	oldroot.Parent = lplr.Character
+    	lplr.Character.PrimaryPart = oldroot
+    	entitylib.character.HumanoidRootPart = oldroot
+    	entitylib.character.RootPart = oldroot
+    	lplr.Character.Parent = workspace
+    	oldroot.CanCollide = true
+    	oldroot.Transparency = 1
+    	oldroot.Velocity = clone.Velocity
+
+    	for _, v in lplr.Character:GetDescendants() do
+    		if v:IsA('Weld') or v:IsA('Motor6D') then
+    			if v.Part0 == clone then
+    				v.Part0 = oldroot
+    			end
+    			if v.Part1 == clone then
+    				v.Part1 = oldroot
+    			end
+    		end
+    	end
+
+    	local oldpos = clone.CFrame
+    	if clone then
+    		clone:Destroy()
+    		clone = nil
+    	end
+
+    	oldroot.CFrame = oldpos
+    	oldroot = nil
+    	entitylib.character.Humanoid.HipHeight = hip or 2
+    	return true
+    end
 
     AutoDodge = vape.Categories.Blatant:CreateModule({
-        Name = 'Auto Dodge',
-        Tooltip = '',
-        Function = function(callback)
-            if callback then
-                AutoDodge:Clean(runService.Heartbeat:Connect(function()
-                    if not entitylib.isAlive or isDodging then return end
+    	Name = 'Auto Dodge',
+    	Tooltip = 'Dodges melee and projectiles "blatantly"',
+    	Function = function(call)
+    		if call then
+    			repeat
+    				task.wait()
+    			until store.matchState ~= 0 and store.map or not AutoDodge.Enabled
+    			if not AutoDodge.Enabled then
+    				return
+    			end
 
-                    local root = entitylib.character.RootPart
-                    local nearest = entitylib.EntityPosition({
-                        Range = DetectRange.Value,
-                        Players = true,
-                        NPCs = false,
-                        Wallcheck = false,
-                    })
+    			rayParams.FilterDescendantsInstances = { store.map }
+    			local lowestpoint = 9e9
+    			local Dodge = 0
+    			for _, v in store.blocks do
+    				local point = (v.Position.Y - (v.Size.Y / 2)) - 50
+    				if point < lowestpoint then
+    					lowestpoint = point
+    				end
+    			end
 
-                    if nearest and math.random(1, 100) <= Chance.Value then
-                        isDodging = true
+    			LPH_NO_VIRTUALIZE(function()
+    				AutoDodge:Clean(runService.PostSimulation:Connect(function()
+    					if oldroot and oldroot.Parent then
+    						local newpoint, pos = lowestpoint, CFrame.new(clone.CFrame.X, lowestpoint - 6, clone.CFrame.Z)
+    						if Dodge then
+    							newpoint = workspace:Raycast(pos.Position, Vector3.new(0, 1000, 0), rayParams)
+    							if newpoint then
+    								newpoint = CFrame.new(clone.CFrame.X, newpoint.Position.Y - 6, clone.CFrame.Z)
+    									* CFrame.Angles(math.rad(90), 0, 0)
+    							end
+    						end
+    						oldroot.Velocity = Vector3.zero
+    						oldroot.CFrame = Dodge and (newpoint or pos)
+    							or (clone.CFrame + Vector3.new(0, 1, 0)) * CFrame.Angles(math.rad(90), 0, 0)
+    					end
+    				end))
 
-                        local originalPos = root.Position
-                        local upPos = originalPos + Vector3.new(0, DodgeHeight.Value, 0)
+    				local last = true
+    				repeat
+    					if entitylib.isAlive then
+    						if oldroot then
+    							local ownership = isnetworkowner(oldroot)
+    							if not ownership and ownership ~= last then
+    								notif('AutoDodge', 'Network ownership disowned', 5, 'alert')
+    							end
+    							last = ownership
+    							if not ownership then
+    								Dodge = false
+    								revertClone()
+    								task.wait()
+    								continue
+    							end
+    						end
 
-                        -- 上にテレポート
-                        root.CFrame = CFrame.new(upPos, nearest.RootPart.Position)
-
-                        -- 指定時間後に地面に戻す
-                        task.delay(ReturnDelay.Value, function()
-                            if entitylib.isAlive and AutoDodge.Enabled then
-                                local groundPos = originalPos
-                                -- 安全に少し上から戻す
-                                root.CFrame = CFrame.new(groundPos + Vector3.new(0, 3, 0))
-                            end
-                            isDodging = false
-                        end)
-                    end
-                end))
-            else
-                isDodging = false
-            end
-        end,
+    						if
+    							Melee.Enabled
+    							and entitylib.EntityPosition({
+    								Range = Range.Value,
+    								Players = Targets.Players.Enabled,
+    								NPCs = Targets.NPCs.Enabled,
+    								Wallcheck = Targets.Walls.Enabled or nil,
+    								Sort = sortmethods.Distance,
+    								Part = 'RootPart',
+    							})
+    							and doClone()
+    						then
+    							Dodge = false
+    							task.wait(0.2)
+    							Dodge = true
+    							task.wait(0.4)
+    						else
+    							Dodge = false
+    							revertClone()
+    						end
+    					end
+    					task.wait()
+    				until not AutoDodge.Enabled
+    			end)()
+    		else
+    			revertClone()
+    		end
+    	end,
     })
 
-    DetectRange = AutoDodge:CreateSlider({
-        Name = 'Detect Range',
-        Min = 10,
-        Max = 30,
-        Default = 20,
-        Suffix = ' studs',
+    Targets = AutoDodge:CreateTargets({
+    	Players = true,
+    	NPCs = false,
     })
-
-    DodgeHeight = AutoDodge:CreateSlider({
-        Name = 'Dodge Height',
-        Min = 12,
-        Max = 25,
-        Default = 18,
-        Suffix = ' studs',
+    Melee = AutoDodge:CreateToggle({
+    	Name = 'Melee',
+    	Tooltip = 'Dodges melee attacks',
+    	Default = true,
+    	Function = function(call)
+    		pcall(function()
+    			Range.Object.Visible = call
+    		end)
+    	end,
     })
-
-    ReturnDelay = AutoDodge:CreateSlider({
-        Name = 'Return Delay',
-        Min = 0.05,
-        Max = 0.35,
-        Default = 0.12,
-        Decimal = 100,
-        Suffix = ' sec',
+    Range = AutoDodge:CreateSlider({
+    	Name = 'Melee Range',
+    	Min = 1,
+    	Max = 30,
+    	Default = 30,
+    	Decimal = 5,
+    	Darker = true,
     })
-
-    Chance = AutoDodge:CreateSlider({
-        Name = 'Dodge Chance',
-        Min = 30,
-        Max = 100,
-        Default = 88,
-        Suffix = '%',
-    })
-
-    AutoDodge:CreateButton({
-        Name = 'Manual Vertical Dodge',
-        Function = function()
-            if entitylib.isAlive and not isDodging then
-                isDodging = true
-                local root = entitylib.character.RootPart
-                local originalPos = root.Position
-                
-                root.CFrame = CFrame.new(originalPos + Vector3.new(0, 18, 0))
-                
-                task.delay(0.12, function()
-                    if entitylib.isAlive then
-                        root.CFrame = CFrame.new(originalPos + Vector3.new(0, 3, 0))
-                    end
-                    isDodging = false
-                end)
-            end
-        end,
+    AutoDodge:CreateToggle({
+    	Name = 'Projectiles',
+    	Tooltip = 'Dodges projectiles',
+    	Default = true,
     })
 end)
