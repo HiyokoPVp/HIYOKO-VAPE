@@ -16144,9 +16144,7 @@ run(function()
 	})
 end)
 
-
-run(function()
-	local function isFrozen(entity, threshold)
+local function isFrozen(entity, threshold)
     threshold = threshold or 10
     local char
     if type(entity) == "table" and entity.Character then
@@ -16188,21 +16186,6 @@ run(function()
     end
 
     return false
-end
-
-local function switchItem(tool, delayTime)
-	delayTime = delayTime or 0.05
-	local check = lplr.Character and lplr.Character:FindFirstChild('HandInvItem') or nil
-	if check and check.Value ~= tool and tool.Parent ~= nil then
-		task.spawn(function()
-			bedwars.Client:Get(remotes.EquipItem):CallServerAsync({hand = tool})
-		end)
-		check.Value = tool
-		if delayTime > 0 then
-			task.wait(delayTime)
-		end
-		return true
-	end
 end
 
 run(function()
