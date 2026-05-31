@@ -16212,34 +16212,32 @@ run(function()
 end)
 
 run(function()
-    local SmartAntiHit
+    local AutoDodge
     local Mode
     local Range
-    local AutoDodgeChance
-    local CloneTransparency
+    local Chance
+    local Duration
 
     local oldroot, clone = nil, nil
-    local isDodging = false
+    local dodging = false
 
     local function createClone()
-        if not entitylib.isAlive then return false end
+        if not entitylib.isAlive or dodging then return end
+        dodging = true
 
         local char = lplr.Character
-        if not char then return false end
-
         oldroot = entitylib.character.HumanoidRootPart
-        if not oldroot then return false end
 
-        -- クローン作成
         char.Parent = replicatedStorage
+
         clone = oldroot:Clone()
-        clone.Transparency = CloneTransparency.Value
+        clone.Transparency = 0.7
         clone.Parent = char
+
         oldroot.Parent = gameCamera
         oldroot.Transparency = 1
 
-        -- ハイライト追加（視認用）
-        Instance.new('Highlight', oldroot).FillColor = Color3.new(1, 0, 0)
+        Instance.new('Highlight', oldroot).FillColor = Color3.fromRGB(255, 50, 50)
 
         lplr.Character.PrimaryPart = clone
         entitylib.character.HumanoidRootPart = clone
@@ -16249,123 +16247,109 @@ run(function()
 
         -- Weld修正
         for _, v in char:GetDescendants() do
-            if v:IsA('Weld') or v:IsA('Motor6D') then
+            if (v:IsA('Weld') or v:IsA('Motor6D')) then
                 if v.Part0 == oldroot then v.Part0 = clone end
                 if v.Part1 == oldroot then v.Part1 = clone end
             end
         end
-
-        return true
     end
 
     local function revertClone()
-        if not oldroot or not oldroot.Parent then return end
+        if not oldroot then return end
 
         local char = lplr.Character
-        if not char then return end
-
-        char.Parent = replicatedStorage
-        oldroot.Parent = char
-        lplr.Character.PrimaryPart = oldroot
-        entitylib.character.HumanoidRootPart = oldroot
-        entitylib.character.RootPart = oldroot
-
-        char.Parent = workspace
+        if char then
+            char.Parent = replicatedStorage
+            oldroot.Parent = char
+            lplr.Character.PrimaryPart = oldroot
+            entitylib.character.HumanoidRootPart = oldroot
+            entitylib.character.RootPart = oldroot
+            char.Parent = workspace
+        end
 
         if clone then
             clone:Destroy()
             clone = nil
         end
 
-        oldroot.Transparency = 1
-        oldroot = nil
+        if oldroot then
+            oldroot.Transparency = 1
+            oldroot = nil
+        end
+        dodging = false
     end
 
-    SmartAntiHit = vape.Categories.Blatant:CreateModule({
-        Name = 'Smart Anti-Hit',
-        Tooltip = 'AutoDodge with no ac',
+    AutoDodge = vape.Categories.Blatant:CreateModule({
+        Name = 'Smart Auto Dodge',
+        Tooltip = '',
         Function = function(callback)
             if callback then
-                SmartAntiHit:Clean(runService.PostSimulation:Connect(function()
+                AutoDodge:Clean(runService.Heartbeat:Connect(function()
                     if not entitylib.isAlive then return end
 
-                    local shouldDodge = false
-
-                    -- 近くに敵がいるかチェック
-                    if entitylib.EntityPosition({
+                    local nearest = entitylib.EntityPosition({
                         Range = Range.Value,
                         Players = true,
+                        NPCs = false,
                         Wallcheck = false,
-                    }) then
-                        shouldDodge = true
-                    end
+                    })
 
-                    -- 確率で回避
-                    if shouldDodge and math.random(1, 100) <= AutoDodgeChance.Value then
-                        if not isDodging then
-                            isDodging = true
-                            if createClone() then
-                                task.delay(0.35, function()
-                                    if SmartAntiHit.Enabled then
-                                        revertClone()
-                                        isDodging = false
-                                    end
-                                end)
-                            end
+                    if nearest and math.random(1, 100) <= Chance.Value then
+                        if not dodging then
+                            createClone()
+                            task.delay(Duration.Value, function()
+                                if AutoDodge.Enabled then
+                                    revertClone()
+                                end
+                            end)
                         end
-                    elseif isDodging and not shouldDodge then
+                    elseif dodging and not nearest then
                         revertClone()
-                        isDodging = false
                     end
                 end))
             else
                 revertClone()
-                isDodging = false
             end
         end,
     })
 
-    Mode = SmartAntiHit:CreateDropdown({
-        Name = 'Mode',
-        List = {'Smart Clone', 'Constant Clone'},
-        Default = 'Smart Clone',
+    Mode = AutoDodge:CreateDropdown({
+        Name = 'Dodge Mode',
+        List = {'Clone', 'Velocity Flick', 'Both'},
+        Default = 'Clone',
     })
 
-    Range = SmartAntiHit:CreateSlider({
+    Range = AutoDodge:CreateSlider({
         Name = 'Detect Range',
-        Min = 5,
-        Max = 25,
-        Default = 14,
+        Min = 6,
+        Max = 30,
+        Default = 18,
         Suffix = ' studs',
     })
 
-    AutoDodgeChance = SmartAntiHit:CreateSlider({
+    Chance = AutoDodge:CreateSlider({
         Name = 'Dodge Chance',
-        Min = 30,
+        Min = 10,
         Max = 100,
-        Default = 75,
+        Default = 85,
         Suffix = '%',
     })
 
-    CloneTransparency = SmartAntiHit:CreateSlider({
-        Name = 'Clone Transparency',
-        Min = 0,
-        Max = 1,
-        Default = 0.4,
-        Decimal = 10,
+    Duration = AutoDodge:CreateSlider({
+        Name = 'Dodge Duration',
+        Min = 0.1,
+        Max = 1.2,
+        Default = 0.45,
+        Decimal = 100,
+        Suffix = ' sec',
     })
 
-    SmartAntiHit:CreateButton({
-        Name = 'Force Dodge Now',
+    AutoDodge:CreateButton({
+        Name = 'Manual Dodge',
         Function = function()
-            if entitylib.isAlive and not isDodging then
-                isDodging = true
-                if createClone() then
-                    task.delay(0.4, function()
-                        revertClone()
-                        isDodging = false
-                    end)
-                end
+            if entitylib.isAlive and not dodging then
+                createClone()
+                task.delay(0.5, revertClone)
             end
         end,
     })
