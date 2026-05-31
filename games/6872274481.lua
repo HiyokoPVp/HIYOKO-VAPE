@@ -16149,7 +16149,7 @@ run(function()
 
     KnockbackBoost = vape.Categories.Blatant:CreateModule({
         Name = 'Knockback Boost',
-        Tooltip = 'Boosts you when hit by knockback',
+        Tooltip = 'Boosts you in your direction when hit by knockback',
         Function = function(callback)
             if callback then
                 KnockbackBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
@@ -16160,11 +16160,13 @@ run(function()
                         local rootPart = lplr.Character:FindFirstChild('HumanoidRootPart')
                         if not rootPart then return end
 
-                        -- ノックバック情報取得
                         local knockbackData = damageTable.knockbackMultiplier
                         if not knockbackData then return end
 
-                        -- 実際のノックバック速度計算
+                        -- Get your facing direction
+                        local facingDirection = rootPart.CFrame.LookVector
+                        
+                        -- Calculate knockback velocity
                         local knockbackVel = bedwars.KnockbackUtil.calculateKnockbackVelocity(
                             Vector3.one,
                             1,
@@ -16174,77 +16176,24 @@ run(function()
                             }
                         )
 
-                        local boostMode = BoostMode.Value
-                        local boostMultiplier = BoostMultiplier.Value / 100
-
-                        if boostMode == 'Velocity' then
-                            -- ==================== Velocity ブースト ====================
-                            local boostedVel = knockbackVel * boostMultiplier
-                            
-                            rootPart.AssemblyLinearVelocity = rootPart.AssemblyLinearVelocity + boostedVel
-                            
-                        elseif boostMode == 'Directional' then
-                            -- ==================== 方向別ブースト ====================
-                            local currentVel = rootPart.AssemblyLinearVelocity
-                            local boostVel = Vector3.new(
-                                knockbackVel.X * boostMultiplier,
-                                knockbackVel.Y * boostMultiplier * (BoostVertical.Enabled and 1 or 0),
-                                knockbackVel.Z * boostMultiplier
-                            )
-                            
-                            rootPart.AssemblyLinearVelocity = currentVel + boostVel
-                            
-                        elseif boostMode == 'Replace' then
-                            -- ==================== 速度置き換えブースト ====================
-                            local boostedVel = knockbackVel * boostMultiplier
-                            rootPart.AssemblyLinearVelocity = boostedVel
-                            
-                        elseif boostMode == 'CFrame' then
-                            -- ==================== CFrame ブースト ====================
-                            local direction = knockbackVel.Unit
-                            local distance = knockbackVel.Magnitude * boostMultiplier * 0.1
-                            
-                            if UseCFrameVelocity.Enabled then
-                                -- CFrame + Velocity併用
-                                rootPart.CFrame = rootPart.CFrame + (direction * distance)
-                                rootPart.AssemblyLinearVelocity = rootPart.AssemblyLinearVelocity + (knockbackVel * boostMultiplier * 0.5)
-                            else
-                                -- CFrameのみ
-                                rootPart.CFrame = rootPart.CFrame + (direction * distance)
-                            end
-                        end
+                        local multiplier = BoostStrength.Value / 100
+                        
+                        -- Boost in your facing direction
+                        local boostVelocity = facingDirection * knockbackVel.Magnitude * multiplier
+                        
+                        rootPart.AssemblyLinearVelocity = rootPart.AssemblyLinearVelocity + boostVelocity
                     end
                 end))
             end
         end,
     })
 
-    -- ==================== Settings ====================
-
-    BoostMode = KnockbackBoost:CreateDropdown({
-        Name = 'Boost Mode',
-        List = {'Velocity', 'Directional', 'Replace', 'CFrame'},
-        Default = 'Velocity',
-        Tooltip = 'Velocity: '
-    })
-
-    BoostMultiplier = KnockbackBoost:CreateSlider({
-        Name = 'Boost Multiplier',
+    -- Settings
+    BoostStrength = KnockbackBoost:CreateSlider({
+        Name = 'Boost Strength',
         Min = 50,
         Max = 500,
         Default = 150,
         Suffix = '%'
-    })
-
-    BoostVertical = KnockbackBoost:CreateToggle({
-        Name = 'Boost Vertical',
-        Default = false,
-        Tooltip = ''
-    })
-
-    UseCFrameVelocity = KnockbackBoost:CreateToggle({
-        Name = 'CFrame + Velocity',
-        Default = true,
-        Tooltip = ''
     })
 end)
