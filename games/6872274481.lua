@@ -16146,6 +16146,8 @@ end)
 
 run(function()
     local KnockbackBoost
+    local BoostStrength
+    local BoostMethod
 
     KnockbackBoost = vape.Categories.Blatant:CreateModule({
         Name = 'DamageBoost',
@@ -16153,47 +16155,73 @@ run(function()
         Function = function(callback)
             if callback then
                 KnockbackBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-                    if
-                        entitylib.isAlive
-                        and damageTable.entityInstance == lplr.Character
-                    then
-                        local rootPart = lplr.Character:FindFirstChild('HumanoidRootPart')
-                        if not rootPart then return end
+                    if not entitylib.isAlive then return end
+                    if damageTable.entityInstance ~= lplr.Character then return end
 
-                        local knockbackData = damageTable.knockbackMultiplier
-                        if not knockbackData then return end
+                    local rootPart = lplr.Character:FindFirstChild('HumanoidRootPart')
+                    if not rootPart then return end
 
-                        -- Get your facing direction
-                        local facingDirection = rootPart.CFrame.LookVector
-                        
-                        -- Calculate knockback velocity
-                        local knockbackVel = bedwars.KnockbackUtil.calculateKnockbackVelocity(
-                            Vector3.one,
-                            1,
-                            {
-                                vertical = knockbackData.vertical or 0,
-                                horizontal = knockbackData.horizontal or 0
-                            }
-                        )
+                    local knockbackData = damageTable.knockbackMultiplier
+                    if not knockbackData then return end
 
-                        local multiplier = BoostStrength.Value / 100
-                        
-                        -- Boost in your facing direction
-                        local boostVelocity = facingDirection * knockbackVel.Magnitude * multiplier
-                        
-                        rootPart.AssemblyLinearVelocity = rootPart.AssemblyLinearVelocity + boostVelocity
+                    local facingDirection = rootPart.CFrame.LookVector
+
+                    local knockbackVel = bedwars.KnockbackUtil.calculateKnockbackVelocity(
+                        Vector3.one,
+                        1,
+                        {
+                            vertical = knockbackData.vertical or 0,
+                            horizontal = knockbackData.horizontal or 0
+                        }
+                    )
+
+                    local multiplier = BoostStrength.Value / 100
+                    local boostAmount = knockbackVel.Magnitude * multiplier
+
+                    if BoostMethod.Value == "AssemblyLinearVelocity" then
+                        -- AssemblyLinearVelocity（推奨・安定）
+                        local boostVelocity = facingDirection * boostAmount
+                        rootPart.AssemblyLinearVelocity += boostVelocity
+
+                    elseif BoostMethod.Value == "Velocity" then
+                        -- 旧式 Velocity（互換用）
+                        local boostVelocity = facingDirection * boostAmount
+                        rootPart.Velocity += boostVelocity
+
+                    elseif BoostMethod.Value == "CFrame" then
+                        -- CFrame方式（強力だが不安定）
+                        local boostOffset = facingDirection * (boostAmount * 0.035)
+                        rootPart.CFrame += CFrame.new(boostOffset)
                     end
                 end))
             end
         end,
     })
 
-    -- Settings
+    -- ==================== Settings ====================
+
+    BoostMethod = KnockbackBoost:CreateDropdown({
+        Name = 'Method',
+        List = {'AssemblyLinearVelocity', 'Velocity', 'CFrame'},
+        Default = 'AssemblyLinearVelocity',
+        Tooltip = 'AssemblyLinearVelocity = 現在最も安定\nVelocity = 旧式\nCFrame = 非常に強いが不安定'
+    })
+
     BoostStrength = KnockbackBoost:CreateSlider({
         Name = 'Boost Strength',
         Min = 50,
-        Max = 500,
-        Default = 150,
+        Max = 1000,
+        Default = 200,
         Suffix = '%'
+    })
+
+    -- CFrame専用調整
+    local CFrameMultiplier = KnockbackBoost:CreateSlider({
+        Name = 'CFrame Multiplier',
+        Min = 0.5,
+        Max = 4,
+        Default = 1.8,
+        Suffix = 'x',
+        Visible = function() return BoostMethod.Value == "CFrame" end
     })
 end)
