@@ -16147,12 +16147,8 @@ end)
 run(function()
 	local DamageBoost
 	local BoostStrength
-	local BoostDirection
-	local BoostDuration
-	local MinDamageThreshold
 	
 	local boostConnection
-	local lastBoostTime = 0
 	
 	DamageBoost = vape.Categories.Blatant:CreateModule({
 		Name = 'DamageBoost',
@@ -16163,46 +16159,31 @@ run(function()
 					if not entitylib.isAlive then return end
 					if data.entityInstance ~= lplr.Character then return end
 					
-					local damage = data.damage or 0
-					if damage < MinDamageThreshold.Value then return end
+					-- エンティティからの攻撃のみ（FallDamageなどは除外）
+					if not data.fromEntity then return end
+					if data.damageType == "FallDamage" or data.damageType == "Void" then return end
 					
-					local now = tick()
-					if now - lastBoostTime < 0.15 then return end -- 連発防止
-					lastBoostTime = now
+					-- ノックバックがある場合のみ
+					if not data.knockbackMultiplier or data.knockbackMultiplier <= 0 then return end
 					
 					local root = entitylib.character.RootPart
 					if not root then return end
 					
-					local boostDir = Vector3.new(0, 0, 0)
+					-- 自分の向いている方向（水平前方）
+					local forward = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+					if forward.Magnitude < 0.1 then return end
+					forward = forward.Unit
 					
-					if BoostDirection.Value == 'Away from Attacker' and data.fromPosition then
-						boostDir = (root.Position - data.fromPosition).Unit
-					elseif BoostDirection.Value == 'Forward' then
-						boostDir = root.CFrame.LookVector
-					elseif BoostDirection.Value == 'Backward' then
-						boostDir = -root.CFrame.LookVector
-					elseif BoostDirection.Value == 'Upward' then
-						boostDir = Vector3.new(0, 1, 0)
-					else
-						boostDir = root.AssemblyLinearVelocity.Unit
-					end
-					
-					if boostDir.Magnitude < 0.1 then
-						boostDir = root.CFrame.LookVector
-					end
-					
+					-- ブースト適用
 					local strength = BoostStrength.Value
-					local impulse = boostDir * strength * 35
-					
-					-- Y成分を少し強めに（飛びやすくなる）
-					impulse = impulse + Vector3.new(0, strength * 8, 0)
+					local impulse = forward * strength * 38 + Vector3.new(0, 24, 0) -- 前方 + 少し上方向
 					
 					root:ApplyImpulse(impulse)
 					
-					-- 短時間だけCustomPhysicalPropertiesで滑らかに
-					task.delay(0.08, function()
+					-- 追加加速
+					task.delay(0.05, function()
 						if root and root.Parent then
-							root.AssemblyLinearVelocity += boostDir * (strength * 6)
+							root.AssemblyLinearVelocity += forward * (strength * 0.35)
 						end
 					end)
 				end)
@@ -16215,32 +16196,12 @@ run(function()
 		end
 	})
 	
+	-- 強さ調整オプション
 	BoostStrength = DamageBoost:CreateSlider({
 		Name = 'Boost Strength',
-		Min = 10,
-		Max = 120,
-		Default = 65,
-		Suffix = ' strength'
-	})
-	
-	BoostDirection = DamageBoost:CreateDropdown({
-		Name = 'Boost Direction',
-		List = {'Away from Attacker', 'Forward', 'Backward', 'Upward', 'Velocity Direction'},
-		Default = 'Away from Attacker'
-	})
-	
-	MinDamageThreshold = DamageBoost:CreateSlider({
-		Name = 'Minimum Damage',
-		Min = 1,
-		Max = 30,
-		Default = 8,
-		Suffix = ' dmg'
-	})
-	
-	-- 追加オプション
-	DamageBoost:CreateToggle({
-		Name = 'Only When Knockback',
-		Default = true,
-		Tooltip = 'Only boost when attacking'
+		Min = 20,
+		Max = 150,
+		Default = 85,
+		Suffix = ''
 	})
 end)
