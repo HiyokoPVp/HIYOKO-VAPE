@@ -16179,3 +16179,294 @@ run(function()
     	end,
     })
 end)
+
+run(function()
+    local InfinityJump
+    local Height
+
+    InfinityJump = vape.Categories.Blatant:CreateModule({
+        Name = 'Infinity Jump',
+        Tooltip = '',
+        Function = function(callback)
+            if callback then
+                InfinityJump:Clean(runService.RenderStepped:Connect(function()
+                    if not entitylib.isAlive then return end
+                    
+                    local root = entitylib.character.RootPart
+                    
+                    if inputService:IsKeyDown(Enum.KeyCode.Space) then
+                        root.Velocity = Vector3.new(root.Velocity.X, Height.Value, root.Velocity.Z)
+                    end
+                end))
+            end
+        end,
+    })
+
+    Height = InfinityJump:CreateSlider({
+        Name = 'Jump Height',
+        Min = 30,
+        Max = 150,
+        Default = 70,
+        Suffix = ' studs',
+    })
+end)
+
+run(function()
+    local AnimationPlayer
+    local AnimationID
+    local AnimationTypeDropdown
+    local Speed
+    local Loop
+    local CurrentTrack
+    local CurrentAnimType
+
+    local function stopCurrentAnimation()
+        if CurrentTrack then
+            CurrentTrack:Stop()
+            task.delay(0.1, function()
+                if CurrentTrack then
+                    CurrentTrack:Destroy()
+                    CurrentTrack = nil
+                end
+            end)
+        end
+        CurrentAnimType = nil
+    end
+
+    AnimationPlayer = vape.Categories.Legit:CreateModule({
+        Name = 'Bedwars Animation Player',
+        Tooltip = '',
+        Function = function(callback)
+            if callback then
+                AnimationPlayer:Clean(inputService.InputBegan:Connect(function(input)
+                    if input.KeyCode == Enum.KeyCode.F and entitylib.isAlive then
+                        stopCurrentAnimation()
+
+                        local char = lplr.Character
+                        if not char then return end
+
+                        local animId = AnimationID.Value
+
+                        if animId and tonumber(animId) then
+                            -- ID直接指定で再生
+                            CurrentTrack = bedwars.AnimationUtil:playAnimation(char, tonumber(animId))
+                            if CurrentTrack then
+                                CurrentTrack.PlaybackSpeed = Speed.Value
+                                CurrentTrack.Looped = Loop.Enabled
+                            end
+                        else
+                            notif('Animation Player', 'failed id', 4, 'alert')
+                        end
+                    end
+                end))
+            else
+                stopCurrentAnimation()
+            end
+        end,
+    })
+
+    -- === オプション ===
+    AnimationID = AnimationPlayer:CreateTextBox({
+        Name = 'Animation ID',
+        Placeholder = '1234567890',
+        Function = function() end,
+    })
+
+    Speed = AnimationPlayer:CreateSlider({
+        Name = 'Playback Speed',
+        Min = 0.1,
+        Max = 5,
+        Default = 1,
+        Decimal = 10,
+    })
+
+    Loop = AnimationPlayer:CreateToggle({
+        Name = 'Loop',
+        Default = false,
+    })
+
+    AnimationPlayer:CreateButton({
+        Name = 'Stop Animation',
+        Function = stopCurrentAnimation,
+    })
+
+    AnimationPlayer:CreateButton({
+        Name = 'Play Punch Animation',
+        Function = function()
+            if entitylib.isAlive then
+                stopCurrentAnimation()
+                bedwars.GameAnimationUtil:playAnimation(lplr.Character, bedwars.AnimationType.PUNCH)
+            end
+        end,
+    })
+
+    AnimationPlayer:CreateButton({
+        Name = 'Play Swing Animation',
+        Function = function()
+            if entitylib.isAlive then
+                stopCurrentAnimation()
+                bedwars.GameAnimationUtil:playAnimation(lplr.Character, bedwars.AnimationType.SWORD_SWING)
+            end
+        end,
+    })
+end)
+
+run(function()
+    local SmartAntiHit
+    local Mode
+    local Range
+    local AutoDodgeChance
+    local CloneTransparency
+
+    local oldroot, clone = nil, nil
+    local isDodging = false
+
+    local function createClone()
+        if not entitylib.isAlive then return false end
+
+        local char = lplr.Character
+        if not char then return false end
+
+        oldroot = entitylib.character.HumanoidRootPart
+        if not oldroot then return false end
+
+        -- クローン作成
+        char.Parent = replicatedStorage
+        clone = oldroot:Clone()
+        clone.Transparency = CloneTransparency.Value
+        clone.Parent = char
+        oldroot.Parent = gameCamera
+        oldroot.Transparency = 1
+
+        -- ハイライト追加（視認用）
+        Instance.new('Highlight', oldroot).FillColor = Color3.new(1, 0, 0)
+
+        lplr.Character.PrimaryPart = clone
+        entitylib.character.HumanoidRootPart = clone
+        entitylib.character.RootPart = clone
+
+        char.Parent = workspace
+
+        -- Weld修正
+        for _, v in char:GetDescendants() do
+            if v:IsA('Weld') or v:IsA('Motor6D') then
+                if v.Part0 == oldroot then v.Part0 = clone end
+                if v.Part1 == oldroot then v.Part1 = clone end
+            end
+        end
+
+        return true
+    end
+
+    local function revertClone()
+        if not oldroot or not oldroot.Parent then return end
+
+        local char = lplr.Character
+        if not char then return end
+
+        char.Parent = replicatedStorage
+        oldroot.Parent = char
+        lplr.Character.PrimaryPart = oldroot
+        entitylib.character.HumanoidRootPart = oldroot
+        entitylib.character.RootPart = oldroot
+
+        char.Parent = workspace
+
+        if clone then
+            clone:Destroy()
+            clone = nil
+        end
+
+        oldroot.Transparency = 1
+        oldroot = nil
+    end
+
+    SmartAntiHit = vape.Categories.Blatant:CreateModule({
+        Name = 'Smart Anti-Hit',
+        Tooltip = 'AutoDodge with no ac',
+        Function = function(callback)
+            if callback then
+                SmartAntiHit:Clean(runService.PostSimulation:Connect(function()
+                    if not entitylib.isAlive then return end
+
+                    local shouldDodge = false
+
+                    -- 近くに敵がいるかチェック
+                    if entitylib.EntityPosition({
+                        Range = Range.Value,
+                        Players = true,
+                        Wallcheck = false,
+                    }) then
+                        shouldDodge = true
+                    end
+
+                    -- 確率で回避
+                    if shouldDodge and math.random(1, 100) <= AutoDodgeChance.Value then
+                        if not isDodging then
+                            isDodging = true
+                            if createClone() then
+                                task.delay(0.35, function()
+                                    if SmartAntiHit.Enabled then
+                                        revertClone()
+                                        isDodging = false
+                                    end
+                                end)
+                            end
+                        end
+                    elseif isDodging and not shouldDodge then
+                        revertClone()
+                        isDodging = false
+                    end
+                end))
+            else
+                revertClone()
+                isDodging = false
+            end
+        end,
+    })
+
+    Mode = SmartAntiHit:CreateDropdown({
+        Name = 'Mode',
+        List = {'Smart Clone', 'Constant Clone'},
+        Default = 'Smart Clone',
+    })
+
+    Range = SmartAntiHit:CreateSlider({
+        Name = 'Detect Range',
+        Min = 5,
+        Max = 25,
+        Default = 14,
+        Suffix = ' studs',
+    })
+
+    AutoDodgeChance = SmartAntiHit:CreateSlider({
+        Name = 'Dodge Chance',
+        Min = 30,
+        Max = 100,
+        Default = 75,
+        Suffix = '%',
+    })
+
+    CloneTransparency = SmartAntiHit:CreateSlider({
+        Name = 'Clone Transparency',
+        Min = 0,
+        Max = 1,
+        Default = 0.4,
+        Decimal = 10,
+    })
+
+    SmartAntiHit:CreateButton({
+        Name = 'Force Dodge Now',
+        Function = function()
+            if entitylib.isAlive and not isDodging then
+                isDodging = true
+                if createClone() then
+                    task.delay(0.4, function()
+                        revertClone()
+                        isDodging = false
+                    end)
+                end
+            end
+        end,
+    })
+end)
