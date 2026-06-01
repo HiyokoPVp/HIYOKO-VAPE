@@ -16537,14 +16537,11 @@ end)
 
 run(function()
 	local CDisabler
-	local CameraSpeedSlider -- CameraOffsetから名前を変更（秒速）
-	local BodySpeedSlider   -- BodyLagから名前を変更（秒速）
+	local CameraOffsetSlider -- 目標とする先行距離（30 studs）
+	local BodySpeedSlider    -- 追いかける移動速度（23 studs/s）
 	local Connection = nil
 	local OriginalCameraCF = nil
-	
-	-- 位置を保持するための変数
-	local CustomCameraPos = nil
-	local CustomBodyPos = nil
+	local CurrentBodyPos = nil
 
 	CDisabler = vape.Categories.Blatant:CreateModule({
 		Name = 'CDisabler',
@@ -16555,9 +16552,8 @@ run(function()
 					return 
 				end
 
-				local root = entitylib.character.RootPart
-				CustomCameraPos = root.Position
-				CustomBodyPos = root.Position
+				-- スタート時の位置を同期
+				CurrentBodyPos = entitylib.character.RootPart.Position
 				
 				Connection = runService.RenderStepped:Connect(function(dt)
 					if not entitylib.isAlive then return end
@@ -16566,63 +16562,66 @@ run(function()
 					local camera = workspace.CurrentCamera
 					local moveDir = entitylib.character.Humanoid.MoveDirection
 
-					-- スライダーから「1秒あたりの移動速度（studs）」を取得
-					local camSpeed = CameraSpeedSlider.Value
-					local bodySpeed = BodySpeedSlider.Value
+					local offsetDist = CameraOffsetSlider.Value
+					local moveSpeed = BodySpeedSlider.Value
 
-					-- 移動入力がある場合、それぞれの速度で座標を進める
-					if moveDir.Magnitude > 0.1 then
-						-- カメラは指定スピード（例: 30 studs/s）で前進
-						CustomCameraPos = CustomCameraPos + (moveDir * camSpeed * dt)
-						-- キャラクターは遅いスピード（例: 23 studs/s）で後を追う
-						CustomBodyPos = CustomBodyPos + (moveDir * bodySpeed * dt)
-					else
-						-- 立ち止まった時は、キャラクターがカメラの位置に追いつくように補間（自由に変更してね）
-						CustomBodyPos = CustomBodyPos:Lerp(CustomCameraPos, 10 * dt)
-					end
+					-- 1. カメラの目標位置（先行位置）を計算
+					-- プレイヤーが動いている方向に offsetDist (30studs) だけ進んだ位置
+					local targetCameraPos = CurrentBodyPos + (moveDir * offsetDist)
 
-					-- 1. カメラのCFrameを更新（CustomCameraPosに配置し、キャラクターの方向を向く）
-					OriginalCameraCF = camera.CFrame
+					-- カメラ自体は滑らかにその先行位置へ移動させる（Lerpはお好みで調整してね）
 					camera.CFrame = CFrame.lookAt(
-						CustomCameraPos + Vector3.new(0, 5, 0), -- 少し上から見下ろす
-						CustomBodyPos
+						camera.CFrame.Position:Lerp(targetCameraPos + Vector3.new(0, 5, -5), 0.3), -- カメラ位置（少し後ろ上から俯瞰）
+						CurrentBodyPos -- キャラクターの現在地を注視
 					)
 
-					-- 2. キャラクターのCFrameを更新（CustomBodyPosに配置）
-					root.CFrame = CFrame.lookAt(
-						CustomBodyPos,
-						CustomBodyPos + moveDir
-					)
+					-- 2. キャラクターの身体がカメラの位置（targetCameraPos）を「秒速23studs」で追いかける
+					if moveDir.Magnitude > 0.1 then
+						-- キャラクターから目標地点へのベクトルと距離
+						local toTarget = targetCameraPos - CurrentBodyPos
+						local distance = toTarget.Magnitude
+
+						if distance > 0.1 then
+							-- 1フレームで進む距離（速度 * 時間）
+							local step = moveSpeed * dt
+							if step > distance then step = distance end -- 行き過ぎ防止
+
+							-- 目標に向かって直線的に座標を進める
+							CurrentBodyPos = CurrentBodyPos + (toTarget.Unit * step)
+						end
+						
+						-- 実体を計算した座標に動かす
+						root.CFrame = CFrame.lookAt(CurrentBodyPos, CurrentBodyPos + moveDir)
+					else
+						-- 入力がない（立ち止まった）時は、現在地にスッと実体を戻して同期を安定させる
+						CurrentBodyPos = CurrentBodyPos:Lerp(root.Position, 10 * dt)
+					end
 				end)
 
-				vape:CreateNotification("CDisabler", "速度差追従モード有効", 4, "info")
+				vape:CreateNotification("CDisabler", "先行カメラ追従モード有効", 4, "info")
 			else
 				if Connection then
 					Connection:Disconnect()
 					Connection = nil
 				end
-				if entitylib.isAlive and OriginalCameraCF then
-					workspace.CurrentCamera.CFrame = OriginalCameraCF
-				end
 				vape:CreateNotification("CDisabler", "無効化", 2, "info")
 			end
 		end,
-		Tooltip = 'カメラが秒速30で先行し、本体が秒速23で追いかける'
+		Tooltip = 'カメラが30studs先行し、身体が秒速23studsでその位置を追いかける'
 	})
 
-	-- 分かりやすいように設定名も「Speed」に変更したよ
-	CameraSpeedSlider = CDisabler:CreateSlider({
-		Name = 'Camera Speed',
-		Min = 10,
-		Max = 60,
+	CameraOffsetSlider = CDisabler:CreateSlider({
+		Name = 'Camera Ahead',
+		Min = 15,
+		Max = 45,
 		Default = 30,
-		Suffix = ' studs/s'
+		Suffix = ' studs'
 	})
 
 	BodySpeedSlider = CDisabler:CreateSlider({
 		Name = 'Body Speed',
 		Min = 10,
-		Max = 60,
+		Max = 50,
 		Default = 23,
 		Suffix = ' studs/s'
 	})
