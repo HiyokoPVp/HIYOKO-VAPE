@@ -16537,12 +16537,12 @@ end)
 
 run(function()
 	local CDisabler
-	local CameraSpeedSlider -- カメラが先行するスピード
-	local BodySpeedSlider   -- 体が追いかけるスピード（Lagback対策用）
+	local CameraSpeedSlider
+	local BodySpeedSlider
 	local Connection = nil
 	local OriginalCameraCF = nil
 	
-	-- 仮想的なカメラ位置とキャラクター位置
+	-- 完全にコントロールするための仮想座標
 	local VirtualCameraPos = nil
 	local VirtualBodyPos = nil
 
@@ -16566,9 +16566,10 @@ run(function()
 
 					local root = entitylib.character.RootPart
 					local camera = workspace.CurrentCamera
+					local humanoid = entitylib.character.Humanoid
 					
 					-- 1. 移動方向の取得（ジャンプ・ダウン含む）
-					local moveDir = entitylib.character.Humanoid.MoveDirection
+					local moveDir = humanoid.MoveDirection
 					local verticalDir = 0
 
 					if userInputService:IsKeyDown(Enum.KeyCode.Space) then
@@ -16579,77 +16580,79 @@ run(function()
 
 					local totalMoveDir = moveDir + Vector3.new(0, verticalDir, 0)
 
-					-- スライダーからそれぞれの速度を取得（studs/秒）
 					local camSpeed = CameraSpeedSlider.Value
 					local bodySpeed = BodySpeedSlider.Value
 
 					if totalMoveDir.Magnitude > 0.1 then
+						-- 移動中はRobloxの物理演算（重力）をオフにして落下を防ぐ
+						humanoid.PlatformStand = true
+						
 						local direction = totalMoveDir.Unit
 
-						-- 2. カメラの仮想位置を「カメラ速度」で先行させる
+						-- 2. 【図の点線】カメラの仮想位置を先行させる
 						VirtualCameraPos = VirtualCameraPos + (direction * camSpeed * dt)
 
-						-- 3. キャラクターの仮想位置を、カメラの位置に向かって「本体速度」でじわじわ近づける
+						-- 3. 【図の実線】キャラクターの仮想位置を、カメラの位置に向かって安全な速度で近づける
 						local toCamera = VirtualCameraPos - VirtualBodyPos
 						if toCamera.Magnitude > 0.1 then
-							-- 目標（カメラ位置）への方向に向かって、安全な速度で進める
 							VirtualBodyPos = VirtualBodyPos + (toCamera.Unit * bodySpeed * dt)
 						end
 
-						-- 【Wallcheck】壁や床へのめり込み防止
+						-- 【Wallcheck】壁にぶつかったら止める
 						local raycastParams = RaycastParams.new()
 						raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
 						raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-
-						local rayDirection = VirtualBodyPos - root.Position
-						local raycastResult = workspace:Raycast(root.Position, rayDirection, raycastParams)
+						local raycastResult = workspace:Raycast(root.Position, VirtualBodyPos - root.Position, raycastParams)
 
 						if raycastResult then
-							VirtualBodyPos = raycastResult.Position - (rayDirection.Unit * 0.5)
-							-- 壁にぶつかったらカメラの先行もそこでストップさせる
-							VirtualCameraPos = VirtualBodyPos
+							VirtualBodyPos = raycastResult.Position - (totalMoveDir.Unit * 0.5)
+							VirtualCameraPos = VirtualBodyPos -- カメラの先行も壁で止める
 						end
 
-						-- 4. 実体を計算した安全な座標に同期（向きは移動方向）
-						local lookDir = moveDir.Magnitude > 0.1 and moveDir or root.CFrame.LookVector
-						root.CFrame = CFrame.lookAt(VirtualBodyPos, VirtualBodyPos + lookDir)
-						
-						-- アンチチートの速度計算をバグらせるために物理ベロシティをリセット
+						-- 4. 【カメラの更新】図のように、カメラを先行している仮想座標に配置する
+						local lookAtTarget = VirtualBodyPos + (moveDir.Magnitude > 0.1 and moveDir or root.CFrame.LookVector)
+						camera.CFrame = CFrame.lookAt(VirtualCameraPos + Vector3.new(0, 2, 0), lookAtTarget)
+
+						-- 5. 【キャラクターの更新】安全な速度で計算された座標に実体を同期
+						root.CFrame = CFrame.lookAt(VirtualBodyPos, lookAtTarget)
 						root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 					else
-						-- キーを離したらその場で実体に完全同期させて静止
+						-- キーを離したら物理演算を戻し、その場に完全静止
+						humanoid.PlatformStand = false
 						VirtualCameraPos = root.Position
 						VirtualBodyPos = root.Position
 					end
 				end)
 
-				vape:CreateNotification("CDisabler", "セーフ追従モード有効", 4, "info")
+				vape:CreateNotification("CDisabler", "理想の追従モード有効", 4, "info")
 			else
 				if Connection then
 					Connection:Disconnect()
 					Connection = nil
 				end
+				if entitylib.isAlive then
+					entitylib.character.Humanoid.PlatformStand = false
+				end
 				vape:CreateNotification("CDisabler", "無効化", 2, "info")
 			end
 		end,
-		Tooltip = 'カメラと本体の速度を別々に制御してLagbackを防ぐ'
+		Tooltip = 'カメラが先行し、体がLagbackしない速度で絶対についていく'
 	})
 
-	-- カメラが進む速度（好みに合わせて速くしてOK）
 	CameraSpeedSlider = CDisabler:CreateSlider({
 		Name = 'Camera Speed',
 		Min = 10,
 		Max = 100,
-		Default = 35,
+		Default = 40,
 		Suffix = ' studs/s'
 	})
 
-	-- 体が追いつく速度（Lagbackが起きる場合は18〜23あたりに落とすと安全！）
+	-- ここを「20」前後にすると絶対にLagback（引き戻し）されずに追いつくよ！
 	BodySpeedSlider = CDisabler:CreateSlider({
 		Name = 'Body Speed',
 		Min = 5,
 		Max = 50,
-		Default = 22,
+		Default = 21,
 		Suffix = ' studs/s'
 	})
 end)
