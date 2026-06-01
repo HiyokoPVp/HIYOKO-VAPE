@@ -16484,7 +16484,7 @@ local store = getgenv().store or {}
 
 	local function setup()
 	local ok, Knit = pcall(function()
-		return require(game.ReplicatedStorage.rbxts_include.node_modules['@easy-games'].knit.src).KnitClient
+		return bedwars.Knit
 	end)
 	if not ok or not Knit.Controllers.GlacialSkaterController then return false end
 	if store.equippedKit ~= 'glacial_skater' then return false end
@@ -16507,6 +16507,12 @@ KrystalDisabler = vape.Categories.Blatant:CreateModule({
 	Function = function(callback)
 		if callback then
 			local ok = setup()
+
+			if not ok then
+				vape:CreateNotification("KrystalDisabler", "Not on Krystal kit!", 5, 'alert')
+				KrystalDisabler:Toggle()
+				return
+			end
 			renderConn = runService.RenderStepped:Connect(function()
 				if not bedwarsCtrl then return end
 				pcall(function()
