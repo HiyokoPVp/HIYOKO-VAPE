@@ -16376,6 +16376,15 @@ run(function()
     })
 end)
 
+local function rakNetCheck(module)
+	if not (raknet and raknet.add_send_hook and pcall(raknet.add_send_hook, function() end)) then
+		notif(module, 'This feature requires raknet! (risky feature, please do not use on mains.)', 10, 'warning')
+		return false
+	end
+
+	return true
+end
+
 run(function()
     
     local Desync
@@ -16434,4 +16443,32 @@ run(function()
     })
     
     Desync:CreateButton({Name = 'Resync', Function = Resync})
+end)
+
+run(function()
+    local DeviceSpoofer
+    local Device
+    
+    DeviceSpoofer = vape.Legit:CreateModule({
+        Name = 'Device Spoofer',
+        Function = function(callback)
+            if callback then
+                DeviceSpoofer:Clean(lplr:GetAttributeChangedSignal('UserInputType'):Connect(function()
+                    if lplr:GetAttribute('UserInputType') ~= Device.Value then
+                        lplr:SetAttribute('UserInputType', Device.Value)
+                    end
+                end))
+            end
+        end
+    })
+    
+    Device = DeviceSpoofer:CreateDropdown({
+        Name = 'Device',
+        List = {'Mobile', 'PC', 'Gamepad'},
+        Function = function(val)
+            if DeviceSpoofer.Enabled then
+                lplr:SetAttribute('UserInputType', val)
+            end
+        end
+    })
 end)
