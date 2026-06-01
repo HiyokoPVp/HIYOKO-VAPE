@@ -16534,3 +16534,89 @@ KrystalDisabler = vape.Categories.Blatant:CreateModule({
 	end
 })
 end)
+
+run(function()
+	local CDisabler
+	local CameraOffset = 30
+	local BodyLag = 23
+	local Enabled = false
+	local Connection = nil
+	local OriginalCameraCF = nil
+	local LastBodyPos = nil
+
+	CDisabler = vape.Categories.Blatant:CreateModule({
+		Name = 'CDisabler',
+		Function = function(callback)
+			Enabled = callback
+			
+			if callback then
+				if not entitylib.isAlive then 
+					CDisabler:Toggle()
+					return 
+				end
+
+				LastBodyPos = entitylib.character.RootPart.Position
+				
+				Connection = runService.RenderStepped:Connect(function(dt)
+					if not entitylib.isAlive or not Enabled then return end
+
+					local root = entitylib.character.RootPart
+					local camera = workspace.CurrentCamera
+					local moveDir = entitylib.character.Humanoid.MoveDirection
+
+					-- カメラを先行させる
+					local cameraTarget = root.Position + (moveDir * CameraOffset)
+					OriginalCameraCF = camera.CFrame
+					
+					camera.CFrame = CFrame.lookAt(
+						camera.CFrame.Position:Lerp(cameraTarget, 0.65),
+						root.Position + Vector3.new(0, 3, 0)
+					)
+
+					-- 本体を遅れて追従（23 studs）
+					if moveDir.Magnitude > 0 then
+						local targetBodyPos = camera.CFrame.Position - (camera.CFrame.LookVector * BodyLag)
+						LastBodyPos = LastBodyPos:Lerp(targetBodyPos, 0.45)
+						
+						root.CFrame = CFrame.lookAt(LastBodyPos, LastBodyPos + moveDir)
+					end
+				end)
+
+				vape:CreateNotification("CDisabler", "Camera先行 + Body遅延 モード有効", 4, "info")
+			else
+				if Connection then
+					Connection:Disconnect()
+					Connection = nil
+				end
+				if entitylib.isAlive and OriginalCameraCF then
+					workspace.CurrentCamera.CFrame = OriginalCameraCF
+				end
+				vape:CreateNotification("CDisabler", "無効化", 2, "info")
+			end
+		end,
+		Tooltip = ''
+	})
+
+	-- 設定スライダー
+	CameraOffset = CDisabler:CreateSlider({
+		Name = 'Camera Ahead',
+		Min = 15,
+		Max = 45,
+		Default = 30,
+		Suffix = ' studs'
+	})
+
+	BodyLag = CDisabler:CreateSlider({
+		Name = 'Body Lag',
+		Min = 10,
+		Max = 35,
+		Default = 23,
+		Suffix = ' studs'
+	})
+
+	CDisabler:CreateToggle({
+		Name = 'Only When Moving',
+		Default = true,
+		Function = function() end
+	})
+end)
