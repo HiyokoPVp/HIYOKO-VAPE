@@ -16539,7 +16539,6 @@ run(function()
 	local CDisabler
 	local CameraOffset = 30
 	local BodyLag = 23
-	local Enabled = false
 	local Connection = nil
 	local OriginalCameraCF = nil
 	local LastBodyPos = nil
@@ -16547,8 +16546,6 @@ run(function()
 	CDisabler = vape.Categories.Blatant:CreateModule({
 		Name = 'CDisabler',
 		Function = function(callback)
-			Enabled = callback
-			
 			if callback then
 				if not entitylib.isAlive then 
 					CDisabler:Toggle()
@@ -16558,7 +16555,7 @@ run(function()
 				LastBodyPos = entitylib.character.RootPart.Position
 				
 				Connection = runService.RenderStepped:Connect(function(dt)
-					if not entitylib.isAlive or not Enabled then return end
+					if not entitylib.isAlive then return end
 
 					local root = entitylib.character.RootPart
 					local camera = workspace.CurrentCamera
@@ -16573,8 +16570,8 @@ run(function()
 						root.Position + Vector3.new(0, 3, 0)
 					)
 
-					-- 本体を遅れて追従（23 studs）
-					if moveDir.Magnitude > 0 then
+					-- 本体を遅れて追従
+					if moveDir.Magnitude > 0.1 then
 						local targetBodyPos = camera.CFrame.Position - (camera.CFrame.LookVector * BodyLag)
 						LastBodyPos = LastBodyPos:Lerp(targetBodyPos, 0.45)
 						
@@ -16594,10 +16591,9 @@ run(function()
 				vape:CreateNotification("CDisabler", "無効化", 2, "info")
 			end
 		end,
-		Tooltip = ''
+		Tooltip = 'カメラが30studs先行、本体が23studs遅れて追従する強力デシンク'
 	})
 
-	-- 設定スライダー
 	CameraOffset = CDisabler:CreateSlider({
 		Name = 'Camera Ahead',
 		Min = 15,
@@ -16612,11 +16608,5 @@ run(function()
 		Max = 35,
 		Default = 23,
 		Suffix = ' studs'
-	})
-
-	CDisabler:CreateToggle({
-		Name = 'Only When Moving',
-		Default = true,
-		Function = function() end
 	})
 end)
