@@ -16473,3 +16473,63 @@ run(function()
     })
 end)
 
+run(function()
+local vape = shared.vape
+local runService = game:GetService('RunService')
+local KrystalDisabler
+local old = nil
+local renderConn = nil
+local bedwarsCtrl = nil
+local store = getgenv().store or {}
+
+	local function setup()
+	local ok, Knit = pcall(function()
+		return require(game.ReplicatedStorage.rbxts_include.node_modules['@easy-games'].knit.src).KnitClient
+	end)
+	if not ok or not Knit.Controllers.GlacialSkaterController then return false end
+	if store.equippedKit ~= 'glacial_skater' then return false end
+	local Client = require(game.ReplicatedStorage.TS.remotes).default.Client
+	bedwarsCtrl = { GlacialSkaterController = Knit.Controllers.GlacialSkaterController }
+	old = bedwarsCtrl.GlacialSkaterController.updateMomentum
+	bedwarsCtrl.GlacialSkaterController.updateMomentum = function(self, ...)
+		self.momentum = 9e9
+		self.lastMomentumReport = 9e9
+		pcall(function()
+			Client:Get('MomentumUpdate'):SendToServer({ momentumValue = 9e9 })
+		end)
+	end
+	return true
+end
+
+KrystalDisabler = vape.Categories.Blatant:CreateModule({
+	Name = 'KrystalDisabler',
+	Tooltip = 'Requires Krystal kit.',
+	Function = function(callback)
+		if callback then
+			local ok = setup()
+			if not ok then
+				vape:CreateNotification("KrystalDisabler", "Not on Krystal kit!", 5, 'alert')
+				KrystalDisabler:Toggle()
+				return
+			end
+			renderConn = runService.RenderStepped:Connect(function()
+				if not bedwarsCtrl then return end
+				pcall(function()
+					bedwarsCtrl.GlacialSkaterController:updateMomentum(9e9, 'newValue')
+				end)
+			end)
+			vape:CreateNotification("KrystalDisabler", "Reset to use disabler", 5)
+		else
+			if renderConn then
+				renderConn:Disconnect()
+				renderConn = nil
+			end
+			if bedwarsCtrl and old then
+				bedwarsCtrl.GlacialSkaterController.updateMomentum = old
+				old = nil
+			end
+			bedwarsCtrl = nil
+		end
+	end
+})
+end)
