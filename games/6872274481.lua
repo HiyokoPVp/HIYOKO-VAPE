@@ -16537,11 +16537,14 @@ end)
 
 run(function()
 	local CDisabler
-	local CameraOffsetSlider -- スライダーオブジェクト用の変数名に変更
-	local BodyLagSlider      -- 同上
+	local CameraSpeedSlider -- CameraOffsetから名前を変更（秒速）
+	local BodySpeedSlider   -- BodyLagから名前を変更（秒速）
 	local Connection = nil
 	local OriginalCameraCF = nil
-	local LastBodyPos = nil
+	
+	-- 位置を保持するための変数
+	local CustomCameraPos = nil
+	local CustomBodyPos = nil
 
 	CDisabler = vape.Categories.Blatant:CreateModule({
 		Name = 'CDisabler',
@@ -16552,7 +16555,9 @@ run(function()
 					return 
 				end
 
-				LastBodyPos = entitylib.character.RootPart.Position
+				local root = entitylib.character.RootPart
+				CustomCameraPos = root.Position
+				CustomBodyPos = root.Position
 				
 				Connection = runService.RenderStepped:Connect(function(dt)
 					if not entitylib.isAlive then return end
@@ -16561,29 +16566,36 @@ run(function()
 					local camera = workspace.CurrentCamera
 					local moveDir = entitylib.character.Humanoid.MoveDirection
 
-					-- .Value から現在の設定値を取得する
-					local offsetValue = CameraOffsetSlider.Value
-					local lagValue = BodyLagSlider.Value
+					-- スライダーから「1秒あたりの移動速度（studs）」を取得
+					local camSpeed = CameraSpeedSlider.Value
+					local bodySpeed = BodySpeedSlider.Value
 
-					-- カメラを先行させる
-					local cameraTarget = root.Position + (moveDir * offsetValue)
+					-- 移動入力がある場合、それぞれの速度で座標を進める
+					if moveDir.Magnitude > 0.1 then
+						-- カメラは指定スピード（例: 30 studs/s）で前進
+						CustomCameraPos = CustomCameraPos + (moveDir * camSpeed * dt)
+						-- キャラクターは遅いスピード（例: 23 studs/s）で後を追う
+						CustomBodyPos = CustomBodyPos + (moveDir * bodySpeed * dt)
+					else
+						-- 立ち止まった時は、キャラクターがカメラの位置に追いつくように補間（自由に変更してね）
+						CustomBodyPos = CustomBodyPos:Lerp(CustomCameraPos, 10 * dt)
+					end
+
+					-- 1. カメラのCFrameを更新（CustomCameraPosに配置し、キャラクターの方向を向く）
 					OriginalCameraCF = camera.CFrame
-					
 					camera.CFrame = CFrame.lookAt(
-						camera.CFrame.Position:Lerp(cameraTarget, 0.65),
-						root.Position + Vector3.new(0, 3, 0)
+						CustomCameraPos + Vector3.new(0, 5, 0), -- 少し上から見下ろす
+						CustomBodyPos
 					)
 
-					-- 本体を遅れて追従
-					if moveDir.Magnitude > 0.1 then
-						local targetBodyPos = camera.CFrame.Position - (camera.CFrame.LookVector * lagValue)
-						LastBodyPos = LastBodyPos:Lerp(targetBodyPos, 0.45)
-						
-						root.CFrame = CFrame.lookAt(LastBodyPos, LastBodyPos + moveDir)
-					end
+					-- 2. キャラクターのCFrameを更新（CustomBodyPosに配置）
+					root.CFrame = CFrame.lookAt(
+						CustomBodyPos,
+						CustomBodyPos + moveDir
+					)
 				end)
 
-				vape:CreateNotification("CDisabler", "Camera先行 + Body遅延 モード有効", 4, "info")
+				vape:CreateNotification("CDisabler", "速度差追従モード有効", 4, "info")
 			else
 				if Connection then
 					Connection:Disconnect()
@@ -16595,23 +16607,23 @@ run(function()
 				vape:CreateNotification("CDisabler", "無効化", 2, "info")
 			end
 		end,
-		Tooltip = 'カメラが30studs先行、本体が23studs遅れて追従する強力デシンク'
+		Tooltip = 'カメラが秒速30で先行し、本体が秒速23で追いかける'
 	})
 
-	-- 変数がSliderオブジェクトを指すように修正
-	CameraOffsetSlider = CDisabler:CreateSlider({
-		Name = 'Camera Ahead',
-		Min = 15,
-		Max = 45,
-		Default = 30,
-		Suffix = ' studs'
-	})
-
-	BodyLagSlider = CDisabler:CreateSlider({
-		Name = 'Body Lag',
+	-- 分かりやすいように設定名も「Speed」に変更したよ
+	CameraSpeedSlider = CDisabler:CreateSlider({
+		Name = 'Camera Speed',
 		Min = 10,
-		Max = 35,
+		Max = 60,
+		Default = 30,
+		Suffix = ' studs/s'
+	})
+
+	BodySpeedSlider = CDisabler:CreateSlider({
+		Name = 'Body Speed',
+		Min = 10,
+		Max = 60,
 		Default = 23,
-		Suffix = ' studs'
+		Suffix = ' studs/s'
 	})
 end)
