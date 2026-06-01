@@ -16536,128 +16536,132 @@ KrystalDisabler = vape.Categories.Blatant:CreateModule({
 end)
 
 run(function()
-	local CDisabler
-	local CameraSpeedSlider
-	local BodySpeedSlider
-	local Connection = nil
-	local OriginalCameraCF = nil
-	
-	-- 座標を管理する変数（nilで初期化）
-	local VirtualCameraPos = nil
-	local VirtualBodyPos = nil
+    local CDisabler
+    local CameraSpeedSlider
+    local BodySpeedSlider
+    local Connection = nil
 
-	local userInputService = game:GetService("UserInputService")
+    local VirtualCameraPos = nil
+    local VirtualBodyPos = nil
 
-	CDisabler = vape.Categories.Blatant:CreateModule({
-		Name = 'CDisabler',
-		Function = function(callback)
-			if callback then
-				if not entitylib.isAlive then 
-					CDisabler:Toggle()
-					return 
-				end
+    local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
 
-				-- オンにした瞬間に現在の実体座標を確実にセット
-				local root = entitylib.character.RootPart
-				VirtualCameraPos = root.Position
-				VirtualBodyPos = root.Position
-				
-				Connection = runService.RenderStepped:Connect(function(dt)
-					if not entitylib.isAlive then return end
+    CDisabler = vape.Categories.Blatant:CreateModule({
+        Name = 'CDisabler',
+        Function = function(callback)
+            if callback then
+                if not entitylib.isAlive then
+                    CDisabler:Toggle()
+                    return
+                end
 
-					local root = entitylib.character.RootPart
-					local camera = workspace.CurrentCamera
-					local humanoid = entitylib.character.Humanoid
-					
-					-- 1. 移動方向（前後左右）の取得
-					local moveDir = humanoid.MoveDirection
-					local verticalDir = 0
+                local root = entitylib.character.RootPart
+                local humanoid = entitylib.character.Humanoid
+                local camera = workspace.CurrentCamera
 
-					-- ジャンプ・ダウンの入力検知
-					if userInputService:IsKeyDown(Enum.KeyCode.Space) then
-						verticalDir = 1
-					elseif userInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-						verticalDir = -1
-					end
+                -- 初期位置をしっかりセット
+                VirtualCameraPos = root.Position
+                VirtualBodyPos = root.Position
 
-					-- 3次元の総合移動ベクトル
-					local totalMoveDir = moveDir + Vector3.new(0, verticalDir, 0)
+                Connection = RunService.RenderStepped:Connect(function(dt)
+                    if not entitylib.isAlive then return end
 
-					local camSpeed = CameraSpeedSlider.Value
-					local bodySpeed = BodySpeedSlider.Value
+                    root = entitylib.character.RootPart
+                    humanoid = entitylib.character.Humanoid
+                    camera = workspace.CurrentCamera
 
-					-- キー入力がある時だけ座標計算を動かす
-					if totalMoveDir.Magnitude > 0.01 then
-						-- 重力をオフにして落下や座標の暴走を防ぐ
-						humanoid.PlatformStand = true
-						
-						-- 安全に方向ベクトル（Unit）を計算（0除算対策）
-						local direction = totalMoveDir.Magnitude > 0 ? totalMoveDir.Unit : Vector3.new(0, 0, 0)
+                    -- 入力取得
+                    local moveDir = humanoid.MoveDirection
+                    local verticalDir = 0
 
-						-- 2. カメラの目標位置を「指定されたカメラ速度」で進める
-						VirtualCameraPos = VirtualCameraPos + (direction * camSpeed * dt)
+                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                        verticalDir = 1
+                    elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                        verticalDir = -1
+                    end
 
-						-- 3. キャラクターのフェイク位置を、カメラの位置に向けて「指定された安全な本体速度」で近づける
-						local toCamera = VirtualCameraPos - VirtualBodyPos
-						if toCamera.Magnitude > 0.01 then
-							VirtualBodyPos = VirtualBodyPos + (toCamera.Unit * bodySpeed * dt)
-						end
+                    local totalMoveDir = (moveDir + Vector3.new(0, verticalDir, 0)).Unit * (moveDir.Magnitude > 0.01 and 1 or 0)
 
-						-- 【Wallcheck（壁めり込み・マップ外抜け防止）】
-						local raycastParams = RaycastParams.new()
-						raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
-						raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-						
-						local raycastResult = workspace:Raycast(root.Position, VirtualBodyPos - root.Position, raycastParams)
-						if raycastResult then
-							VirtualBodyPos = raycastResult.Position - (direction * 0.5)
-							VirtualCameraPos = VirtualBodyPos -- 壁に当たったらカメラの先行もストップ
-						end
+                    local camSpeed = CameraSpeedSlider.Value
+                    local bodySpeed = BodySpeedSlider.Value
 
-						-- 4. 【カメラ位置の更新】カメラを先行座標にワープさせ、進行方向を向かせる
-						local lookDir = moveDir.Magnitude > 0.01 and moveDir or root.CFrame.LookVector
-						camera.CFrame = CFrame.lookAt(VirtualCameraPos + Vector3.new(0, 2, 0), VirtualCameraPos + lookDir)
+                    if totalMoveDir.Magnitude > 0.01 then
+                        humanoid.PlatformStand = true
 
-						-- 5. 【本体位置の更新】Lagbackが起きない等速スピードで実体を同期
-						root.CFrame = CFrame.lookAt(VirtualBodyPos, VirtualBodyPos + lookDir)
-						root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-					else
-						-- キーを離しているときは、現在の実体の位置に常に同期させて暴走を完全に防止
-						humanoid.PlatformStand = false
-						VirtualCameraPos = root.Position
-						VirtualBodyPos = root.Position
-					end
-				end)
+                        -- カメラ先行移動
+                        VirtualCameraPos = VirtualCameraPos + (totalMoveDir * camSpeed * dt)
 
-				vape:CreateNotification("CDisabler", "修正版追従モード有効", 4, "info")
-			else
-				if Connection then
-					Connection:Disconnect()
-					Connection = nil
-				end
-				if entitylib.isAlive then
-					entitylib.character.Humanoid.PlatformStand = false
-				end
-				vape:CreateNotification("CDisabler", "無効化", 2, "info")
-			end
-		end,
-		Tooltip = 'カメラが先行し、体がLagbackしない速度で確実についていく（暴走対策済）'
-	})
+                        -- 本体がカメラに追従
+                        local toCamera = VirtualCameraPos - VirtualBodyPos
+                        if toCamera.Magnitude > 0.01 then
+                            VirtualBodyPos = VirtualBodyPos + (toCamera.Unit * math.min(bodySpeed, toCamera.Magnitude / dt) * dt)
+                        end
 
-	CameraSpeedSlider = CDisabler:CreateSlider({
-		Name = 'Camera Speed',
-		Min = 10,
-		Max = 100,
-		Default = 40,
-		Suffix = ' studs/s'
-	})
+                        -- === Wall Check (壁貫通防止) ===
+                        local raycastParams = RaycastParams.new()
+                        raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
+                        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
-	-- ここをアンチチートの限界値（大体20〜23付近）に設定すれば引き戻されずに等速で追いつきます
-	BodySpeedSlider = CDisabler:CreateSlider({
-		Name = 'Body Speed',
-		Min = 5,
-		Max = 50,
-		Default = 21,
-		Suffix = ' studs/s'
-	})
+                        local directionToBody = VirtualBodyPos - root.Position
+                        local raycastResult = workspace:Raycast(root.Position, directionToBody, raycastParams)
+
+                        if raycastResult then
+                            VirtualBodyPos = raycastResult.Position - (directionToBody.Unit * 0.5)
+                            VirtualCameraPos = VirtualBodyPos -- カメラも壁の手前で止める
+                        end
+
+                        -- カメラ更新
+                        local lookDir = moveDir.Magnitude > 0.01 and moveDir or root.CFrame.LookVector
+                        camera.CFrame = CFrame.lookAt(VirtualCameraPos + Vector3.new(0, 2.5, 0), VirtualCameraPos + lookDir)
+
+                        -- 本体更新（Lagback対策）
+                        root.CFrame = CFrame.lookAt(VirtualBodyPos, VirtualBodyPos + lookDir)
+                        root.AssemblyLinearVelocity = Vector3.zero
+                        root.AssemblyAngularVelocity = Vector3.zero
+
+                    else
+                        -- 停止時は実体に完全同期
+                        humanoid.PlatformStand = false
+                        VirtualCameraPos = root.Position
+                        VirtualBodyPos = root.Position
+                    end
+                end)
+
+                vape:CreateNotification("CDisabler", "修正版追従モード有効", 4, "info")
+
+            else
+                if Connection then
+                    Connection:Disconnect()
+                    Connection = nil
+                end
+
+                if entitylib.isAlive then
+                    entitylib.character.Humanoid.PlatformStand = false
+                end
+
+                VirtualCameraPos = nil
+                VirtualBodyPos = nil
+
+                vape:CreateNotification("CDisabler", "無効化", 2, "info")
+            end
+        end,
+        Tooltip = 'カメラが先行し、体がLagbackしない速度で追従（壁チェック・暴走対策済）'
+    })
+
+    CameraSpeedSlider = CDisabler:CreateSlider({
+        Name = 'Camera Speed',
+        Min = 10,
+        Max = 120,
+        Default = 45,
+        Suffix = ' studs/s'
+    })
+
+    BodySpeedSlider = CDisabler:CreateSlider({
+        Name = 'Body Speed',
+        Min = 5,
+        Max = 50,
+        Default = 22,
+        Suffix = ' studs/s'
+    })
 end)
