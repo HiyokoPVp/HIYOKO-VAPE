@@ -16537,8 +16537,8 @@ end)
 
 run(function()
 	local CDisabler
-	local CameraOffset = 30
-	local BodyLag = 23
+	local CameraOffsetSlider -- スライダーオブジェクト用の変数名に変更
+	local BodyLagSlider      -- 同上
 	local Connection = nil
 	local OriginalCameraCF = nil
 	local LastBodyPos = nil
@@ -16561,8 +16561,12 @@ run(function()
 					local camera = workspace.CurrentCamera
 					local moveDir = entitylib.character.Humanoid.MoveDirection
 
+					-- .Value から現在の設定値を取得する
+					local offsetValue = CameraOffsetSlider.Value
+					local lagValue = BodyLagSlider.Value
+
 					-- カメラを先行させる
-					local cameraTarget = root.Position + (moveDir * CameraOffset)
+					local cameraTarget = root.Position + (moveDir * offsetValue)
 					OriginalCameraCF = camera.CFrame
 					
 					camera.CFrame = CFrame.lookAt(
@@ -16572,7 +16576,7 @@ run(function()
 
 					-- 本体を遅れて追従
 					if moveDir.Magnitude > 0.1 then
-						local targetBodyPos = camera.CFrame.Position - (camera.CFrame.LookVector * BodyLag)
+						local targetBodyPos = camera.CFrame.Position - (camera.CFrame.LookVector * lagValue)
 						LastBodyPos = LastBodyPos:Lerp(targetBodyPos, 0.45)
 						
 						root.CFrame = CFrame.lookAt(LastBodyPos, LastBodyPos + moveDir)
@@ -16594,7 +16598,8 @@ run(function()
 		Tooltip = 'カメラが30studs先行、本体が23studs遅れて追従する強力デシンク'
 	})
 
-	CameraOffset = CDisabler:CreateSlider({
+	-- 変数がSliderオブジェクトを指すように修正
+	CameraOffsetSlider = CDisabler:CreateSlider({
 		Name = 'Camera Ahead',
 		Min = 15,
 		Max = 45,
@@ -16602,7 +16607,7 @@ run(function()
 		Suffix = ' studs'
 	})
 
-	BodyLag = CDisabler:CreateSlider({
+	BodyLagSlider = CDisabler:CreateSlider({
 		Name = 'Body Lag',
 		Min = 10,
 		Max = 35,
