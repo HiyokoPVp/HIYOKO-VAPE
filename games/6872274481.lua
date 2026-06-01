@@ -16537,13 +16537,6 @@ run(function()
 			if callback then
 				local ok = setup()
 
-				if not ok then
-					vape:CreateNotification("KrystalDisabler", "Not on Krystal kit!", 5, 'alert')
-					warn("[KrystalDisabler] Setup failed. Toggling off.")
-					KrystalDisabler:Toggle()
-					return
-				end
-
 				renderConn = runService.RenderStepped:Connect(function()
 					if not bedwarsCtrl then return end
 					pcall(function()
