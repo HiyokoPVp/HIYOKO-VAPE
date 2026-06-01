@@ -16542,7 +16542,7 @@ run(function()
 	local Connection = nil
 	local OriginalCameraCF = nil
 	
-	-- 完全にコントロールするための仮想座標
+	-- 座標を管理する変数（nilで初期化）
 	local VirtualCameraPos = nil
 	local VirtualBodyPos = nil
 
@@ -16557,6 +16557,7 @@ run(function()
 					return 
 				end
 
+				-- オンにした瞬間に現在の実体座標を確実にセット
 				local root = entitylib.character.RootPart
 				VirtualCameraPos = root.Position
 				VirtualBodyPos = root.Position
@@ -16568,63 +16569,67 @@ run(function()
 					local camera = workspace.CurrentCamera
 					local humanoid = entitylib.character.Humanoid
 					
-					-- 1. 移動方向の取得（ジャンプ・ダウン含む）
+					-- 1. 移動方向（前後左右）の取得
 					local moveDir = humanoid.MoveDirection
 					local verticalDir = 0
 
+					-- ジャンプ・ダウンの入力検知
 					if userInputService:IsKeyDown(Enum.KeyCode.Space) then
 						verticalDir = 1
 					elseif userInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
 						verticalDir = -1
 					end
 
+					-- 3次元の総合移動ベクトル
 					local totalMoveDir = moveDir + Vector3.new(0, verticalDir, 0)
 
 					local camSpeed = CameraSpeedSlider.Value
 					local bodySpeed = BodySpeedSlider.Value
 
-					if totalMoveDir.Magnitude > 0.1 then
-						-- 移動中はRobloxの物理演算（重力）をオフにして落下を防ぐ
+					-- キー入力がある時だけ座標計算を動かす
+					if totalMoveDir.Magnitude > 0.01 then
+						-- 重力をオフにして落下や座標の暴走を防ぐ
 						humanoid.PlatformStand = true
 						
-						local direction = totalMoveDir.Unit
+						-- 安全に方向ベクトル（Unit）を計算（0除算対策）
+						local direction = totalMoveDir.Magnitude > 0 ? totalMoveDir.Unit : Vector3.new(0, 0, 0)
 
-						-- 2. 【図の点線】カメラの仮想位置を先行させる
+						-- 2. カメラの目標位置を「指定されたカメラ速度」で進める
 						VirtualCameraPos = VirtualCameraPos + (direction * camSpeed * dt)
 
-						-- 3. 【図の実線】キャラクターの仮想位置を、カメラの位置に向かって安全な速度で近づける
+						-- 3. キャラクターのフェイク位置を、カメラの位置に向けて「指定された安全な本体速度」で近づける
 						local toCamera = VirtualCameraPos - VirtualBodyPos
-						if toCamera.Magnitude > 0.1 then
+						if toCamera.Magnitude > 0.01 then
 							VirtualBodyPos = VirtualBodyPos + (toCamera.Unit * bodySpeed * dt)
 						end
 
-						-- 【Wallcheck】壁にぶつかったら止める
+						-- 【Wallcheck（壁めり込み・マップ外抜け防止）】
 						local raycastParams = RaycastParams.new()
 						raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
 						raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+						
 						local raycastResult = workspace:Raycast(root.Position, VirtualBodyPos - root.Position, raycastParams)
-
 						if raycastResult then
-							VirtualBodyPos = raycastResult.Position - (totalMoveDir.Unit * 0.5)
-							VirtualCameraPos = VirtualBodyPos -- カメラの先行も壁で止める
+							VirtualBodyPos = raycastResult.Position - (direction * 0.5)
+							VirtualCameraPos = VirtualBodyPos -- 壁に当たったらカメラの先行もストップ
 						end
 
-						-- 4. 【カメラの更新】図のように、カメラを先行している仮想座標に配置する
-						local lookAtTarget = VirtualBodyPos + (moveDir.Magnitude > 0.1 and moveDir or root.CFrame.LookVector)
-						camera.CFrame = CFrame.lookAt(VirtualCameraPos + Vector3.new(0, 2, 0), lookAtTarget)
+						-- 4. 【カメラ位置の更新】カメラを先行座標にワープさせ、進行方向を向かせる
+						local lookDir = moveDir.Magnitude > 0.01 and moveDir or root.CFrame.LookVector
+						camera.CFrame = CFrame.lookAt(VirtualCameraPos + Vector3.new(0, 2, 0), VirtualCameraPos + lookDir)
 
-						-- 5. 【キャラクターの更新】安全な速度で計算された座標に実体を同期
-						root.CFrame = CFrame.lookAt(VirtualBodyPos, lookAtTarget)
+						-- 5. 【本体位置の更新】Lagbackが起きない等速スピードで実体を同期
+						root.CFrame = CFrame.lookAt(VirtualBodyPos, VirtualBodyPos + lookDir)
 						root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 					else
-						-- キーを離したら物理演算を戻し、その場に完全静止
+						-- キーを離しているときは、現在の実体の位置に常に同期させて暴走を完全に防止
 						humanoid.PlatformStand = false
 						VirtualCameraPos = root.Position
 						VirtualBodyPos = root.Position
 					end
 				end)
 
-				vape:CreateNotification("CDisabler", "理想の追従モード有効", 4, "info")
+				vape:CreateNotification("CDisabler", "修正版追従モード有効", 4, "info")
 			else
 				if Connection then
 					Connection:Disconnect()
@@ -16636,7 +16641,7 @@ run(function()
 				vape:CreateNotification("CDisabler", "無効化", 2, "info")
 			end
 		end,
-		Tooltip = 'カメラが先行し、体がLagbackしない速度で絶対についていく'
+		Tooltip = 'カメラが先行し、体がLagbackしない速度で確実についていく（暴走対策済）'
 	})
 
 	CameraSpeedSlider = CDisabler:CreateSlider({
@@ -16647,7 +16652,7 @@ run(function()
 		Suffix = ' studs/s'
 	})
 
-	-- ここを「20」前後にすると絶対にLagback（引き戻し）されずに追いつくよ！
+	-- ここをアンチチートの限界値（大体20〜23付近）に設定すれば引き戻されずに等速で追いつきます
 	BodySpeedSlider = CDisabler:CreateSlider({
 		Name = 'Body Speed',
 		Min = 5,
