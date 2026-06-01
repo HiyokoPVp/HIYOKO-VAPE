@@ -16537,9 +16537,13 @@ end)
 
 run(function()
 	local CDisabler
-	local CameraOffsetSlider
+	local CameraOffsetSlider -- 先行させる距離の目安（30 studs）
+	local BodySpeedSlider    -- 追いつく超高速スピード（230 studs/s とかにできるように調整）
 	local Connection = nil
 	local OriginalCameraCF = nil
+	
+	-- サーバー位置とクライアント（画面に見える）位置を分離するための変数
+	local FakeBodyPos = nil
 
 	CDisabler = vape.Categories.Blatant:CreateModule({
 		Name = 'CDisabler',
@@ -16549,6 +16553,9 @@ run(function()
 					CDisabler:Toggle()
 					return 
 				end
+
+				local root = entitylib.character.RootPart
+				FakeBodyPos = root.Position
 				
 				Connection = runService.RenderStepped:Connect(function(dt)
 					if not entitylib.isAlive then return end
@@ -16556,32 +16563,38 @@ run(function()
 					local root = entitylib.character.RootPart
 					local camera = workspace.CurrentCamera
 					local moveDir = entitylib.character.Humanoid.MoveDirection
-					local humanoid = entitylib.character.Humanoid
 
-					-- スライダーから先行スタッド数を取得 (30 studs)
 					local offsetDist = CameraOffsetSlider.Value
+					local moveSpeed = BodySpeedSlider.Value
 
-					-- キャラクターの実体座標は弄らない（Roblox本来の移動スピードに任せる）
-					-- カメラのCFrameだけを、移動方向（moveDir）の30スタッド先に強制設定する
+					-- プレイヤーが移動キーを押しているとき
 					if moveDir.Magnitude > 0.1 then
-						-- カメラの目標位置（キャラクターの本来の位置から30スタッド先）
-						local targetCameraPos = root.Position + (moveDir * offsetDist) + Vector3.new(0, 3, 0)
+						-- 1. まずカメラの基準（目標地点）を前方に設定
+						local targetGoal = root.Position + (moveDir * offsetDist)
 						
-						OriginalCameraCF = camera.CFrame
-						-- カメラをその先に配置して、キャラクターの背後から見るような向き、あるいは進行方向を向かせる
-						camera.CFrame = CFrame.lookAt(
-							targetCameraPos, 
-							targetCameraPos + moveDir
-						)
-					else
-						-- 動いていないときは通常のカメラ位置に滑らかに戻す
-						if OriginalCameraCF then
-							camera.CFrame = camera.CFrame:Lerp(OriginalCameraCF, 10 * dt)
+						-- 2. フェイクの身体の座標を、その目標に向かって指定された高速（秒速23など）で進める
+						local toTarget = targetGoal - FakeBodyPos
+						if toTarget.Magnitude > 0.1 then
+							-- 毎フレーム超高速で目標地点へ近づける
+							FakeBodyPos = FakeBodyPos + (moveDir * moveSpeed * dt)
 						end
+						
+						-- 行き過ぎを防止するために、本来の最大先行距離にクランプ
+						local currentDist = (FakeBodyPos - root.Position).Magnitude
+						if currentDist > offsetDist then
+							FakeBodyPos = root.Position + (moveDir * offsetDist)
+						end
+
+						-- 3. 【重要】キャラクターの実体をそのフェイク位置に「滑らかに強制ワープ」させる
+						-- これにより、カメラの視点移動が滑らかになりつつ、体だけがビューンと追いつく動きになる
+						root.CFrame = CFrame.lookAt(FakeBodyPos, FakeBodyPos + moveDir)
+					else
+						-- キーを離したら一瞬で本来の物理位置に同期を戻す
+						FakeBodyPos = root.Position
 					end
 				end)
 
-				vape:CreateNotification("CDisabler", "カメラ先行モード有効", 4, "info")
+				vape:CreateNotification("CDisabler", "超高速追従デシンク有効", 4, "info")
 			else
 				if Connection then
 					Connection:Disconnect()
@@ -16590,14 +16603,23 @@ run(function()
 				vape:CreateNotification("CDisabler", "無効化", 2, "info")
 			end
 		end,
-		Tooltip = 'カメラだけを30スタッド先に進め、キャラクターの実体を追い付かせるデシンク'
+		Tooltip = 'カメラの視点に対して、キャラクターの体が超高速で追いつくように突っ走るデシンク'
 	})
 
 	CameraOffsetSlider = CDisabler:CreateSlider({
-		Name = 'Camera Ahead',
+		Name = 'Max Distance',
 		Min = 15,
 		Max = 45,
 		Default = 30,
 		Suffix = ' studs'
+	})
+
+	-- 秒速23スタッドだとRobloxの通常（秒速16）と大差ないから、動画みたいに「ビューン！」ってさせるために上限を大きくしたよ
+	BodySpeedSlider = CDisabler:CreateSlider({
+		Name = 'Catch-up Speed',
+		Min = 20,
+		Max = 150,
+		Default = 45, -- 動画のような速度感を出すなら40〜60あたりがおすすめ
+		Suffix = ' studs/s'
 	})
 end)
