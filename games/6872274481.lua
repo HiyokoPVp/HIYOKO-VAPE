@@ -16537,11 +16537,9 @@ end)
 
 run(function()
 	local CDisabler
-	local CameraOffsetSlider -- 目標とする先行距離（30 studs）
-	local BodySpeedSlider    -- 追いかける移動速度（23 studs/s）
+	local CameraOffsetSlider
 	local Connection = nil
 	local OriginalCameraCF = nil
-	local CurrentBodyPos = nil
 
 	CDisabler = vape.Categories.Blatant:CreateModule({
 		Name = 'CDisabler',
@@ -16551,9 +16549,6 @@ run(function()
 					CDisabler:Toggle()
 					return 
 				end
-
-				-- スタート時の位置を同期
-				CurrentBodyPos = entitylib.character.RootPart.Position
 				
 				Connection = runService.RenderStepped:Connect(function(dt)
 					if not entitylib.isAlive then return end
@@ -16561,44 +16556,32 @@ run(function()
 					local root = entitylib.character.RootPart
 					local camera = workspace.CurrentCamera
 					local moveDir = entitylib.character.Humanoid.MoveDirection
+					local humanoid = entitylib.character.Humanoid
 
+					-- スライダーから先行スタッド数を取得 (30 studs)
 					local offsetDist = CameraOffsetSlider.Value
-					local moveSpeed = BodySpeedSlider.Value
 
-					-- 1. カメラの目標位置（先行位置）を計算
-					-- プレイヤーが動いている方向に offsetDist (30studs) だけ進んだ位置
-					local targetCameraPos = CurrentBodyPos + (moveDir * offsetDist)
-
-					-- カメラ自体は滑らかにその先行位置へ移動させる（Lerpはお好みで調整してね）
-					camera.CFrame = CFrame.lookAt(
-						camera.CFrame.Position:Lerp(targetCameraPos + Vector3.new(0, 5, -5), 0.3), -- カメラ位置（少し後ろ上から俯瞰）
-						CurrentBodyPos -- キャラクターの現在地を注視
-					)
-
-					-- 2. キャラクターの身体がカメラの位置（targetCameraPos）を「秒速23studs」で追いかける
+					-- キャラクターの実体座標は弄らない（Roblox本来の移動スピードに任せる）
+					-- カメラのCFrameだけを、移動方向（moveDir）の30スタッド先に強制設定する
 					if moveDir.Magnitude > 0.1 then
-						-- キャラクターから目標地点へのベクトルと距離
-						local toTarget = targetCameraPos - CurrentBodyPos
-						local distance = toTarget.Magnitude
-
-						if distance > 0.1 then
-							-- 1フレームで進む距離（速度 * 時間）
-							local step = moveSpeed * dt
-							if step > distance then step = distance end -- 行き過ぎ防止
-
-							-- 目標に向かって直線的に座標を進める
-							CurrentBodyPos = CurrentBodyPos + (toTarget.Unit * step)
-						end
+						-- カメラの目標位置（キャラクターの本来の位置から30スタッド先）
+						local targetCameraPos = root.Position + (moveDir * offsetDist) + Vector3.new(0, 3, 0)
 						
-						-- 実体を計算した座標に動かす
-						root.CFrame = CFrame.lookAt(CurrentBodyPos, CurrentBodyPos + moveDir)
+						OriginalCameraCF = camera.CFrame
+						-- カメラをその先に配置して、キャラクターの背後から見るような向き、あるいは進行方向を向かせる
+						camera.CFrame = CFrame.lookAt(
+							targetCameraPos, 
+							targetCameraPos + moveDir
+						)
 					else
-						-- 入力がない（立ち止まった）時は、現在地にスッと実体を戻して同期を安定させる
-						CurrentBodyPos = CurrentBodyPos:Lerp(root.Position, 10 * dt)
+						-- 動いていないときは通常のカメラ位置に滑らかに戻す
+						if OriginalCameraCF then
+							camera.CFrame = camera.CFrame:Lerp(OriginalCameraCF, 10 * dt)
+						end
 					end
 				end)
 
-				vape:CreateNotification("CDisabler", "先行カメラ追従モード有効", 4, "info")
+				vape:CreateNotification("CDisabler", "カメラ先行モード有効", 4, "info")
 			else
 				if Connection then
 					Connection:Disconnect()
@@ -16607,7 +16590,7 @@ run(function()
 				vape:CreateNotification("CDisabler", "無効化", 2, "info")
 			end
 		end,
-		Tooltip = 'カメラが30studs先行し、身体が秒速23studsでその位置を追いかける'
+		Tooltip = 'カメラだけを30スタッド先に進め、キャラクターの実体を追い付かせるデシンク'
 	})
 
 	CameraOffsetSlider = CDisabler:CreateSlider({
@@ -16616,13 +16599,5 @@ run(function()
 		Max = 45,
 		Default = 30,
 		Suffix = ' studs'
-	})
-
-	BodySpeedSlider = CDisabler:CreateSlider({
-		Name = 'Body Speed',
-		Min = 10,
-		Max = 50,
-		Default = 23,
-		Suffix = ' studs/s'
 	})
 end)
