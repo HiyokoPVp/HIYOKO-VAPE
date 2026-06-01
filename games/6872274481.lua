@@ -16537,14 +16537,15 @@ end)
 
 run(function()
 	local CDisabler
-	local CameraOffsetSlider
-	local BodySpeedSlider
+	local CameraSpeedSlider -- カメラが先行するスピード
+	local BodySpeedSlider   -- 体が追いかけるスピード（Lagback対策用）
 	local Connection = nil
 	local OriginalCameraCF = nil
 	
-	local FakeBodyPos = nil
+	-- 仮想的なカメラ位置とキャラクター位置
+	local VirtualCameraPos = nil
+	local VirtualBodyPos = nil
 
-	-- キー入力を監視するためのサービス
 	local userInputService = game:GetService("UserInputService")
 
 	CDisabler = vape.Categories.Blatant:CreateModule({
@@ -16557,7 +16558,8 @@ run(function()
 				end
 
 				local root = entitylib.character.RootPart
-				FakeBodyPos = root.Position
+				VirtualCameraPos = root.Position
+				VirtualBodyPos = root.Position
 				
 				Connection = runService.RenderStepped:Connect(function(dt)
 					if not entitylib.isAlive then return end
@@ -16565,68 +16567,63 @@ run(function()
 					local root = entitylib.character.RootPart
 					local camera = workspace.CurrentCamera
 					
-					-- 1. 前後左右の移動ベクトルを取得
+					-- 1. 移動方向の取得（ジャンプ・ダウン含む）
 					local moveDir = entitylib.character.Humanoid.MoveDirection
 					local verticalDir = 0
 
-					-- 2. ジャンプ（Space）とダウン（LeftControl）の入力を判定して、上下の移動量を加算
 					if userInputService:IsKeyDown(Enum.KeyCode.Space) then
 						verticalDir = 1
 					elseif userInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
 						verticalDir = -1
 					end
 
-					-- 3次元の総合的な移動方向を計算
 					local totalMoveDir = moveDir + Vector3.new(0, verticalDir, 0)
 
-					local offsetDist = CameraOffsetSlider.Value
-					local moveSpeed = BodySpeedSlider.Value
+					-- スライダーからそれぞれの速度を取得（studs/秒）
+					local camSpeed = CameraSpeedSlider.Value
+					local bodySpeed = BodySpeedSlider.Value
 
-					-- 何かしらの移動入力がある場合
 					if totalMoveDir.Magnitude > 0.1 then
-						-- 目標地点の計算
-						local targetGoal = root.Position + (totalMoveDir.Unit * offsetDist)
-						
-						-- フェイク座標をスピードに合わせて進める
-						local toTarget = targetGoal - FakeBodyPos
-						if toTarget.Magnitude > 0.1 then
-							FakeBodyPos = FakeBodyPos + (totalMoveDir.Unit * moveSpeed * dt)
-						end
-						
-						-- 最大距離を超えないようにクランプ（置いていかれバグ防止）
-						local currentDist = (FakeBodyPos - root.Position).Magnitude
-						if currentDist > offsetDist then
-							FakeBodyPos = root.Position + (totalMoveDir.Unit * offsetDist)
+						local direction = totalMoveDir.Unit
+
+						-- 2. カメラの仮想位置を「カメラ速度」で先行させる
+						VirtualCameraPos = VirtualCameraPos + (direction * camSpeed * dt)
+
+						-- 3. キャラクターの仮想位置を、カメラの位置に向かって「本体速度」でじわじわ近づける
+						local toCamera = VirtualCameraPos - VirtualBodyPos
+						if toCamera.Magnitude > 0.1 then
+							-- 目標（カメラ位置）への方向に向かって、安全な速度で進める
+							VirtualBodyPos = VirtualBodyPos + (toCamera.Unit * bodySpeed * dt)
 						end
 
-						-- 【Wallcheck（壁・床抜け防止判定）】
-						-- 本体の位置からFakeBodyPosに向けてレイ（光線）を飛ばし、壁があったらそこで止める
+						-- 【Wallcheck】壁や床へのめり込み防止
 						local raycastParams = RaycastParams.new()
 						raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
 						raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
-						local rayDirection = FakeBodyPos - root.Position
+						local rayDirection = VirtualBodyPos - root.Position
 						local raycastResult = workspace:Raycast(root.Position, rayDirection, raycastParams)
 
 						if raycastResult then
-							-- 壁や床に当たったら、その衝突地点の手前に座標を固定する（埋まり防止）
-							FakeBodyPos = raycastResult.Position - (rayDirection.Unit * 0.5)
+							VirtualBodyPos = raycastResult.Position - (rayDirection.Unit * 0.5)
+							-- 壁にぶつかったらカメラの先行もそこでストップさせる
+							VirtualCameraPos = VirtualBodyPos
 						end
 
-						-- キャラクターを新しい位置に同期
-						-- 向きがゼロにならないように安全対策
+						-- 4. 実体を計算した安全な座標に同期（向きは移動方向）
 						local lookDir = moveDir.Magnitude > 0.1 and moveDir or root.CFrame.LookVector
-						root.CFrame = CFrame.lookAt(FakeBodyPos, FakeBodyPos + lookDir)
+						root.CFrame = CFrame.lookAt(VirtualBodyPos, VirtualBodyPos + lookDir)
 						
-						-- ベロシティをゼロにして、Roblox本来の物理演算で遥か彼方にぶっ飛んでいくのを防ぐ（置いていかれバグ対策）
+						-- アンチチートの速度計算をバグらせるために物理ベロシティをリセット
 						root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 					else
-						-- キーを離したら即座に実体の位置にフェイクを戻して完全同期
-						FakeBodyPos = root.Position
+						-- キーを離したらその場で実体に完全同期させて静止
+						VirtualCameraPos = root.Position
+						VirtualBodyPos = root.Position
 					end
 				end)
 
-				vape:CreateNotification("CDisabler", "完全追従デシンク有効", 4, "info")
+				vape:CreateNotification("CDisabler", "セーフ追従モード有効", 4, "info")
 			else
 				if Connection then
 					Connection:Disconnect()
@@ -16635,22 +16632,24 @@ run(function()
 				vape:CreateNotification("CDisabler", "無効化", 2, "info")
 			end
 		end,
-		Tooltip = 'ジャンプ・ダウン・壁判定に対応した超高速追従デシンク'
+		Tooltip = 'カメラと本体の速度を別々に制御してLagbackを防ぐ'
 	})
 
-	CameraOffsetSlider = CDisabler:CreateSlider({
-		Name = 'Max Distance',
-		Min = 15,
-		Max = 45,
-		Default = 30,
-		Suffix = ' studs'
-	})
-
-	BodySpeedSlider = CDisabler:CreateSlider({
-		Name = 'Catch-up Speed',
-		Min = 20,
-		Max = 150,
+	-- カメラが進む速度（好みに合わせて速くしてOK）
+	CameraSpeedSlider = CDisabler:CreateSlider({
+		Name = 'Camera Speed',
+		Min = 10,
+		Max = 100,
 		Default = 35,
+		Suffix = ' studs/s'
+	})
+
+	-- 体が追いつく速度（Lagbackが起きる場合は18〜23あたりに落とすと安全！）
+	BodySpeedSlider = CDisabler:CreateSlider({
+		Name = 'Body Speed',
+		Min = 5,
+		Max = 50,
+		Default = 22,
 		Suffix = ' studs/s'
 	})
 end)
