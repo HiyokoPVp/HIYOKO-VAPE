@@ -16216,93 +16216,59 @@ run(function()
     local Targets
     local Melee
     local Range
-
+    
     local oldroot, clone, hip = nil, nil, 2.5
     local rayParams = RaycastParams.new()
     rayParams.FilterType = Enum.RaycastFilterType.Include
     rayParams.RespectCanCollide = true
-
+    
     local function doClone()
-    	if entitylib.isAlive and oldroot and oldroot.Parent then
-    		return true
-    	end
-
-    	if entitylib.isAlive and entitylib.character.Humanoid.Health > 0 then
-    		hip = entitylib.character.Humanoid.HipHeight
-    		oldroot = entitylib.character.HumanoidRootPart
-    		if not lplr.Character.Parent then
-    			return false
-    		end
-
-    		lplr.Character.Parent = replicatedStorage
-    		clone = oldroot:Clone()
-    		clone.Parent = lplr.Character
-    		oldroot.Parent = gameCamera
-    		oldroot.Transparency = 1
-    		Instance.new('Highlight', oldroot)
-    		clone.CFrame = oldroot.CFrame
-    		clone.Velocity = oldroot.Velocity
-
-    		lplr.Character.PrimaryPart = clone
-    		entitylib.character.HumanoidRootPart = clone
-    		entitylib.character.RootPart = clone
-    		lplr.Character.Parent = workspace
-
-    		for _, v in lplr.Character:GetDescendants() do
-    			if v:IsA('Weld') or v:IsA('Motor6D') then
-    				if v.Part0 == oldroot then
-    					v.Part0 = clone
-    				end
-    				if v.Part1 == oldroot then
-    					v.Part1 = clone
-    				end
-    			end
-    		end
-
-    		return true
-    	end
-
-    	return false
+        if store.rootpart then return end
+        if entitylib.isAlive and entitylib.character.Humanoid.Health > 0 then
+            if oldroot and oldroot.Parent then
+                return true
+            end
+    
+            hip = entitylib.character.Humanoid.HipHeight
+            oldroot = entitylib.character.HumanoidRootPart
+            if not lplr.Character.Parent then return false end
+            lplr.Character.Parent = replicatedStorage
+            clone = oldroot:Clone()
+            clone.Parent = lplr.Character
+            oldroot.Transparency = 1
+            oldroot.Parent = workspace
+            store.rootpart = oldroot
+            lplr.Character.PrimaryPart = clone
+            lplr.Character.Parent = workspace
+            bedwars.QueryUtil:setQueryIgnored(clone, true)
+            bedwars.QueryUtil:setQueryIgnored(oldroot, true)
+            return true
+        end
+        return false
     end
-
+    
     local function revertClone()
-    	if not oldroot or not oldroot:IsDescendantOf(workspace) or not entitylib.isAlive then
-    		return false
-    	end
-
-    	lplr.Character.Parent = replicatedStorage
-    	oldroot.Parent = lplr.Character
-    	lplr.Character.PrimaryPart = oldroot
-    	entitylib.character.HumanoidRootPart = oldroot
-    	entitylib.character.RootPart = oldroot
-    	lplr.Character.Parent = workspace
-    	oldroot.CanCollide = true
-    	oldroot.Transparency = 1
-    	oldroot.Velocity = clone.Velocity
-
-    	for _, v in lplr.Character:GetDescendants() do
-    		if v:IsA('Weld') or v:IsA('Motor6D') then
-    			if v.Part0 == clone then
-    				v.Part0 = oldroot
-    			end
-    			if v.Part1 == clone then
-    				v.Part1 = oldroot
-    			end
-    		end
-    	end
-
-    	local oldpos = clone.CFrame
-    	if clone then
-    		clone:Destroy()
-    		clone = nil
-    	end
-
-    	oldroot.CFrame = oldpos
-    	oldroot = nil
-    	entitylib.character.Humanoid.HipHeight = hip or 2
-    	return true
+        if oldroot and oldroot.Parent and entitylib.isAlive then 
+            lplr.Character.Parent = replicatedStorage
+            oldroot.Parent = lplr.Character
+            if clone then
+                oldroot.CFrame = clone.CFrame
+                oldroot.Velocity = clone.Velocity
+                clone:Destroy()
+                clone = nil
+            end
+            lplr.Character.PrimaryPart = oldroot
+            lplr.Character.Parent = workspace
+            oldroot.CanCollide = true
+            entitylib.character.Humanoid.HipHeight = hip or 2.6
+            oldroot.Transparency = 1
+            oldroot = nil
+            store.rootpart = nil
+            return true
+        end
+        return false
     end
-
+    
     AutoDodge = vape.Categories.Blatant:CreateModule({
     	Name = 'Auto Dodge',
     	Tooltip = 'Dodges melee and projectiles "blatantly"',
@@ -16314,8 +16280,8 @@ run(function()
     			if not AutoDodge.Enabled then
     				return
     			end
-
-    			rayParams.FilterDescendantsInstances = { store.map }
+    
+    			rayParams.FilterDescendantsInstances = {store.map}
     			local lowestpoint = 9e9
     			local Dodge = 0
     			for _, v in store.blocks do
@@ -16324,71 +16290,63 @@ run(function()
     					lowestpoint = point
     				end
     			end
-
-    			LPH_NO_VIRTUALIZE(function()
-    				AutoDodge:Clean(runService.PostSimulation:Connect(function()
-    					if oldroot and oldroot.Parent then
-    						local newpoint, pos = lowestpoint, CFrame.new(clone.CFrame.X, lowestpoint - 6, clone.CFrame.Z)
-    						if Dodge then
-    							newpoint = workspace:Raycast(pos.Position, Vector3.new(0, 1000, 0), rayParams)
-    							if newpoint then
-    								newpoint = CFrame.new(clone.CFrame.X, newpoint.Position.Y - 6, clone.CFrame.Z)
-    									* CFrame.Angles(math.rad(90), 0, 0)
-    							end
-    						end
-    						oldroot.Velocity = Vector3.zero
-    						oldroot.CFrame = Dodge and (newpoint or pos)
-    							or (clone.CFrame + Vector3.new(0, 1, 0)) * CFrame.Angles(math.rad(90), 0, 0)
-    					end
-    				end))
-
-    				local last = true
-    				repeat
-    					if entitylib.isAlive then
-    						if oldroot then
-    							local ownership = isnetworkowner(oldroot)
-    							if not ownership and ownership ~= last then
-    								notif('AutoDodge', 'Network ownership disowned', 5, 'alert')
-    							end
-    							last = ownership
-    							if not ownership then
-    								Dodge = false
-    								revertClone()
-    								task.wait()
-    								continue
-    							end
-    						end
-
-    						if
-    							Melee.Enabled
-    							and entitylib.EntityPosition({
-    								Range = Range.Value,
-    								Players = Targets.Players.Enabled,
-    								NPCs = Targets.NPCs.Enabled,
-    								Wallcheck = Targets.Walls.Enabled or nil,
-    								Sort = sortmethods.Distance,
-    								Part = 'RootPart',
-    							})
-    							and doClone()
-    						then
-    							Dodge = false
-    							task.wait(0.2)
-    							Dodge = true
-    							task.wait(0.4)
-    						else
-    							Dodge = false
-    							revertClone()
-    						end
-    					end
-    					task.wait()
-    				until not AutoDodge.Enabled
-    			end)()
+    
+                AutoDodge:Clean(runService.PostSimulation:Connect(function()
+                    if oldroot and oldroot.Parent then
+                        local newpoint, pos = lowestpoint, CFrame.new(clone.CFrame.X, lowestpoint - 6, clone.CFrame.Z)
+                        if Dodge then
+                            newpoint = workspace:Raycast(pos.Position, Vector3.new(0, 1000, 0), rayParams)
+                            if newpoint then
+                                newpoint = CFrame.new(clone.CFrame.X, newpoint.Position.Y - 6, clone.CFrame.Z) * CFrame.Angles(math.rad(90), 0, 0)
+                            end
+                        end
+                        oldroot.Velocity = Vector3.zero
+                        oldroot.CFrame = Dodge and (newpoint or pos) or (clone.CFrame + Vector3.new(0, 1, 0)) * CFrame.Angles(math.rad(90), 0, 0)
+                    end
+                end))
+    
+                local last = true
+                repeat
+                    if entitylib.isAlive then
+                        if oldroot then
+                            local ownership = isnetworkowner(oldroot)
+                            if not ownership and ownership ~= last then
+                                notif('AutoDodge', 'Network ownership disowned', 7, 'alert')
+                            end
+                            last = ownership
+                            if not ownership then
+                                Dodge = false
+                                revertClone()
+                                task.wait()
+                                continue
+                            end
+                        end
+    
+                        if Melee.Enabled and entitylib.EntityPosition({
+                            Range = Range.Value,
+                            Players = Targets.Players.Enabled,
+                            NPCs = Targets.NPCs.Enabled,
+                            Wallcheck = Targets.Walls.Enabled or nil,
+                            Sort = sortmethods.Distance,
+                            Part = 'RootPart',
+                        }) and doClone() then
+                            Dodge = false
+                            task.wait(0.2)
+                            Dodge = true
+                            task.wait(0.4)
+                        else
+                            Dodge = false
+                            revertClone()
+                        end
+                    end
+                    task.wait()
+                until not AutoDodge.Enabled
     		else
     			revertClone()
     		end
     	end,
     })
-
+    
     Targets = AutoDodge:CreateTargets({
     	Players = true,
     	NPCs = false,
@@ -16416,4 +16374,64 @@ run(function()
     	Tooltip = 'Dodges projectiles',
     	Default = true,
     })
+end)
+
+run(function()
+    
+    local Desync
+    
+    local hook
+    local function Buffer(mode)
+        if mode == 'max_u32' then
+            local Floor = math.floor((2 ^ 16) * (2 ^ 16))
+            local Abs = math.abs(math.cos(math.pi))
+            return Floor - Abs
+        elseif mode == 'packet_id' then
+            local Offset = math.floor(math.sqrt(9))
+            return (math.sqrt(9)) * (2 ^ 3) + Offset
+        end
+        return 0
+    end
+    local function Resync()
+        if entitylib.isAlive then
+            entitylib.character.RootPart.CFrame += Vector3.new(math.nan, math.nan, math.nan)
+            notif('Desync', 'Resynced', 2, 'info')
+        end
+    end
+    
+    Desync = vape.Categories.Blatant:CreateModule({
+        Name = 'Catvape Desync',
+        Function = function(callback)
+            if callback then
+                if not rakNetCheck('Desync') then
+                    Desync:Toggle()
+                    return
+                end
+    
+                hook = function(packet)
+                    if not packet.AsArray or packet.AsArray[1] ~= Buffer('packet_id') then
+                        return
+                    end
+    
+                    local data = packet.AsBuffer
+                    if data then
+                        buffer.writeu32(data, 1, Buffer('max_u32'))
+                        buffer.writeu8(data, 25, 7)
+    
+                        packet:SetData(data)
+                    end
+                end
+                raknet.add_send_hook(hook)
+                if entitylib.isAlive and store.matchState ~= 0 then
+                    entitylib.character.Humanoid.Health = 0
+                    notif('Desync', 'Resyncing, If you flag you have to reset!', 8, 'info')
+                end
+            elseif hook then
+                raknet.remove_send_hook(hook)
+            end
+        end,
+        Tooltip = 'Prevent the server from replicating your current position to other players.'
+    })
+    
+    Desync:CreateButton({Name = 'Resync', Function = Resync})
 end)
