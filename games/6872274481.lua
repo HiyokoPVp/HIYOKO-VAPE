@@ -16754,121 +16754,67 @@ run(function()
 	print("[KrystalDisabler] Module registration completed.")
 end)
 
+local InfiniteFly
 run(function()
-	-- 必要なサービスの取得
-	local runService = game:GetService("RunService")
-	local userInputService = game:GetService("UserInputService")
+    local HiddenPart = Instance.new('Part')
+    HiddenPart.Parent = workspace
+    HiddenPart.Transparency = 1
+    HiddenPart.CanQuery = false
+    HiddenPart.CanTouch = false
+    HiddenPart.CanCollide = false
+    HiddenPart.Anchored = true
 
-	local CDisabler
-	local CameraOffsetSlider
-	local BodySpeedSlider
-	local Connection = nil
-	local FakeBodyPos = nil
+    local oldTransparency = {}
+    local function doCharacterThing()
+        if entitylib.isAlive then
+            for index, value in entitylib.character.Character:GetDescendants() do
+                if value:IsA('Part') or value:IsA('BasePart') then
+                    oldTransparency[value] = value.Transparency
 
-	CDisabler = vape.Categories.Blatant:CreateModule({
-		Name = 'CDisabler',
-		Function = function(callback)
-			if callback then
-				if not entitylib.isAlive then 
-					CDisabler:Toggle()
-					return 
-				end
+                    value.Transparency = 1
+                end
+            end
+        end
+    end
 
-				local root = entitylib.character.RootPart
-				FakeBodyPos = root.Position
-				
-				Connection = runService.RenderStepped:Connect(function(dt)
-					if not entitylib.isAlive then return end
+    local function revertCharacter()
+        if entitylib.isAlive then
+            for index, value in entitylib.character.Character:GetDescendants() do
+                if value:IsA('Part') or value:IsA('BasePart') then
+                    value.Transparency = oldTransparency[value]
+                end
+            end
+        end
+    end
 
-					local currentRoot = entitylib.character.RootPart
-					
-					-- 1. 前後左右の移動ベクトルを取得
-					local moveDir = entitylib.character.Humanoid.MoveDirection
-					local verticalDir = 0
+    InfiniteFly = vape.Categories.Blatant:CreateModule({
+        Name = 'InfiniteFly',
+        Function = function(callback)
+            gameCamera.CameraSubject = callback and HiddenPart or entitylib.character.Character
 
-					-- 2. ジャンプ（Space）とダウン（LeftControl）の入力を判定
-					if userInputService:IsKeyDown(Enum.KeyCode.Space) then
-						verticalDir = 1
-					elseif userInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-						verticalDir = -1
-					end
+            if callback then
+                doCharacterThing()
+                HiddenPart.CFrame = entitylib.character.Character.Head.CFrame
 
-					-- 3次元の総合的な移動方向を計算
-					local totalMoveDir = moveDir + Vector3.new(0, verticalDir, 0)
+                entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 210, entitylib.character.RootPart.CFrame.Z))
 
-					local offsetDist = CameraOffsetSlider.Value
-					local moveSpeed = BodySpeedSlider.Value
+                InfiniteFly:Clean(runService.RenderStepped:Connect(function(dt: number)
+                    if not entitylib.isAlive then
+                        return
+                    end
 
-					-- 何かしらの移動入力がある場合
-					if totalMoveDir.Magnitude > 0.01 then
-						-- 目標地点の計算
-						local targetGoal = currentRoot.Position + (totalMoveDir.Unit * offsetDist)
-						
-						-- フェイク座標をスピードに合わせて進める
-						local toTarget = targetGoal - FakeBodyPos
-						if toTarget.Magnitude > 0.01 then
-							FakeBodyPos = FakeBodyPos + (totalMoveDir.Unit * moveSpeed * dt)
-						end
-						
-						-- 最大距離を超えないようにクランプ（置いていかれバグ防止）
-						local currentDist = (FakeBodyPos - currentRoot.Position).Magnitude
-						if currentDist > offsetDist then
-							FakeBodyPos = currentRoot.Position + (totalMoveDir.Unit * offsetDist)
-						end
+                    HiddenPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.Position.X, HiddenPart.CFrame.Y, entitylib.character.RootPart.Position.Z))
 
-						-- 【Wallcheck（壁・床抜け防止判定）】
-						local raycastParams = RaycastParams.new()
-						raycastParams.FilterDescendantsInstances = {entitylib.character.Character}
-						raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-
-						local rayDirection = FakeBodyPos - currentRoot.Position
-						-- 微小なベクトルの場合はレイキャストをスキップして負荷軽減
-						if rayDirection.Magnitude > 0.01 then
-							local raycastResult = workspace:Raycast(currentRoot.Position, rayDirection, raycastParams)
-
-							if raycastResult then
-								-- 壁や床に当たったら、その衝突地点の手前に座標を固定する
-								FakeBodyPos = raycastResult.Position - (rayDirection.Unit * 0.5)
-							end
-						end
-
-						-- キャラクターを新しい位置に同期
-						local lookDir = moveDir.Magnitude > 0.1 and moveDir or currentRoot.CFrame.LookVector
-						currentRoot.CFrame = CFrame.lookAt(FakeBodyPos, FakeBodyPos + lookDir)
-						
-						-- ベロシティをゼロにして物理演算の干渉を防ぐ
-						currentRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-					else
-						-- キーを離したら即座に実体の位置にフェイクを戻して完全同期
-						FakeBodyPos = currentRoot.Position
-					end
-				end)
-
-				vape:CreateNotification("CDisabler", "Enabled", 4, "info")
-			else
-				if Connection then
-					Connection:Disconnect()
-					Connection = nil
-				end
-				vape:CreateNotification("CDisabler", "Disabled", 2, "info")
-			end
-		end,
-		Tooltip = 'CDisable'
-	})
-
-	CameraOffsetSlider = CDisabler:CreateSlider({
-		Name = 'Max Distance',
-		Min = 15,
-		Max = 45,
-		Default = 30,
-		Suffix = ' studs'
-	})
-
-	BodySpeedSlider = CDisabler:CreateSlider({
-		Name = 'Catch-up Speed',
-		Min = 20,
-		Max = 150,
-		Default = 35,
-		Suffix = ' studs/s'
-	})
+                    if entitylib.character.RootPart.CFrame.Y < -75 then
+                        entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 210, entitylib.character.RootPart.CFrame.Z))
+                    end
+                end))
+            else
+                revertCharacter()
+            end
+        end,
+        ExtraText = function()
+            return 'Heatseeker'
+        end
+    })
 end)
