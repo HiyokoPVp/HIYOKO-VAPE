@@ -16335,7 +16335,7 @@ run(function()
 
     DamageBoost = vape.Categories.Blatant:CreateModule({
         Name = 'Damage Boost',
-        Tooltip = 'Boost when Damage',
+        Tooltip = 'エンティティから攻撃を受けた際、CFrameを使用して設定時間だけ高速移動します',
         Function = function(callback)
             if callback then
                 -- 1. ダメージイベントのトリガー
@@ -16346,13 +16346,13 @@ run(function()
                     and (damageTable.attacker or damageTable.creator) -- エンティティからの攻撃か確認
                     and not LongJump.Enabled then
                         
-                        -- ダメージ量に関わらず、攻撃を受けた瞬間に時間をセット
+                        -- ダメージを受けた瞬間に、現在時刻 + 設定された時間(秒) を終了時刻として設定
                         boostEndTime = tick() + DurationSlider.Value
                     end
                 end))
 
-                -- 2. AssemblyLinearVelocity による速度適用処理 (毎フレーム実行)
-                DamageBoost:Clean(runService.PreSimulation:Connect(function()
+                -- 2. CFrame による速度適用処理 (毎フレーム実行)
+                DamageBoost:Clean(runService.PreSimulation:Connect(function(dt)
                     -- 現在時刻がブースト終了時刻より前で、かつキャラクターが生きている場合
                     if entitylib.isAlive and tick() <= boostEndTime then
                         local root = entitylib.character.RootPart
@@ -16360,9 +16360,17 @@ run(function()
                         
                         -- プレイヤーが移動方向を入力している場合のみ適用
                         if moveDir.Magnitude > 0 then
-                            -- velocityではなく AssemblyLinearVelocity を直接使用して上書き
-                            -- Y軸(縦方向)の物理挙動は維持したまま、水平方向に強さを適用
-                            root.AssemblyLinearVelocity = (moveDir * StrengthSlider.Value) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+                            local speed = StrengthSlider.Value -- デフォルト 31 studs/sec
+                            
+                            -- CFrame による位置の強制移動 (速度 * 経過時間)
+                            local destination = moveDir * speed * dt
+                            
+                            -- CFrame で位置を更新
+                            root.CFrame += destination
+                            
+                            -- 物理エンジンとの競合(ガタつき)を防ぐため、水平方向の AssemblyLinearVelocity も同期させる
+                            -- Y軸(縦方向: ジャンプや落下) の速度はゲーム本来の物理挙動として維持する
+                            root.AssemblyLinearVelocity = (moveDir * speed) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
                         end
                     end
                 end))
@@ -16377,8 +16385,8 @@ run(function()
     StrengthSlider = DamageBoost:CreateSlider({
         Name = 'Strength',
         Min = 10,
-        Max = 150,
-        Default = 50,
+        Max = 100,
+        Default = 31, -- ご要望通り 31 studs/sec をデフォルトに設定
         Suffix = function(val)
             return ' studs/s'
         end
@@ -16389,7 +16397,7 @@ run(function()
         Name = 'Duration',
         Min = 0.1,
         Max = 2.0,
-        Default = 0.5,
+        Default = 0.3, -- ご要望通り 0.3秒 をデフォルトに設定
         Suffix = function(val)
             return ' sec'
         end
