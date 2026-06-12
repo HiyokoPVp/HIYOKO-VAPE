@@ -17207,17 +17207,17 @@ run(function()
             if not camera then return end
 
             if callback then
-                -- カメラタイプをScriptableにして、Roblox標準の追従を切る（手動で動かすため）
+                -- 【修正】モジュールをトグル（オン）した時だけ初期化して実行
                 originalCameraType = camera.CameraType
                 camera.CameraType = Enum.CameraType.Scriptable
                 
                 local wasAlive = entitylib.isAlive
 
                 connection = RunService.RenderStepped:Connect(function(deltaTime)
-                    -- 【追加】キャラクターの死亡検知（死んだ瞬間、またはリスポーンした瞬間にカメラをリセット）
+                    -- モジュールがオンの間の死亡・リセット検知
                     if not entitylib.isAlive then
                         if wasAlive then
-                            -- 死んだ瞬間に通常カメラに戻して位置をリセット
+                            -- 死んだ瞬間に一時的にカメラを戻して位置をリセット
                             camera.CameraType = originalCameraType
                             if lplr.Character and lplr.Character:FindFirstChild("Humanoid") then
                                 camera.CameraSubject = lplr.Character.Humanoid
@@ -17227,7 +17227,7 @@ run(function()
                         return
                     else
                         if not wasAlive then
-                            -- 生き返ったらまたScriptableにして自由カメラを開始
+                            -- 生き返ったらまた自由カメラ（Scriptable）を再開
                             camera.CameraType = Enum.CameraType.Scriptable
                             wasAlive = true
                         end
@@ -17238,7 +17238,7 @@ run(function()
                     local moveVec = getMovementVector()
                     
                     -- ==========================================
-                    -- 1. カメラの移動（入力に応じて自由に先行する）
+                    -- 1. カメラの移動（入力に応じて自由に先行）
                     -- ==========================================
                     local cameraLook = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
                     local cameraRight = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z).Unit
@@ -17252,16 +17252,14 @@ run(function()
                     end
                     
                     -- ==========================================
-                    -- 2. キャラクターの移動（カメラの座標に向かってゆっくり追従）
+                    -- 2. キャラクターの移動（カメラの後ろを追従）
                     -- ==========================================
                     local charPos = root.Position
                     local targetCamPos = camera.CFrame.Position
                     
-                    -- キャラクターからカメラへの方向と距離
                     local directionToCam = Vector3.new(targetCamPos.X - charPos.X, 0, targetCamPos.Z - charPos.Z)
                     local distanceToCam = directionToCam.Magnitude
                     
-                    -- 1スタッド以上離れていたら、設定された速度制限の枠内でカメラを追いかける
                     if distanceToCam > 1 then
                         local maxMoveDist = CharacterSpeed.Value * deltaTime
                         local moveDist = math.min(distanceToCam, maxMoveDist)
@@ -17269,7 +17267,7 @@ run(function()
                         
                         local targetPos = charPos + moveVector
                         
-                        -- 地面の高さをRaycastで調整（埋まり防止）
+                        -- 地面の高さを調整
                         local rayParams = RaycastParams.new()
                         rayParams.FilterDescendantsInstances = {lplr.Character}
                         local rayOrigin = targetPos + Vector3.new(0, 4, 0)
@@ -17281,19 +17279,20 @@ run(function()
                             targetY = rayResult.Position.Y + (humanoid.HipHeight or 2)
                         end
                         
-                        -- キャラクターの座標を更新（カメラの方を向かせる）
                         local lookAtPos = Vector3.new(targetCamPos.X, targetY, targetCamPos.Z)
                         root.CFrame = CFrame.lookAt(Vector3.new(targetPos.X, targetY, targetPos.Z), lookAtPos)
                     end
                 end)
             else
-                -- モジュールオフ時に完全に元に戻す
+                -- 【修正】モジュールオフ（トグル解除）時は完全に切断して元のカメラに戻す
                 if connection then
                     connection:Disconnect()
                     connection = nil
                 end
                 camera.CameraType = originalCameraType
-                if entitylib.isAlive then
+                if lplr.Character and lplr.Character:FindFirstChild("Humanoid") then
+                    camera.CameraSubject = lplr.Character.Humanoid
+                elseif entitylib.isAlive then
                     camera.CameraSubject = entitylib.character.Humanoid
                 end
             end
@@ -17318,6 +17317,6 @@ run(function()
         Default = 16,
         Decimal = 1,
         Suffix = ' studs/s',
-        Tooltip = 'How fast the character chases the camera. Keep it near 16 for safety.'
+        Tooltip = 'How fast the character chases the camera.'
     })
 end)
