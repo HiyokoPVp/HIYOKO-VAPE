@@ -16912,171 +16912,194 @@ run(function()
 end)
 
 run(function()
-	local TweenService = game:GetService("TweenService")
-	
-	local GodKill
-	local Range
-	local Height
-	local Interval
-	local GroundStayTime
-	local AllowTween
-	
-	local isOnGround = false
-	local groundTimer = 0
-	local lastDropTime = 0
-	local currentTween = nil -- Tween管理用変数
+    local TweenService = game:GetService("TweenService")
+    
+    local GodKill
+    local Range
+    local Height
+    local Interval
+    local GroundStayTime
+    local AllowTween
+    local TweenSpeed -- 追加：速度調整用
+    
+    local isOnGround = false
+    local groundTimer = 0
+    local lastDropTime = 0
+    local currentTween = nil
 
-	GodKill = vape.Categories.Blatant:CreateModule({
-		Name = 'GodKill',
-		Function = function(callback)
-			if callback then
-				lastDropTime = tick()
-				isOnGround = false
-				groundTimer = 0
-				
-				GodKill:Clean(runService.Heartbeat:Connect(function()
-					if not entitylib.isAlive then return end
-					
-					local target = entitylib.EntityPosition({
-						Range = Range.Value,
-						Part = 'RootPart',
-						Players = true,
-						Sort = sortmethods.Distance
-					})
+    GodKill = vape.Categories.Blatant:CreateModule({
+        Name = 'GodKill',
+        Function = function(callback)
+            if callback then
+                lastDropTime = tick()
+                isOnGround = false
+                groundTimer = 0
+                
+                GodKill:Clean(runService.Heartbeat:Connect(function()
+                    if not entitylib.isAlive then return end
+                    
+                    local target = entitylib.EntityPosition({
+                        Range = Range.Value,
+                        Part = 'RootPart',
+                        Players = true,
+                        Sort = sortmethods.Distance
+                    })
 
-					if target and target.Humanoid and target.Humanoid.Health > 0 then
-						local root = entitylib.character.RootPart
-						local targetPos = target.RootPart.Position
-						
-						if not isOnGround then
-							-- 【修正ここから】上空のブロック判定と安全な高さの計算
-							local desiredHeight = Height.Value
-							local safeY = targetPos.Y + desiredHeight -- デフォルトの高さ
-							
-							local rayParams = RaycastParams.new()
-							-- プレイヤー自身とターゲットのキャラクターを無視し、環境のブロックのみを検出する
-							rayParams.FilterDescendantsInstances = {lplr.Character, target.Character}
-							rayParams.FilterType = Enum.RaycastFilterType.Exclude
-							
-							-- ターゲットの頭上少し上から、希望するHeight分上に向かってRaycastを飛ばす
-							local rayOrigin = targetPos + Vector3.new(0, 2, 0)
-							local rayDirection = Vector3.new(0, desiredHeight, 0)
-							local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
-							
-							if rayResult then
-								-- ブロックに当たった場合、そのヒット位置 + プレイヤーのHipHeight(安全マージン) にする
-								local hipHeight = entitylib.character.Humanoid.HipHeight or 3
-								safeY = rayResult.Position.Y + hipHeight
-							end
-							-- 【修正ここまで】
+                    if target and target.Humanoid and target.Humanoid.Health > 0 then
+                        local root = entitylib.character.RootPart
+                        local targetPos = target.RootPart.Position
+                        
+                        if not isOnGround then
+                            -- 【修正】上空のブロック判定と絶対埋まらない安全な高さの計算
+                            local desiredHeight = Height.Value
+                            local safeY = targetPos.Y + desiredHeight
+                            
+                            local rayParams = RaycastParams.new()
+                            rayParams.FilterDescendantsInstances = {lplr.Character, target.Character}
+                            rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                            
+                            -- 自分の現在の足元から、ターゲット上空の目標地点へ向けてレイを飛ばす
+                            -- これにより、移動経路にある天井や障害物をすべて検知する
+                            local rayOrigin = root.Position
+                            local rayDirection = Vector3.new(targetPos.X - rayOrigin.X, safeY - rayOrigin.Y, targetPos.Z - rayOrigin.Z)
+                            local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
+                            
+                            if rayResult then
+                                -- 天井に当たった場合、ヒットしたY座標から「頭が埋まらない安全マージン」を引く
+                                -- キャラクターのHipHeight(約2) + 胴体と頭の分の余裕(約3.5)を考慮
+                                local humanoid = entitylib.character.Humanoid
+                                local characterHeightOffset = (humanoid.HipHeight or 2) + 3.5
+                                
+                                -- 当たった位置のすぐ下を限界値にする（絶対にめり込ませない）
+                                safeY = rayResult.Position.Y - characterHeightOffset
+                                
+                                -- 万が一、ターゲットの足元より低くなってしまう場合はターゲットの少し上に固定
+                                if safeY < targetPos.Y + 3 then
+                                    safeY = targetPos.Y + 3
+                                end
+                            end
 
-							local targetCFrame = CFrame.new(targetPos.X, safeY, targetPos.Z)
-							
-							-- AllowTweenがオンの場合のみTweenで上昇（めっちゃ早く: 0.05秒）
-							if AllowTween.Value then
-								if currentTween then 
-									currentTween:Cancel() -- 既存のTweenをキャンセルして重複を防ぐ
-								end
-								local tweenInfo = TweenInfo.new(0.05, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
-								currentTween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
-								currentTween:Play()
-							else
-								-- オフの場合は従来通り瞬時にテレポート
-								root.CFrame = targetCFrame
-							end
-							
-							-- 地面に落とすタイミングかチェック
-							if tick() - lastDropTime >= Interval.Value then
-								lastDropTime = tick()
-								
-								-- Raycastで地面の高さを検出
-								local groundRayParams = RaycastParams.new()
-								groundRayParams.FilterDescendantsInstances = {lplr.Character}
-								groundRayParams.CollisionGroup = root.CollisionGroup
-								
-								local rayOriginDrop = targetPos + Vector3.new(0, 2, 0)
-								local rayDirectionDrop = Vector3.new(0, -30, 0)
-								local rayResultDrop = workspace:Raycast(rayOriginDrop, rayDirectionDrop, groundRayParams)
-								
-								local groundY = targetPos.Y + 1 -- フォールバック値
-								if rayResultDrop then
-									local hipHeight = entitylib.character.Humanoid.HipHeight or 2
-									groundY = rayResultDrop.Position.Y + hipHeight
-								end
-								
-								-- 検出した地面の高さにテレポート (下降は瞬時に行う)
-								root.CFrame = CFrame.new(targetPos.X, groundY, targetPos.Z)
-								
-								-- 地面滞在状態へ移行
-								isOnGround = true
-								groundTimer = tick()
-							end
-						else
-							-- 地面滞在時間が経過したら空中に戻る状態へ
-							if tick() - groundTimer >= GroundStayTime.Value then
-								isOnGround = false
-							end
-						end
-					else
-						-- ターゲットがいない、または死亡した場合は状態をリセット
-						isOnGround = false
-						if currentTween then 
-							currentTween:Cancel() 
-						end
-					end
-				end))
-			else
-				-- モジュールがオフになったときに状態をリセット
-				isOnGround = false
-				if currentTween then 
-					currentTween:Cancel() 
-				end
-			end
-		end,
-		Tooltip = 'Elevates you above the target and periodically drops you to the ground.'
-	})
+                            local targetCFrame = CFrame.new(targetPos.X, safeY, targetPos.Z)
+                            
+                            -- AllowTweenがオンの場合
+                            if AllowTween.Value then
+                                if currentTween then 
+                                    currentTween:Cancel() 
+                                end
+                                
+                                -- スライダーの値を秒数に変換 (0 = 0.01秒の超高速 / 10 = 1.0秒の低速)
+                                -- 0のときに止まるのを防ぐため、0.01をベースにしています
+                                local duration = math.max(0.01, TweenSpeed.Value * 0.1)
+                                
+                                local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+                                currentTween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
+                                currentTween:Play()
+                            else
+                                -- オフの場合は瞬時にテレポート
+                                root.CFrame = targetCFrame
+                            end
+                            
+                            -- 地面に落とすタイミングかチェック
+                            if tick() - lastDropTime >= Interval.Value then
+                                lastDropTime = tick()
+                                
+                                -- Raycastで地面の高さを検出
+                                local groundRayParams = RaycastParams.new()
+                                groundRayParams.FilterDescendantsInstances = {lplr.Character}
+                                groundRayParams.CollisionGroup = root.CollisionGroup
+                                
+                                local rayOriginDrop = targetPos + Vector3.new(0, 2, 0)
+                                local rayDirectionDrop = Vector3.new(0, -30, 0)
+                                local rayResultDrop = workspace:Raycast(rayOriginDrop, rayDirectionDrop, groundRayParams)
+                                
+                                local groundY = targetPos.Y + 1
+                                if rayResultDrop then
+                                    local hipHeight = entitylib.character.Humanoid.HipHeight or 2
+                                    groundY = rayResultDrop.Position.Y + hipHeight
+                                end
+                                
+                                -- 下降はラグをなくすため常に瞬時
+                                root.CFrame = CFrame.new(targetPos.X, groundY, targetPos.Z)
+                                
+                                isOnGround = true
+                                groundTimer = tick()
+                            end
+                        else
+                            -- 地面滞在時間が経過したら空中に戻る状態へ
+                            if tick() - groundTimer >= GroundStayTime.Value then
+                                isOnGround = false
+                            end
+                        end
+                    else
+                        -- ターゲットがいない、または死亡した場合はリセット
+                        isOnGround = false
+                        if currentTween then 
+                            currentTween:Cancel() 
+                        end
+                    end
+                end))
+            else
+                -- モジュールがオフになったときにリセット
+                isOnGround = false
+                if currentTween then 
+                    currentTween:Cancel() 
+                end
+            end
+        end,
+        Tooltip = 'Elevates you above the target and periodically drops you to the ground.'
+    })
 
-	Range = GodKill:CreateSlider({
-		Name = 'Range',
-		Min = 1,
-		Max = 30,
-		Default = 14.4,
-		Suffix = function(val) return val == 1 and 'stud' or 'studs' end
-	})
-	
-	Height = GodKill:CreateSlider({
-		Name = 'Height',
-		Min = 5,
-		Max = 50,
-		Default = 18,
-		Suffix = function(val) return val == 1 and 'stud' or 'studs' end
-	})
-	
-	Interval = GodKill:CreateSlider({
-		Name = 'Drop Interval',
-		Min = 0.5,
-		Max = 5,
-		Default = 2,
-		Decimal = 10,
-		Suffix = 's'
-	})
+    Range = GodKill:CreateSlider({
+        Name = 'Range',
+        Min = 1,
+        Max = 30,
+        Default = 14.4,
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
+    })
+    
+    Height = GodKill:CreateSlider({
+        Name = 'Height',
+        Min = 5,
+        Max = 50,
+        Default = 18,
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
+    })
+    
+    Interval = GodKill:CreateSlider({
+        Name = 'Drop Interval',
+        Min = 0.5,
+        Max = 5,
+        Default = 2,
+        Decimal = 10,
+        Suffix = 's'
+    })
 
-	GroundStayTime = GodKill:CreateSlider({
-		Name = 'Ground Stay Time',
-		Min = 0.05,
-		Max = 1.0,
-		Default = 0.1,
-		Decimal = 100,
-		Suffix = 's',
-		Tooltip = 'How long you stay on the ground before returning to the sky.'
-	})
+    GroundStayTime = GodKill:CreateSlider({
+        Name = 'Ground Stay Time',
+        Min = 0.05,
+        Max = 1.0,
+        Default = 0.1,
+        Decimal = 100,
+        Suffix = 's',
+        Tooltip = 'How long you stay on the ground before returning to the sky.'
+    })
 
-	-- 新しく追加したトグルオプション
-	AllowTween = GodKill:CreateToggle({
-		Name = 'Allow Tween',
-		Default = false,
-		Tooltip = 'If enabled, uses a very fast tween to go up. If disabled, teleports instantly.'
-	})
+    AllowTween = GodKill:CreateToggle({
+        Name = 'Allow Tween',
+        Default = false,
+        Tooltip = 'If enabled, uses a tween to go up. If disabled, teleports instantly.'
+    })
+
+    -- 追加：Tweenの速さを調整するスライダー (0 = 最速, 10 = 遅い)
+    TweenSpeed = GodKill:CreateSlider({
+        Name = 'Tween Speed',
+        Min = 0,
+        Max = 10,
+        Default = 0,
+        Decimal = 10,
+        Suffix = function(val) return val == 0 and '（超高速）' or '' end,
+        Tooltip = '0 is nearly instant, 10 is slow.'
+    })
 end)
 
 run(function()
