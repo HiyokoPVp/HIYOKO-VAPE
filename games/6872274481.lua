@@ -16910,3 +16910,196 @@ run(function()
 		Darker = true
 	})
 end)
+
+run(function()
+	local GodKill
+	local Range
+	local Height
+	local Interval
+	local godKillPart = nil
+	local godKillWeld = nil
+	local lastDropTime = 0
+
+	GodKill = vape.Categories.Blatant:CreateModule({
+		Name = 'GodKill',
+		Function = function(callback)
+			if callback then
+				lastDropTime = tick()
+				GodKill:Clean(runService.Heartbeat:Connect(function()
+					if not entitylib.isAlive then return end
+					
+					local target = entitylib.EntityPosition({
+						Range = Range.Value,
+						Part = 'RootPart',
+						Players = true,
+						Sort = sortmethods.Distance
+					})
+
+					if target and target.Humanoid and target.Humanoid.Health > 0 then
+						local root = entitylib.character.RootPart
+						local targetPos = target.RootPart.Position
+						
+						if not godKillPart then
+							godKillPart = Instance.new('Part')
+							godKillPart.Size = Vector3.new(2, 2, 2)
+							godKillPart.Transparency = 1
+							godKillPart.CanCollide = false
+							godKillPart.Anchored = true
+							godKillPart.Parent = workspace
+							
+							godKillWeld = Instance.new('Weld')
+							godKillWeld.Part0 = root
+							godKillWeld.Part1 = godKillPart
+							godKillWeld.C0 = CFrame.new(0, 0, 0)
+							godKillWeld.Parent = root
+						end
+
+						-- Keep the part above the target
+						godKillPart.CFrame = CFrame.new(targetPos.X, targetPos.Y + Height.Value, targetPos.Z)
+						
+						-- Drop to ground and return every Interval seconds
+						if tick() - lastDropTime >= Interval.Value then
+							lastDropTime = tick()
+							
+							-- Raycast to find the actual ground below the
+							local rayParams = RaycastParams.new()
+							rayParams.FilterDescendantsInstances = {lplr.Character}
+							rayParams.CollisionGroup = root.CollisionGroup
+							
+							-- ターゲットの少し上から下方向に30スタッドのRaycastを飛ばす
+							local rayOrigin = targetPos + Vector3.new(0, 2, 0)
+							local rayDirection = Vector3.new(0, -30, 0)
+							local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
+							
+							local groundY = targetPos.Y + 1 -- レイキャストが外れた場合のフォールバック値
+							if rayResult then
+								-- ヒットした地面のY座標 + プレイヤーのHipHeight（足元の位置）
+								local hipHeight = entitylib.character.Humanoid.HipHeight or 2
+								groundY = rayResult.Position.Y + hipHeight
+							end
+							
+							-- 検出した地面の高さにテレポート
+							root.CFrame = CFrame.new(targetPos.X, groundY, targetPos.Z)
+							
+							-- Return to the sky part after a brief moment
+							task.delay(0.15, function()
+								if GodKill.Enabled and godKillPart and godKillPart.Parent then
+									root.CFrame = godKillPart.CFrame
+								end
+							end)
+						end
+					else
+						-- Cleanup if target is dead or out of range
+						if godKillWeld then
+							godKillWeld:Destroy()
+							godKillWeld = nil
+						end
+						if godKillPart then
+							godKillPart:Destroy()
+							godKillPart = nil
+						end
+					end
+				end))
+			else
+				-- Cleanup on disable
+				if godKillWeld then
+					godKillWeld:Destroy()
+					godKillWeld = nil
+				end
+				if godKillPart then
+					godKillPart:Destroy()
+					godKillPart = nil
+				end
+			end
+		end,
+		Tooltip = 'Elevates you above the target and periodically drops you to the ground.'
+	})
+
+	Range = GodKill:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 30,
+		Default = 14.4,
+		Suffix = function(val) return val == 1 and 'stud' or 'studs' end
+	})
+	
+	Height = GodKill:CreateSlider({
+		Name = 'Height',
+		Min = 5,
+		Max = 50,
+		Default = 18,
+		Suffix = function(val) return val == 1 and 'stud' or 'studs' end
+	})
+	
+	Interval = GodKill:CreateSlider({
+		Name = 'Drop Interval',
+		Min = 0.5,
+		Max = 5,
+		Default = 2,
+		Decimal = 10,
+		Suffix = 's'
+	})
+end)
+
+run(function()
+	local KillThunder
+	local ThunderSoundId = "rbxassetid://2256382874" -- Roblox thunder sound ID
+	
+	KillThunder = vape.Categories.Render:CreateModule({
+		Name = 'KillThunder',
+		Function = function(callback)
+			if callback then
+				KillThunder:Clean(vapeEvents.EntityDeathEvent.Event:Connect(function(deathTable)
+					local killedChar = deathTable.entityInstance
+					if not killedChar or not killedChar.Parent then return end
+					
+					local pos = killedChar:GetPivot().Position
+					
+					-- Create lightning bolt effect
+					local bolt = Instance.new('Part')
+					bolt.Name = 'ThunderBolt'
+					bolt.Size = Vector3.new(1.5, 100, 1.5)
+					bolt.CFrame = CFrame.new(pos.X, pos.Y + 50, pos.Z)
+					bolt.Material = Enum.Material.Neon
+					bolt.Color = Color3.fromRGB(180, 180, 255)
+					bolt.Anchored = true
+					bolt.CanCollide = false
+					bolt.Parent = workspace
+					
+					-- Play thunder sound
+					local sound = Instance.new('Sound')
+					sound.SoundId = ThunderSoundId
+					sound.Volume = 2.5
+					sound.Parent = bolt
+					sound:Play()
+					
+					-- Flash effect for the sky
+					local flash = Instance.new('Part')
+					flash.Size = Vector3.new(300, 300, 300)
+					flash.CFrame = CFrame.new(pos.X, pos.Y + 100, pos.Z)
+					flash.Material = Enum.Material.Neon
+					flash.Color = Color3.fromRGB(255, 255, 255)
+					flash.Transparency = 0.6
+					flash.Anchored = true
+					flash.CanCollide = false
+					flash.Parent = workspace
+					
+					-- Auto cleanup
+					game:GetService('Debris'):AddItem(bolt, 1.5)
+					game:GetService('Debris'):AddItem(flash, 0.3)
+					
+					-- Simple flicker animation for the lightning
+					task.spawn(function()
+						for i = 1, 6 do
+							if bolt and bolt.Parent then
+								bolt.Transparency = i % 2 == 0 and 0 or 0.6
+							end
+							task.wait(0.04)
+						end
+					end)
+				end))
+			end
+		end,
+		Tooltip = 'Summons a lightning strike effect at the location of a player who dies.'
+	})
+end)
