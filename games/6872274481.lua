@@ -16329,37 +16329,67 @@ end)
 
 run(function()
     local DamageBoost
-
-    local stack = 0
+    local StrengthSlider
+    local DurationSlider
+    local boostEndTime = 0 -- ブーストが終了する時刻を記録する変数
 
     DamageBoost = vape.Categories.Blatant:CreateModule({
-    	Name = 'Damage Boost',
-    	Tooltip = 'Gives extra speed boost when damaged',
-    	Function = function(callback)
-    		if callback then
-    			DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-    				if
-    					entitylib.isAlive
-    					and tick() > stack
-    					and damageTable.entityInstance == lplr.Character
-    					and not LongJump.Enabled
-    				then
-    					local horizontal = (
-    						damageTable.knockbackMultiplier and damageTable.knockbackMultiplier.horizontal or 0
-    					)
-    					knockbackSpeed = bedwars.KnockbackUtil.calculateKnockbackVelocity(Vector3.one, 1, {
-    						vertical = 0,
-    						horizontal = horizontal,
-    					}).Magnitude * (0.9 + lplr:GetNetworkPing())
+        Name = 'Damage Boost',
+        Tooltip = 'ダメージを受けた際に、設定した強さと時間でVelocityブーストを発動します',
+        Function = function(callback)
+            if callback then
+                -- 1. ダメージを受けた瞬間のトリガー
+                DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
+                    if entitylib.isAlive 
+                    and damageTable.entityInstance == lplr.Character 
+                    and not LongJump.Enabled then -- 元のコードの競合回避条件を維持
+                        
+                        -- ダメージを受けた瞬間、現在時刻 + 設定された時間(秒) を終了時刻として設定
+                        boostEndTime = tick() + DurationSlider.Value
+                    end
+                end))
 
-    					if knockbackSpeed then
-    						stack = tick() + (knockbackSpeed / 45)
-    						knockbackBoost = tick() + (horizontal / 3.5)
-    					end
-    				end
-    			end))
-    		end
-    	end,
+                -- 2. 実際のVelocity適用処理 (毎フレーム実行)
+                DamageBoost:Clean(runService.PreSimulation:Connect(function()
+                    -- 現在時刻がブースト終了時刻より前で、かつキャラクターが生きている場合
+                    if entitylib.isAlive and tick() <= boostEndTime then
+                        local root = entitylib.character.RootPart
+                        local moveDir = entitylib.character.Humanoid.MoveDirection
+                        
+                        -- プレイヤーが移動方向を入力している場合のみブーストを適用
+                        if moveDir.Magnitude > 0 then
+                            -- Y軸(縦方向: ジャンプや落下) の速度は維持したまま、水平方向に設定された強さ(Strength)の速度を上書き
+                            root.AssemblyLinearVelocity = (moveDir * StrengthSlider.Value) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+                        end
+                    end
+                end))
+            else
+                -- モジュールがオフにされたらブースト状態を即座にリセット
+                boostEndTime = 0
+            end
+        end,
+    })
+
+    -- オプション: 強さ (Strength)
+    StrengthSlider = DamageBoost:CreateSlider({
+        Name = 'Strength',
+        Min = 10,
+        Max = 150,
+        Default = 50,
+        Suffix = function(val)
+            return ' studs/s'
+        end
+    })
+
+    -- オプション: 時間 (Duration)
+    DurationSlider = DamageBoost:CreateSlider({
+        Name = 'Duration',
+        Min = 0.1,
+        Max = 2.0,
+        Default = 0.5,
+        Suffix = function(val)
+            return ' sec'
+        end
     })
 end)
 
@@ -16891,7 +16921,7 @@ run(function()
 						end
 						
 						-- 現在のターゲット速度を決定 (23 または 25)
-						local currentTargetSpeed = isBoosted and 25 or 23
+						local currentTargetSpeed = isBoosted and 25 or 22
 
 						local root, velo = entitylib.character.RootPart, getSpeed()
 						local moveDirection = AntiFallDirection or entitylib.character.Humanoid.MoveDirection
