@@ -16912,14 +16912,19 @@ run(function()
 end)
 
 run(function()
+	local TweenService = game:GetService("TweenService")
+	
 	local GodKill
 	local Range
 	local Height
 	local Interval
 	local GroundStayTime
+	local AllowTween
+	
 	local isOnGround = false
 	local groundTimer = 0
 	local lastDropTime = 0
+	local currentTween = nil -- Tween管理用変数
 
 	GodKill = vape.Categories.Blatant:CreateModule({
 		Name = 'GodKill',
@@ -16944,8 +16949,20 @@ run(function()
 						local targetPos = target.RootPart.Position
 						
 						if not isOnGround then
-							-- ターゲットの真上に CFrame で直接移動 (Weld不使用)
-							root.CFrame = CFrame.new(targetPos.X, targetPos.Y + Height.Value, targetPos.Z)
+							local targetCFrame = CFrame.new(targetPos.X, targetPos.Y + Height.Value, targetPos.Z)
+							
+							-- AllowTweenがオンの場合のみTweenで上昇（めっちゃ早く: 0.05秒）
+							if AllowTween.Value then
+								if currentTween then 
+									currentTween:Cancel() -- 既存のTweenをキャンセルして重複を防ぐ
+								end
+								local tweenInfo = TweenInfo.new(0.05, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+								currentTween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
+								currentTween:Play()
+							else
+								-- オフの場合は従来通り瞬時にテレポート
+								root.CFrame = targetCFrame
+							end
 							
 							-- 地面に落とすタイミングかチェック
 							if tick() - lastDropTime >= Interval.Value then
@@ -16966,7 +16983,7 @@ run(function()
 									groundY = rayResult.Position.Y + hipHeight
 								end
 								
-								-- 検出した地面の高さにテレポート
+								-- 検出した地面の高さにテレポート (下降は瞬時に行う)
 								root.CFrame = CFrame.new(targetPos.X, groundY, targetPos.Z)
 								
 								-- 地面滞在状態へ移行
@@ -16982,11 +16999,17 @@ run(function()
 					else
 						-- ターゲットがいない、または死亡した場合は状態をリセット
 						isOnGround = false
+						if currentTween then 
+							currentTween:Cancel() 
+						end
 					end
 				end))
 			else
 				-- モジュールがオフになったときに状態をリセット
 				isOnGround = false
+				if currentTween then 
+					currentTween:Cancel() 
+				end
 			end
 		end,
 		Tooltip = 'Elevates you above the target and periodically drops you to the ground.'
@@ -17026,11 +17049,18 @@ run(function()
 		Suffix = 's',
 		Tooltip = 'How long you stay on the ground before returning to the sky.'
 	})
+
+	-- 新しく追加したトグルオプション
+	AllowTween = GodKill:CreateToggle({
+		Name = 'Allow Tween',
+		Default = false,
+		Tooltip = 'If enabled, uses a very fast tween to go up. If disabled, teleports instantly.'
+	})
 end)
 
 run(function()
 	local KillThunder
-	local ThunderSoundId = "rbxassetid://2256382874" -- Roblox thunder sound ID
+	local ThunderSoundId = "rbxassetid://103279354672380" -- Roblox thunder sound ID
 	
 	KillThunder = vape.Categories.Render:CreateModule({
 		Name = 'KillThunder',
@@ -17062,7 +17092,7 @@ run(function()
 					
 					-- Flash effect for the sky
 					local flash = Instance.new('Part')
-					flash.Size = Vector3.new(300, 300, 300)
+					flash.Size = Vector3.new(0, 0, 0)
 					flash.CFrame = CFrame.new(pos.X, pos.Y + 100, pos.Z)
 					flash.Material = Enum.Material.Neon
 					flash.Color = Color3.fromRGB(255, 255, 255)
