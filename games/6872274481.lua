@@ -3506,11 +3506,13 @@ run(function()
     local Range
     local Sort
     local List
+    local AutoSwitch -- 追加: 自動で元の持ち物に戻すオプション
     local rayCheck = RaycastParams.new()
     rayCheck.FilterType = Enum.RaycastFilterType.Include
     local projectileRemote = { InvokeServer = function(self, ...) end }
     local projectileCooldown = 0
     local FireDelays = {}
+    
     task.spawn(function()
     	projectileRemote = bedwars.Client:Get(remotes.FireProjectile).instance
     end)
@@ -3523,6 +3525,7 @@ run(function()
     	end
     	return nil
     end
+    
     local function getProjectiles()
     	local items = {}
     	for _, item in store.inventory.inventory.items do
@@ -3566,6 +3569,9 @@ run(function()
     								local calc = prediction.SolveTrajectory(pos, projSpeed, gravity, ent.RootPart.Position + (ent.Humanoid.MoveDirection or Vector3.zero), ent.RootPart.Velocity, workspace.Gravity, ent.HipHeight + 2, ent.Jumping and 42.6 or nil, rayCheck)
     								if calc then
     									targetinfo.Targets[ent] = tick() + 1
+    									
+    									-- 変更点1: 現在の持ち物（元の武器）を保存
+    									local originalTool = entitylib.character:FindFirstChildWhichIsA("Tool")
     									local switched = switchItem(item.tool, 0.1)
     
     									local v = ent.RootPart.AssemblyLinearVelocity
@@ -3604,7 +3610,6 @@ run(function()
     										if not res then
     											FireDelays[item.itemType] = tick()
     										else
-    											--res.Parent = replicatedStorage
     											local shoot = itemMeta.launchSound
     											shoot = shoot and shoot[math.random(1, #shoot)] or nil
     											if shoot then
@@ -3619,6 +3624,11 @@ run(function()
     										if FireRate.Value > 0 then
     											task.wait(FireRate.Value)
     										end
+    										
+    										-- 変更点2: 発射後、元の持ち物に戻す処理
+    										if AutoSwitch.Value and originalTool and originalTool ~= item.tool then
+    											switchItem(originalTool, 0.1)
+    										end
     									end
     								end
     							end
@@ -3631,25 +3641,30 @@ run(function()
     	end,
     	Tooltip = 'Shoots people around you',
     })
+    
     Targets = ProjectileAura:CreateTargets({
     	Players = true,
     	Walls = true,
     })
+    
     local methods = {'Damage', 'Distance'}
     for i in sortmethods do
     	if not table.find(methods, i) then
     		table.insert(methods, i)
     	end
     end
+    
     Sort = ProjectileAura:CreateDropdown({
     	Name = 'Target Mode',
     	List = methods,
     	Default = 'Distance'
     })
+    
     List = ProjectileAura:CreateTextList({
     	Name = 'Projectiles',
     	Default = {'arrow', 'snowball'},
     })
+    
     FireRate = ProjectileAura:CreateSlider({
     	Name = 'Fire Rate',
     	Min = 0,
@@ -3658,6 +3673,7 @@ run(function()
     	Decimal = 100,
     	Suffix = 'seconds'
     })
+    
     Range = ProjectileAura:CreateSlider({
     	Name = 'Range',
     	Min = 1,
@@ -3666,6 +3682,13 @@ run(function()
     	Suffix = function(val)
     		return val == 1 and 'stud' or 'studs'
     	end,
+    })
+
+    -- 変更点3: UIに「Auto Switch Back」オプションを追加
+    AutoSwitch = ProjectileAura:CreateToggle({
+        Name = 'Auto Switch Back',
+        Default = true,
+        Tooltip = 'Automatically switches back to your original item after shooting.'
     })
 end)
 
