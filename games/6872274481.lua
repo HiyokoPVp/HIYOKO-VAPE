@@ -16818,3 +16818,38 @@ run(function()
         end
     })
 end)
+
+run(function()
+    local JadeHammerExploit
+    local SpamSpeed
+
+    JadeHammerExploit = vape.Categories.Blatant:CreateModule({
+        Name = 'Jade Hammer Exploit',
+        Tooltip = 'Auto uses the hammer to reach high speeds',
+        Function = function(callback)
+            if callback then
+                task.spawn(function()
+                    repeat
+                        task.wait(1 / SpamSpeed.Value)
+
+                        if entitylib.isAlive and bedwars.matchState ~= 0 then
+                            local hasJadeHammer = getItem('jade_hammer')
+
+                            if hasJadeHammer and (tick() - JadeHammerTick) > 6 then
+                                JadeHammerTick = tick()
+                                bedwars.AbilityController:useAbility("jade_hammer_jump")
+                            end
+                        end
+                    until not JadeHammerExploit.Enabled
+                end)
+            end
+        end
+    })
+
+    SpamSpeed = JadeHammerExploit:CreateSlider({
+        Name = 'Spam Speed',
+        Min = 1,
+        Max = 100,
+        Default = 100
+    })
+end)
