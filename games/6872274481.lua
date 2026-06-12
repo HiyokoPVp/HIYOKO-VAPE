@@ -771,9 +771,12 @@ end)
 entitylib.start()
 local function safeGetProto(func, index)
     if not func then return nil end
-    local success, proto = pcall(debug.getconstant, func, index)
+    local success, proto = pcall(safeGetProto, func, index)
     if success then
         return proto
+    else
+        --warn("function:", func, "index:", index,", WM - proto") 
+        return nil
     end
 end
 run(function()
