@@ -16916,6 +16916,7 @@ run(function()
 	local Range
 	local Height
 	local Interval
+	local GroundStayTime -- 追加: 地面滞在時間
 	local godKillPart = nil
 	local godKillWeld = nil
 	local lastDropTime = 0
@@ -16961,7 +16962,7 @@ run(function()
 						if tick() - lastDropTime >= Interval.Value then
 							lastDropTime = tick()
 							
-							-- Raycast to find the actual ground below the
+							-- Raycast to find the actual ground below the target
 							local rayParams = RaycastParams.new()
 							rayParams.FilterDescendantsInstances = {lplr.Character}
 							rayParams.CollisionGroup = root.CollisionGroup
@@ -16981,8 +16982,8 @@ run(function()
 							-- 検出した地面の高さにテレポート
 							root.CFrame = CFrame.new(targetPos.X, groundY, targetPos.Z)
 							
-							-- Return to the sky part after a brief moment
-							task.delay(0.15, function()
+							-- Return to the sky part after the specified stay time
+							task.delay(GroundStayTime.Value, function()
 								if GodKill.Enabled and godKillPart and godKillPart.Parent then
 									root.CFrame = godKillPart.CFrame
 								end
@@ -17038,6 +17039,17 @@ run(function()
 		Default = 2,
 		Decimal = 10,
 		Suffix = 's'
+	})
+
+	-- 追加: 地面滞在時間のスライダー
+	GroundStayTime = GodKill:CreateSlider({
+		Name = 'Ground Stay Time',
+		Min = 0.05,
+		Max = 1.0,
+		Default = 0.1,
+		Decimal = 100,
+		Suffix = 's',
+		Tooltip = 'How long you stay on the ground before returning to the sky.'
 	})
 end)
 
