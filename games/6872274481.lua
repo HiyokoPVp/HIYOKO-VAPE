@@ -17097,70 +17097,77 @@ run(function()
         Max = 10,
         Default = 0,
         Decimal = 10,
-        Suffix = function(val) return val == 0 and '（超高速）' or '' end,
+        Suffix = function(val) return val == 0 and '' or '' end,
         Tooltip = '0 is nearly instant, 10 is slow.'
     })
 end)
 
 run(function()
 	local KillThunder
-	local ThunderSoundId = "rbxassetid://83327278598628" -- Roblox thunder sound ID
-	
+	local ThunderSoundId = "rbxassetid://83327278598628"
+
 	KillThunder = vape.Categories.Render:CreateModule({
 		Name = 'KillThunder',
 		Function = function(callback)
 			if callback then
 				KillThunder:Clean(vapeEvents.EntityDeathEvent.Event:Connect(function(deathTable)
-					local killedChar = deathTable.entityInstance
-					if not killedChar or not killedChar.Parent then return end
-					
-					local pos = killedChar:GetPivot().Position
-					
-					-- Create lightning bolt effect
-					local bolt = Instance.new('Part')
-					bolt.Name = 'ThunderBolt'
-					bolt.Size = Vector3.new(1.5, 100, 1.5)
-					bolt.CFrame = CFrame.new(pos.X, pos.Y + 50, pos.Z)
-					bolt.Material = Enum.Material.Neon
-					bolt.Color = Color3.fromRGB(180, 180, 255)
-					bolt.Anchored = true
-					bolt.CanCollide = false
-					bolt.Parent = workspace
-					
-					-- Play thunder sound
-					local sound = Instance.new('Sound')
-					sound.SoundId = ThunderSoundId
-					sound.Volume = 2.5
-					sound.Parent = bolt
-					sound:Play()
-					
-					-- Flash effect for the sky
-					local flash = Instance.new('Part')
-					flash.Size = Vector3.new(0, 0, 0)
-					flash.CFrame = CFrame.new(pos.X, pos.Y + 100, pos.Z)
-					flash.Material = Enum.Material.Neon
-					flash.Color = Color3.fromRGB(255, 255, 255)
-					flash.Transparency = 0.6
-					flash.Anchored = true
-					flash.CanCollide = false
-					flash.Parent = workspace
-					
-					-- Auto cleanup
-					game:GetService('Debris'):AddItem(bolt, 2.5)
-					game:GetService('Debris'):AddItem(flash, 0.3)
-					
-					-- Simple flicker animation for the lightning
-					task.spawn(function()
-						for i = 1, 6 do
-							if bolt and bolt.Parent then
-								bolt.Transparency = i % 2 == 0 and 0 or 0.6
-							end
-							task.wait(0.04)
+					local char = deathTable.entityInstance
+					if not char or not char.Parent then return end
+
+					local pos = char:GetPivot().Position
+
+					-- lightning function
+					local function createBolt(startPos, endPos)
+						local lastPos = startPos
+
+						for i = 1, 8 do
+							local offset = Vector3.new(
+								math.random(-3,3),
+								-math.random(8,15),
+								math.random(-3,3)
+							)
+
+							local newPos = lastPos + offset
+
+							local part = Instance.new("Part")
+							part.Size = Vector3.new(0.6, (lastPos - newPos).Magnitude, 0.6)
+							part.CFrame = CFrame.lookAt((lastPos + newPos)/2, newPos)
+							part.Material = Enum.Material.Neon
+							part.Color = Color3.fromRGB(200, 200, 255)
+							part.Anchored = true
+							part.CanCollide = false
+							part.Parent = workspace
+
+							game:GetService("Debris"):AddItem(part, 0.25)
+
+							lastPos = newPos
 						end
+					end
+
+					-- main strike
+					local skyPos = pos + Vector3.new(0, 60, 0)
+					createBolt(skyPos, pos)
+
+					-- extra strikes (random)
+					for i = 1, 2 do
+						task.delay(math.random() * 0.15, function()
+							createBolt(skyPos + Vector3.new(math.random(-5,5),0,math.random(-5,5)), pos)
+						end)
+					end
+
+					-- thunder sound (slight delay)
+					task.delay(0.2, function()
+						local sound = Instance.new("Sound")
+						sound.SoundId = ThunderSoundId
+						sound.Volume = 3
+						sound.Parent = workspace
+						sound:Play()
+						game:GetService("Debris"):AddItem(sound, 3)
 					end)
+
 				end))
 			end
 		end,
-		Tooltip = 'Summons a lightning strike effect at the location of a player who dies.'
+		Tooltip = 'Better lightning strike effect'
 	})
 end)
