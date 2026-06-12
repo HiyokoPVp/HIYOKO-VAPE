@@ -16331,46 +16331,69 @@ run(function()
     local DamageBoost
     local StrengthSlider
     local DurationSlider
+    local WallCheck
+    local AutoJump
+    local AlwaysJump
+    local rayCheck = RaycastParams.new()
+    rayCheck.RespectCanCollide = true
+    
     local boostEndTime = 0 -- ブーストが終了する時刻を記録する変数
 
     DamageBoost = vape.Categories.Blatant:CreateModule({
         Name = 'Damage Boost',
-        Tooltip = 'エンティティから攻撃を受けた際、CFrameを使用して設定時間だけ高速移動します',
+        Tooltip = '',
         Function = function(callback)
             if callback then
-                -- 1. ダメージイベントのトリガー
+                -- 1. ダメージイベントの監視（エンティティからの攻撃かチェック）
                 DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-                    -- 自分がダメージを受け、かつ攻撃者(エンティティ)が存在するかをチェック
                     if entitylib.isAlive 
                     and damageTable.entityInstance == lplr.Character 
-                    and (damageTable.attacker or damageTable.creator) -- エンティティからの攻撃か確認
+                    and (damageTable.attacker or damageTable.creator) -- 攻撃者(エンティティ)が存在するかチェック
                     and not LongJump.Enabled then
-                        
                         -- ダメージを受けた瞬間に、現在時刻 + 設定された時間(秒) を終了時刻として設定
                         boostEndTime = tick() + DurationSlider.Value
                     end
                 end))
 
-                -- 2. CFrame による速度適用処理 (毎フレーム実行)
+                -- 2. 移動処理 (元のSpeedモジュールと全く同じ仕組み)
                 DamageBoost:Clean(runService.PreSimulation:Connect(function(dt)
-                    -- 現在時刻がブースト終了時刻より前で、かつキャラクターが生きている場合
-                    if entitylib.isAlive and tick() <= boostEndTime then
-                        local root = entitylib.character.RootPart
-                        local moveDir = entitylib.character.Humanoid.MoveDirection
+                    -- ブースト時間内 かつ 競合するチートが無効 かつ ネットワーク所有権がある場合
+                    if entitylib.isAlive 
+                    and tick() <= boostEndTime 
+                    and not Fly.Enabled 
+                    and not InfiniteFly.Enabled 
+                    and not LongJump.Enabled 
+                    and isnetworkowner(entitylib.character.RootPart) then
                         
-                        -- プレイヤーが移動方向を入力している場合のみ適用
-                        if moveDir.Magnitude > 0 then
-                            local speed = StrengthSlider.Value -- デフォルト 31 studs/sec
-                            
-                            -- CFrame による位置の強制移動 (速度 * 経過時間)
-                            local destination = moveDir * speed * dt
-                            
-                            -- CFrame で位置を更新
-                            root.CFrame += destination
-                            
-                            -- 物理エンジンとの競合(ガタつき)を防ぐため、水平方向の AssemblyLinearVelocity も同期させる
-                            -- Y軸(縦方向: ジャンプや落下) の速度はゲーム本来の物理挙動として維持する
-                            root.AssemblyLinearVelocity = (moveDir * speed) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+                        local state = entitylib.character.Humanoid:GetState()
+                        if state == Enum.HumanoidStateType.Climbing then return end
+
+                        local root, velo = entitylib.character.RootPart, getSpeed()
+                        local moveDirection = AntiFallDirection or entitylib.character.Humanoid.MoveDirection
+                        
+                        -- Speedと同じ計算式: (目標速度 - 現在速度) * 経過時間(dt)
+                        local targetSpeed = StrengthSlider.Value
+                        local destination = (moveDirection * math.max(targetSpeed - velo, 0) * dt)
+
+                        -- WallCheck がオンの場合、壁へのめり込みを防止
+                        if WallCheck.Enabled then
+                            rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+                            rayCheck.CollisionGroup = root.CollisionGroup
+                            local ray = workspace:Raycast(root.Position, destination, rayCheck)
+                            if ray then
+                                destination = ((ray.Position + ray.Normal) - root.Position)
+                            end
+                        end
+
+                        -- CFrame で位置を更新（足が速くなったような滑らかな移動）
+                        root.CFrame += destination
+                        
+                        -- 物理挙動の整合性のため、水平方向の速度は現在の速度を維持、Y軸(縦)はゲーム本来の挙動を維持
+                        root.AssemblyLinearVelocity = (moveDirection * velo) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+                        
+                        -- AutoJump 処理
+                        if AutoJump.Enabled and (state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.Landed) and moveDirection ~= Vector3.zero and (Attacking or AlwaysJump.Enabled) then
+                            entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                         end
                     end
                 end))
@@ -16379,16 +16402,19 @@ run(function()
                 boostEndTime = 0
             end
         end,
+        ExtraText = function()
+            return 'hiyokovape developer'
+        end
     })
 
-    -- オプション: 強さ (Strength)
+    -- オプション: 強さ (Speed)
     StrengthSlider = DamageBoost:CreateSlider({
         Name = 'Strength',
-        Min = 10,
-        Max = 100,
-        Default = 31, -- ご要望通り 31 studs/sec をデフォルトに設定
+        Min = 1,
+        Max = 50,
+        Default = 31, -- ご要望通り 31 studs/s をデフォルトに設定
         Suffix = function(val)
-            return ' studs/s'
+            return val == 1 and ' stud/s' or ' studs/s'
         end
     })
 
@@ -16401,6 +16427,27 @@ run(function()
         Suffix = function(val)
             return ' sec'
         end
+    })
+
+    -- オプション: Wall Check
+    WallCheck = DamageBoost:CreateToggle({
+        Name = 'Wall Check',
+        Default = true
+    })
+
+    -- オプション: AutoJump
+    AutoJump = DamageBoost:CreateToggle({
+        Name = 'AutoJump',
+        Function = function(callback)
+            AlwaysJump.Object.Visible = callback
+        end
+    })
+
+    -- オプション: Always Jump
+    AlwaysJump = DamageBoost:CreateToggle({
+        Name = 'Always Jump',
+        Visible = false,
+        Darker = true
     })
 end)
 
