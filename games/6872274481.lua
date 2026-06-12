@@ -17181,114 +17181,143 @@ run(function()
 end)
 
 run(function()
-	local RunService = game:GetService("RunService")
-	local Players = game:GetService("Players")
-	local lplr = Players.LocalPlayer
-	
-	local CDisabler
-	local CameraSpeedMult
-	local CharacterSpeed
-	
-	local connection = nil
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local UserInputService = game:GetService("UserInputService")
+    local lplr = Players.LocalPlayer
+    
+    local CDisabler
+    local CameraSpeedMult
+    local CharacterSpeed
+    
+    local connection = nil
+    local originalCameraType = Enum.CameraType.Custom
 
-	CDisabler = vape.Categories.Render:CreateModule({
-		Name = 'CDisabler',
-		Function = function(callback)
-			if callback then
-				connection = RunService.RenderStepped:Connect(function(deltaTime)
-					if not entitylib.isAlive then return end
-					
-					local camera = workspace.CurrentCamera
-					local root = entitylib.character.RootPart
-					local humanoid = entitylib.character.Humanoid
-					
-					local moveDirection = humanoid.MoveDirection
-					
-					-- プレイヤーが移動入力している場合のみ発動
-					if moveDirection.Magnitude > 0.1 then
-						-- カメラの水平方向の向きを取得（Y軸の傾きを排除して純粋な前後左右にする）
-						local cameraLook = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
-						local cameraRight = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z).Unit
-						
-						local forward = moveDirection:Dot(cameraLook)
-						local right = moveDirection:Dot(cameraRight)
-						
-						-- ==========================================
-						-- 1. カメラの移動 (Freecamのように高速・自由)
-						-- ==========================================
-						local camSpeed = humanoid.WalkSpeed * CameraSpeedMult.Value
-						local camMoveVector = (cameraLook * forward + cameraRight * right).Unit * camSpeed * deltaTime
-						
-						local newCameraPos = camera.CFrame.Position + camMoveVector
-						-- カメラの向き(視点)は維持したまま位置だけ更新
-						camera.CFrame = CFrame.new(newCameraPos, newCameraPos + camera.CFrame.LookVector)
-						
-						-- ==========================================
-						-- 2. キャラクターの移動 (ゆっくり安全に追従)
-						-- ==========================================
-						local charPos = root.Position
-						local directionToCam = newCameraPos - charPos
-						local distanceToCam = directionToCam.Magnitude
-						
-						-- カメラとキャラクターが少しでも離れていたら追従開始
-						if distanceToCam > 1 then
-							-- 【重要】1フレームあたりの移動距離を「CharacterSpeed」に厳密に制限
-							-- これにより、サーバーには「通常の歩行速度」に見せかける
-							local maxMoveDist = CharacterSpeed.Value * deltaTime
-							local moveDist = math.min(distanceToCam, maxMoveDist)
-							local moveVector = directionToCam.Unit * moveDist
-							
-							local targetPos = charPos + moveVector
-							
-							-- 地面に埋まらないようにRaycastで高さを調整
-							local rayParams = RaycastParams.new()
-							rayParams.FilterDescendantsInstances = {lplr.Character}
-							local rayOrigin = targetPos + Vector3.new(0, 2, 0)
-							local rayDirection = Vector3.new(0, -10, 0)
-							local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
-							
-							local targetY = charPos.Y
-							if rayResult then
-								targetY = rayResult.Position.Y + (humanoid.HipHeight or 2)
-							else
-								-- 地面がない場合（奈落など）のフォールバック
-								targetY = targetPos.Y - 2
-							end
-							
-							-- CFrameで移動。向きも進行方向に向けることで自然な歩きに見せる
-							local lookAtPos = targetPos + directionToCam.Unit
-							root.CFrame = CFrame.lookAt(Vector3.new(targetPos.X, targetY, targetPos.Z), lookAtPos)
-						end
-					end
-				end)
-			else
-				-- モジュールがオフになったときに接続を解除
-				if connection then
-					connection:Disconnect()
-					connection = nil
-				end
-			end
-		end,
-		Tooltip = 'Camera flies fast like freecam, while character slowly and safely catches up.'
-	})
-	
-	CameraSpeedMult = CDisabler:CreateSlider({
-		Name = 'Camera Speed',
-		Min = 1,
-		Max = 15,
-		Default = 5,
-		Decimal = 1,
-		Suffix = 'x',
-		Tooltip = 'How fast the camera flies ahead. (Does not affect anti-cheat detection)'
-	})
-	
-	CharacterSpeed = CDisabler:CreateSlider({
-		Name = 'Character Speed',
-		Min = 10,
-		Max = 25,
-		Default = 16,
-		Decimal = 1,
-		Suffix = ' studs/s',
-		Tooltip = 'How fast the character actually moves. Keep this low (e.g., 16) to avoid AC kicks.'
-	})
+    -- キーボード入力をベクトルに変換する関数
+    local function getMovementVector()
+        local fwd = (UserInputService:IsKeyDown(Enum.KeyCode.W) and 1 or 0) - (UserInputService:IsKeyDown(Enum.KeyCode.S) and 1 or 0)
+        local side = (UserInputService:IsKeyDown(Enum.KeyCode.D) and 1 or 0) - (UserInputService:IsKeyDown(Enum.KeyCode.A) and 1 or 0)
+        return Vector3.new(side, 0, fwd)
+    end
+
+    CDisabler = vape.Categories.Render:CreateModule({
+        Name = 'CDisabler',
+        Function = function(callback)
+            local camera = workspace.CurrentCamera
+            if not camera then return end
+
+            if callback then
+                -- カメラタイプをScriptableにして、Roblox標準の追従を切る（手動で動かすため）
+                originalCameraType = camera.CameraType
+                camera.CameraType = Enum.CameraType.Scriptable
+                
+                local wasAlive = entitylib.isAlive
+
+                connection = RunService.RenderStepped:Connect(function(deltaTime)
+                    -- 【追加】キャラクターの死亡検知（死んだ瞬間、またはリスポーンした瞬間にカメラをリセット）
+                    if not entitylib.isAlive then
+                        if wasAlive then
+                            -- 死んだ瞬間に通常カメラに戻して位置をリセット
+                            camera.CameraType = originalCameraType
+                            if lplr.Character and lplr.Character:FindFirstChild("Humanoid") then
+                                camera.CameraSubject = lplr.Character.Humanoid
+                            end
+                            wasAlive = false
+                        end
+                        return
+                    else
+                        if not wasAlive then
+                            -- 生き返ったらまたScriptableにして自由カメラを開始
+                            camera.CameraType = Enum.CameraType.Scriptable
+                            wasAlive = true
+                        end
+                    end
+                    
+                    local root = entitylib.character.RootPart
+                    local humanoid = entitylib.character.Humanoid
+                    local moveVec = getMovementVector()
+                    
+                    -- ==========================================
+                    -- 1. カメラの移動（入力に応じて自由に先行する）
+                    -- ==========================================
+                    local cameraLook = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
+                    local cameraRight = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z).Unit
+                    
+                    if moveVec.Magnitude > 0 then
+                        local camSpeed = 16 * CameraSpeedMult.Value
+                        local camMoveVector = (cameraLook * moveVec.Z + cameraRight * moveVec.X).Unit * camSpeed * deltaTime
+                        local newCameraPos = camera.CFrame.Position + camMoveVector
+                        
+                        camera.CFrame = CFrame.new(newCameraPos, newCameraPos + camera.CFrame.LookVector)
+                    end
+                    
+                    -- ==========================================
+                    -- 2. キャラクターの移動（カメラの座標に向かってゆっくり追従）
+                    -- ==========================================
+                    local charPos = root.Position
+                    local targetCamPos = camera.CFrame.Position
+                    
+                    -- キャラクターからカメラへの方向と距離
+                    local directionToCam = Vector3.new(targetCamPos.X - charPos.X, 0, targetCamPos.Z - charPos.Z)
+                    local distanceToCam = directionToCam.Magnitude
+                    
+                    -- 1スタッド以上離れていたら、設定された速度制限の枠内でカメラを追いかける
+                    if distanceToCam > 1 then
+                        local maxMoveDist = CharacterSpeed.Value * deltaTime
+                        local moveDist = math.min(distanceToCam, maxMoveDist)
+                        local moveVector = directionToCam.Unit * moveDist
+                        
+                        local targetPos = charPos + moveVector
+                        
+                        -- 地面の高さをRaycastで調整（埋まり防止）
+                        local rayParams = RaycastParams.new()
+                        rayParams.FilterDescendantsInstances = {lplr.Character}
+                        local rayOrigin = targetPos + Vector3.new(0, 4, 0)
+                        local rayDirection = Vector3.new(0, -15, 0)
+                        local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
+                        
+                        local targetY = charPos.Y
+                        if rayResult then
+                            targetY = rayResult.Position.Y + (humanoid.HipHeight or 2)
+                        end
+                        
+                        -- キャラクターの座標を更新（カメラの方を向かせる）
+                        local lookAtPos = Vector3.new(targetCamPos.X, targetY, targetCamPos.Z)
+                        root.CFrame = CFrame.lookAt(Vector3.new(targetPos.X, targetY, targetPos.Z), lookAtPos)
+                    end
+                end)
+            else
+                -- モジュールオフ時に完全に元に戻す
+                if connection then
+                    connection:Disconnect()
+                    connection = nil
+                end
+                camera.CameraType = originalCameraType
+                if entitylib.isAlive then
+                    camera.CameraSubject = entitylib.character.Humanoid
+                end
+            end
+        end,
+        Tooltip = 'Camera flies ahead based on your inputs, and the character slowly walks towards the camera.'
+    })
+    
+    CameraSpeedMult = CDisabler:CreateSlider({
+        Name = 'Camera Speed',
+        Min = 1,
+        Max = 15,
+        Default = 5,
+        Decimal = 1,
+        Suffix = 'x',
+        Tooltip = 'How fast the camera flies ahead of the character.'
+    })
+    
+    CharacterSpeed = CDisabler:CreateSlider({
+        Name = 'Character Speed',
+        Min = 10,
+        Max = 25,
+        Default = 16,
+        Decimal = 1,
+        Suffix = ' studs/s',
+        Tooltip = 'How fast the character chases the camera. Keep it near 16 for safety.'
+    })
 end)
