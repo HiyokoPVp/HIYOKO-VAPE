@@ -3566,7 +3566,7 @@ run(function()
     								local calc = prediction.SolveTrajectory(pos, projSpeed, gravity, ent.RootPart.Position + (ent.Humanoid.MoveDirection or Vector3.zero), ent.RootPart.Velocity, workspace.Gravity, ent.HipHeight + 2, ent.Jumping and 42.6 or nil, rayCheck)
     								if calc then
     									targetinfo.Targets[ent] = tick() + 1
-    									local switched = switchItem(item.tool)
+    									local switched = switchItem(item.tool, 0.1)
     
     									local v = ent.RootPart.AssemblyLinearVelocity
     									local s = v:Lerp(ent.RootPart.AssemblyLinearVelocity, 0.5)
