@@ -198,33 +198,42 @@ local function inround()
 end
 
 run(function()
-    local AutoClicker
-    local CPS
-    local ToolCheck
-    local CurrentlyTool
+    local walkspeedacdisabler
+    local walkspeed
 
-    local ToolCheckValue = true
-    local CPSValue = 0.1
+    local function disablewscheck()
+        local mt = getrawmetatable(game)
+        setreadonly(mt, false)
 
-    AutoClicker = vape.Categories.Combat:CreateModule({
-        Name = 'AutoClicker',
+        local oldindex = mt.__index
+
+        mt.__index = newcclosure(function(self, b)
+            if b == 'WalkSpeed' then
+                return 16
+            end
+        end)
+    end
+
+    walkspeedacdisabler = vape.Combat:CreateModule({
+        Name = "Skywars Speed",
         Function = function(callback)
             if callback then
-                repeat
-                if ToolCheckValue == true then
-                   if IsCharacterTool() == true then
-                    CurrentlyTool = getcharactertool()
+            repeat
+                disablewscheck()
+                lplr.Character:FindFirstChild("Humanoid").WalkSpeed = walkspeed
+            until not callback.Enabled
 
-                    CurrentlyTool.Activated()
+            else
+                lplr.Character:FindFirstChild("Humanoid").WalkSpeed = 16
+        end 
 
-                    task.wait(CPSValue)
-                   end 
-
-                else
-                    
-                end
-                until not AutoClicker.Enabled
-            end
         end
+    })
+
+    walkspeed = walkspeedacdisabler:CreateSlider({
+        Name = "WalkSpeed",
+        Min = 1,
+        Max = 150,
+        Default = 50
     })
 end)
