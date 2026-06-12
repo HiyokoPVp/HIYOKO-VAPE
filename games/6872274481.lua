@@ -17116,58 +17116,66 @@ run(function()
 
 					local pos = char:GetPivot().Position
 
-					-- lightning function
-					local function createBolt(startPos, endPos)
-						local lastPos = startPos
+					local function createRod(offset, thickness, transparency)
+						local bolt = Instance.new("Part")
+						bolt.Size = Vector3.new(thickness, 80, thickness)
+						bolt.CFrame = CFrame.new(
+							pos.X + offset.X,
+							pos.Y + 40,
+							pos.Z + offset.Z
+						)
+						bolt.Material = Enum.Material.Neon
+						bolt.Color = Color3.fromRGB(180, 180, 255)
+						bolt.Transparency = transparency
+						bolt.Anchored = true
+						bolt.CanCollide = false
+						bolt.Parent = workspace
 
-						for i = 1, 8 do
-							local offset = Vector3.new(
+						game:GetService("Debris"):AddItem(bolt, 0.3)
+					end
+
+					-- メイン太棒
+					createRod(Vector3.new(0,0,0), 2, 0)
+
+					-- 周りの棒たち
+					for i = 1, 6 do
+						createRod(
+							Vector3.new(
 								math.random(-3,3),
-								-math.random(8,15),
+								0,
 								math.random(-3,3)
+							),
+							math.random(0.3, 1),
+							0.3
+						)
+					end
+
+					-- ちょい遅れてもう一発（重ね感）
+					task.delay(0.05, function()
+						for i = 1, 4 do
+							createRod(
+								Vector3.new(
+									math.random(-2,2),
+									0,
+									math.random(-2,2)
+								),
+								math.random(0.2, 0.8),
+								0.5
 							)
-
-							local newPos = lastPos + offset
-
-							local part = Instance.new("Part")
-							part.Size = Vector3.new(0.6, (lastPos - newPos).Magnitude, 0.6)
-							part.CFrame = CFrame.lookAt((lastPos + newPos)/2, newPos)
-							part.Material = Enum.Material.Neon
-							part.Color = Color3.fromRGB(200, 200, 255)
-							part.Anchored = true
-							part.CanCollide = false
-							part.Parent = workspace
-
-							game:GetService("Debris"):AddItem(part, 0.25)
-
-							lastPos = newPos
 						end
-					end
-
-					-- main strike
-					local skyPos = pos + Vector3.new(0, 60, 0)
-					createBolt(skyPos, pos)
-
-					-- extra strikes (random)
-					for i = 1, 2 do
-						task.delay(math.random() * 0.15, function()
-							createBolt(skyPos + Vector3.new(math.random(-5,5),0,math.random(-5,5)), pos)
-						end)
-					end
-
-					-- thunder sound (slight delay)
-					task.delay(0.2, function()
-						local sound = Instance.new("Sound")
-						sound.SoundId = ThunderSoundId
-						sound.Volume = 3
-						sound.Parent = workspace
-						sound:Play()
-						game:GetService("Debris"):AddItem(sound, 3)
 					end)
+
+					-- 音
+					local sound = Instance.new("Sound")
+					sound.SoundId = ThunderSoundId
+					sound.Volume = 3
+					sound.Parent = workspace
+					sound:Play()
+					game:GetService("Debris"):AddItem(sound, 3)
 
 				end))
 			end
 		end,
-		Tooltip = 'Better lightning strike effect'
+		Tooltip = 'Stacked rod lightning effect'
 	})
 end)
