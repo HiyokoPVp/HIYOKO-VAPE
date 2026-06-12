@@ -17179,3 +17179,103 @@ run(function()
 		Tooltip = 'Stacked rod lightning effect'
 	})
 end)
+
+run(function()
+	local RunService = game:GetService("RunService")
+	local Players = game:GetService("Players")
+	local lplr = Players.LocalPlayer
+	
+	local CDisabler
+	local SpeedMultiplier
+	local Smoothness
+	
+	local connection = nil
+
+	-- カテゴリは Movement が適していますが、Blatant などお好みのものに変更してください
+	CDisabler = vape.Categories.Render:CreateModule({
+		Name = 'CDisabler',
+		Function = function(callback)
+			if callback then
+				connection = RunService.RenderStepped:Connect(function(deltaTime)
+					if not entitylib.isAlive then return end
+					
+					local camera = workspace.CurrentCamera
+					local root = entitylib.character.RootPart
+					local humanoid = entitylib.character.Humanoid
+					
+					local moveDirection = humanoid.MoveDirection
+					
+					-- プレイヤーが移動入力している場合のみ発動
+					if moveDirection.Magnitude > 0.1 then
+						-- カメラの水平方向の向きを取得（Y軸の傾きを排除）
+						local cameraLook = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
+						local cameraRight = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z).Unit
+						
+						-- 入力方向をカメラ基準の前後左右に変換
+						local forward = moveDirection:Dot(cameraLook)
+						local right = moveDirection:Dot(cameraRight)
+						
+						-- 速度倍率を適用した移動ベクトルを計算
+						local speed = humanoid.WalkSpeed * SpeedMultiplier.Value
+						local moveVector = (cameraLook * forward + cameraRight * right).Unit * speed * deltaTime
+						
+						-- 1. カメラを先に高速で移動させる
+						local newCameraPos = camera.CFrame.Position + moveVector
+						-- カメラの回転（視点）は維持したまま位置だけ更新
+						camera.CFrame = CFrame.new(newCameraPos, newCameraPos + camera.CFrame.LookVector)
+						
+						-- 2. キャラクターをカメラの位置に追従させる
+						-- 地面の高さを取得して埋まらないようにする（GodKillと同様の処理）
+						local rayParams = RaycastParams.new()
+						rayParams.FilterDescendantsInstances = {lplr.Character}
+						local rayOrigin = newCameraPos + Vector3.new(0, 2, 0)
+						local rayDirection = Vector3.new(0, -10, 0)
+						local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
+						
+						local targetY = root.Position.Y
+						if rayResult then
+							targetY = rayResult.Position.Y + (humanoid.HipHeight or 2)
+						else
+							-- 地面がない場合はカメラのY座標から少し下
+							targetY = newCameraPos.Y - 2
+						end
+						
+						local targetCFrame = CFrame.new(newCameraPos.X, targetY, newCameraPos.Z)
+						
+						-- Smoothness に応じて Lerp で滑らかに追従
+						-- 急なテレポート（CFrame直接代入）によるAC検知を緩和する
+						local alpha = math.clamp(deltaTime * Smoothness.Value, 0, 1)
+						root.CFrame = root.CFrame:Lerp(targetCFrame, alpha)
+					end
+				end)
+			else
+				-- モジュールがオフになったときに接続を解除
+				if connection then
+					connection:Disconnect()
+					connection = nil
+				end
+			end
+		end,
+		Tooltip = 'Moves the camera faster than your character, creating an illusion of high speed.'
+	})
+	
+	SpeedMultiplier = CDisabler:CreateSlider({
+		Name = 'Speed Multiplier',
+		Min = 1,
+		Max = 5, 
+		Default = 2.5,
+		Decimal = 1,
+		Suffix = 'x',
+		Tooltip = 'Higher values make the camera move faster. Warning: Too high may trigger anti-cheat kicks.'
+	})
+	
+	Smoothness = CDisabler:CreateSlider({
+		Name = 'Smoothness',
+		Min = 1,
+		Max = 30,
+		Default = 15,
+		Decimal = 1,
+		Suffix = '',
+		Tooltip = 'How smoothly the character catches up to the camera. Higher = snappier movement.'
+	})
+end)
