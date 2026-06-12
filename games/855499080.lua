@@ -214,13 +214,14 @@ run(function()
         end)
     end
 
-    walkspeedacdisabler = vape.Combat:CreateModule({
+    walkspeedacdisabler = vape.Categories.Blatant:CreateModule({
         Name = "Skywars Speed",
         Function = function(callback)
             if callback then
             repeat
                 disablewscheck()
                 lplr.Character:FindFirstChild("Humanoid").WalkSpeed = walkspeed
+                task.wait()
             until not callback.Enabled
 
             else
