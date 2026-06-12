@@ -3571,7 +3571,7 @@ run(function()
     									targetinfo.Targets[ent] = tick() + 1
     									
     									-- 変更点1: 現在の持ち物（元の武器）を保存
-    									local originalTool = entitylib.character:FindFirstChildWhichIsA("Tool")
+    									local originalTool = store.hand.tool
     									local switched = switchItem(item.tool, 0.1)
     
     									local v = ent.RootPart.AssemblyLinearVelocity
