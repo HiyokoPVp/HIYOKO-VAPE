@@ -16335,30 +16335,33 @@ run(function()
 
     DamageBoost = vape.Categories.Blatant:CreateModule({
         Name = 'Damage Boost',
-        Tooltip = 'ダメージを受けた際に、設定した強さと時間でVelocityブーストを発動します',
+        Tooltip = 'Boost when Damage',
         Function = function(callback)
             if callback then
-                -- 1. ダメージを受けた瞬間のトリガー
+                -- 1. ダメージイベントのトリガー
                 DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
+                    -- 自分がダメージを受け、かつ攻撃者(エンティティ)が存在するかをチェック
                     if entitylib.isAlive 
                     and damageTable.entityInstance == lplr.Character 
-                    and not LongJump.Enabled then -- 元のコードの競合回避条件を維持
+                    and (damageTable.attacker or damageTable.creator) -- エンティティからの攻撃か確認
+                    and not LongJump.Enabled then
                         
-                        -- ダメージを受けた瞬間、現在時刻 + 設定された時間(秒) を終了時刻として設定
+                        -- ダメージ量に関わらず、攻撃を受けた瞬間に時間をセット
                         boostEndTime = tick() + DurationSlider.Value
                     end
                 end))
 
-                -- 2. 実際のVelocity適用処理 (毎フレーム実行)
+                -- 2. AssemblyLinearVelocity による速度適用処理 (毎フレーム実行)
                 DamageBoost:Clean(runService.PreSimulation:Connect(function()
                     -- 現在時刻がブースト終了時刻より前で、かつキャラクターが生きている場合
                     if entitylib.isAlive and tick() <= boostEndTime then
                         local root = entitylib.character.RootPart
                         local moveDir = entitylib.character.Humanoid.MoveDirection
                         
-                        -- プレイヤーが移動方向を入力している場合のみブーストを適用
+                        -- プレイヤーが移動方向を入力している場合のみ適用
                         if moveDir.Magnitude > 0 then
-                            -- Y軸(縦方向: ジャンプや落下) の速度は維持したまま、水平方向に設定された強さ(Strength)の速度を上書き
+                            -- velocityではなく AssemblyLinearVelocity を直接使用して上書き
+                            -- Y軸(縦方向)の物理挙動は維持したまま、水平方向に強さを適用
                             root.AssemblyLinearVelocity = (moveDir * StrengthSlider.Value) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
                         end
                     end
@@ -16915,13 +16918,13 @@ run(function()
 
 						-- 経過時間を加算し、2秒ごとにスピード状態を切り替え
 						cycleTimer += dt
-						if cycleTimer >= 2 then
+						if cycleTimer >= 1 then
 							cycleTimer = 0
 							isBoosted = not isBoosted
 						end
 						
 						-- 現在のターゲット速度を決定 (23 または 25)
-						local currentTargetSpeed = isBoosted and 25 or 22
+						local currentTargetSpeed = isBoosted and 24.25 or 23
 
 						local root, velo = entitylib.character.RootPart, getSpeed()
 						local moveDirection = AntiFallDirection or entitylib.character.Humanoid.MoveDirection
