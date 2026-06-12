@@ -16949,7 +16949,28 @@ run(function()
 						local targetPos = target.RootPart.Position
 						
 						if not isOnGround then
-							local targetCFrame = CFrame.new(targetPos.X, targetPos.Y + Height.Value, targetPos.Z)
+							-- 【修正ここから】上空のブロック判定と安全な高さの計算
+							local desiredHeight = Height.Value
+							local safeY = targetPos.Y + desiredHeight -- デフォルトの高さ
+							
+							local rayParams = RaycastParams.new()
+							-- プレイヤー自身とターゲットのキャラクターを無視し、環境のブロックのみを検出する
+							rayParams.FilterDescendantsInstances = {lplr.Character, target.Character}
+							rayParams.FilterType = Enum.RaycastFilterType.Exclude
+							
+							-- ターゲットの頭上少し上から、希望するHeight分上に向かってRaycastを飛ばす
+							local rayOrigin = targetPos + Vector3.new(0, 2, 0)
+							local rayDirection = Vector3.new(0, desiredHeight, 0)
+							local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
+							
+							if rayResult then
+								-- ブロックに当たった場合、そのヒット位置 + プレイヤーのHipHeight(安全マージン) にする
+								local hipHeight = entitylib.character.Humanoid.HipHeight or 3
+								safeY = rayResult.Position.Y + hipHeight
+							end
+							-- 【修正ここまで】
+
+							local targetCFrame = CFrame.new(targetPos.X, safeY, targetPos.Z)
 							
 							-- AllowTweenがオンの場合のみTweenで上昇（めっちゃ早く: 0.05秒）
 							if AllowTween.Value then
@@ -16969,18 +16990,18 @@ run(function()
 								lastDropTime = tick()
 								
 								-- Raycastで地面の高さを検出
-								local rayParams = RaycastParams.new()
-								rayParams.FilterDescendantsInstances = {lplr.Character}
-								rayParams.CollisionGroup = root.CollisionGroup
+								local groundRayParams = RaycastParams.new()
+								groundRayParams.FilterDescendantsInstances = {lplr.Character}
+								groundRayParams.CollisionGroup = root.CollisionGroup
 								
-								local rayOrigin = targetPos + Vector3.new(0, 2, 0)
-								local rayDirection = Vector3.new(0, -30, 0)
-								local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
+								local rayOriginDrop = targetPos + Vector3.new(0, 2, 0)
+								local rayDirectionDrop = Vector3.new(0, -30, 0)
+								local rayResultDrop = workspace:Raycast(rayOriginDrop, rayDirectionDrop, groundRayParams)
 								
 								local groundY = targetPos.Y + 1 -- フォールバック値
-								if rayResult then
+								if rayResultDrop then
 									local hipHeight = entitylib.character.Humanoid.HipHeight or 2
-									groundY = rayResult.Position.Y + hipHeight
+									groundY = rayResultDrop.Position.Y + hipHeight
 								end
 								
 								-- 検出した地面の高さにテレポート (下降は瞬時に行う)
@@ -17060,7 +17081,7 @@ end)
 
 run(function()
 	local KillThunder
-	local ThunderSoundId = "rbxassetid://103279354672380" -- Roblox thunder sound ID
+	local ThunderSoundId = "rbxassetid://83327278598628" -- Roblox thunder sound ID
 	
 	KillThunder = vape.Categories.Render:CreateModule({
 		Name = 'KillThunder',
@@ -17102,7 +17123,7 @@ run(function()
 					flash.Parent = workspace
 					
 					-- Auto cleanup
-					game:GetService('Debris'):AddItem(bolt, 1.5)
+					game:GetService('Debris'):AddItem(bolt, 2.5)
 					game:GetService('Debris'):AddItem(flash, 0.3)
 					
 					-- Simple flicker animation for the lightning
