@@ -16891,7 +16891,7 @@ run(function()
 						end
 						
 						-- 現在のターゲット速度を決定 (23 または 25)
-						local currentTargetSpeed = isBoosted and 25 or 23
+						local currentTargetSpeed = isBoosted and 25 or 24
 
 						local root, velo = entitylib.character.RootPart, getSpeed()
 						local moveDirection = AntiFallDirection or entitylib.character.Humanoid.MoveDirection
