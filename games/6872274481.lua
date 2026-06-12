@@ -17186,12 +17186,11 @@ run(function()
 	local lplr = Players.LocalPlayer
 	
 	local CDisabler
-	local CameraSpeedMultiplier
+	local CameraSpeedMult
+	local CharacterSpeed
 	
 	local connection = nil
-	local CHAR_SPEED = 23 -- キャラクターが追従する固定速度 (WalkSpeed 23相当)
 
-	-- カテゴリは Movement が適していますが、お好みのものに変更してください
 	CDisabler = vape.Categories.Render:CreateModule({
 		Name = 'CDisabler',
 		Function = function(callback)
@@ -17207,30 +17206,35 @@ run(function()
 					
 					-- プレイヤーが移動入力している場合のみ発動
 					if moveDirection.Magnitude > 0.1 then
-						-- カメラの水平方向の向きを取得
+						-- カメラの水平方向の向きを取得（Y軸の傾きを排除して純粋な前後左右にする）
 						local cameraLook = Vector3.new(camera.CFrame.LookVector.X, 0, camera.CFrame.LookVector.Z).Unit
 						local cameraRight = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z).Unit
 						
 						local forward = moveDirection:Dot(cameraLook)
 						local right = moveDirection:Dot(cameraRight)
 						
-						-- 1. カメラを高速で独立して移動させる (キャラクターの位置に依存しない)
-						local camSpeed = humanoid.WalkSpeed * CameraSpeedMultiplier.Value
+						-- ==========================================
+						-- 1. カメラの移動 (Freecamのように高速・自由)
+						-- ==========================================
+						local camSpeed = humanoid.WalkSpeed * CameraSpeedMult.Value
 						local camMoveVector = (cameraLook * forward + cameraRight * right).Unit * camSpeed * deltaTime
 						
 						local newCameraPos = camera.CFrame.Position + camMoveVector
 						-- カメラの向き(視点)は維持したまま位置だけ更新
 						camera.CFrame = CFrame.new(newCameraPos, newCameraPos + camera.CFrame.LookVector)
 						
-						-- 2. キャラクターをカメラの位置に向かって、WalkSpeed 23相当の速度でCFrameで追従させる
+						-- ==========================================
+						-- 2. キャラクターの移動 (ゆっくり安全に追従)
+						-- ==========================================
 						local charPos = root.Position
 						local directionToCam = newCameraPos - charPos
 						local distanceToCam = directionToCam.Magnitude
 						
-						-- カメラとキャラクターがある程度離れていたら追従開始
-						if distanceToCam > 0.5 then
-							-- 【重要】1フレームあたりの最大移動距離を 23 * deltaTime に制限 (AC対策)
-							local maxMoveDist = CHAR_SPEED * deltaTime
+						-- カメラとキャラクターが少しでも離れていたら追従開始
+						if distanceToCam > 1 then
+							-- 【重要】1フレームあたりの移動距離を「CharacterSpeed」に厳密に制限
+							-- これにより、サーバーには「通常の歩行速度」に見せかける
+							local maxMoveDist = CharacterSpeed.Value * deltaTime
 							local moveDist = math.min(distanceToCam, maxMoveDist)
 							local moveVector = directionToCam.Unit * moveDist
 							
@@ -17247,11 +17251,11 @@ run(function()
 							if rayResult then
 								targetY = rayResult.Position.Y + (humanoid.HipHeight or 2)
 							else
-								-- 地面がない場合のフォールバック
+								-- 地面がない場合（奈落など）のフォールバック
 								targetY = targetPos.Y - 2
 							end
 							
-							-- CFrameで移動。向きも進行方向に向けることで自然な動きにする
+							-- CFrameで移動。向きも進行方向に向けることで自然な歩きに見せる
 							local lookAtPos = targetPos + directionToCam.Unit
 							root.CFrame = CFrame.lookAt(Vector3.new(targetPos.X, targetY, targetPos.Z), lookAtPos)
 						end
@@ -17265,16 +17269,26 @@ run(function()
 				end
 			end
 		end,
-		Tooltip = 'Camera moves fast independently, and character chases it at WalkSpeed 23 via CFrame.'
+		Tooltip = 'Camera flies fast like freecam, while character slowly and safely catches up.'
 	})
 	
-	CameraSpeedMultiplier = CDisabler:CreateSlider({
+	CameraSpeedMult = CDisabler:CreateSlider({
 		Name = 'Camera Speed',
 		Min = 1,
-		Max = 10,
-		Default = 3,
+		Max = 15,
+		Default = 5,
 		Decimal = 1,
 		Suffix = 'x',
-		Tooltip = 'How fast the camera moves ahead. Character will chase at fixed speed 23.'
+		Tooltip = 'How fast the camera flies ahead. (Does not affect anti-cheat detection)'
+	})
+	
+	CharacterSpeed = CDisabler:CreateSlider({
+		Name = 'Character Speed',
+		Min = 10,
+		Max = 25,
+		Default = 16,
+		Decimal = 1,
+		Suffix = ' studs/s',
+		Tooltip = 'How fast the character actually moves. Keep this low (e.g., 16) to avoid AC kicks.'
 	})
 end)
