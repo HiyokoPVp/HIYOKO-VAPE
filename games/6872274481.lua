@@ -16916,9 +16916,9 @@ run(function()
 	local Range
 	local Height
 	local Interval
-	local GroundStayTime -- 追加: 地面滞在時間
-	local godKillPart = nil
-	local godKillWeld = nil
+	local GroundStayTime
+	local isOnGround = false
+	local groundTimer = 0
 	local lastDropTime = 0
 
 	GodKill = vape.Categories.Blatant:CreateModule({
@@ -16926,6 +16926,9 @@ run(function()
 		Function = function(callback)
 			if callback then
 				lastDropTime = tick()
+				isOnGround = false
+				groundTimer = 0
+				
 				GodKill:Clean(runService.Heartbeat:Connect(function()
 					if not entitylib.isAlive then return end
 					
@@ -16940,77 +16943,50 @@ run(function()
 						local root = entitylib.character.RootPart
 						local targetPos = target.RootPart.Position
 						
-						if not godKillPart then
-							godKillPart = Instance.new('Part')
-							godKillPart.Size = Vector3.new(2, 2, 2)
-							godKillPart.Transparency = 1
-							godKillPart.CanCollide = false
-							godKillPart.Anchored = true
-							godKillPart.Parent = workspace
+						if not isOnGround then
+							-- ターゲットの真上に CFrame で直接移動 (Weld不使用)
+							root.CFrame = CFrame.new(targetPos.X, targetPos.Y + Height.Value, targetPos.Z)
 							
-							godKillWeld = Instance.new('Weld')
-							godKillWeld.Part0 = root
-							godKillWeld.Part1 = godKillPart
-							godKillWeld.C0 = CFrame.new(0, 0, 0)
-							godKillWeld.Parent = root
-						end
-
-						-- Keep the part above the target
-						godKillPart.CFrame = CFrame.new(targetPos.X, targetPos.Y + Height.Value, targetPos.Z)
-						
-						-- Drop to ground and return every Interval seconds
-						if tick() - lastDropTime >= Interval.Value then
-							lastDropTime = tick()
-							
-							-- Raycast to find the actual ground below the target
-							local rayParams = RaycastParams.new()
-							rayParams.FilterDescendantsInstances = {lplr.Character}
-							rayParams.CollisionGroup = root.CollisionGroup
-							
-							-- ターゲットの少し上から下方向に30スタッドのRaycastを飛ばす
-							local rayOrigin = targetPos + Vector3.new(0, 2, 0)
-							local rayDirection = Vector3.new(0, -30, 0)
-							local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
-							
-							local groundY = targetPos.Y + 1 -- レイキャストが外れた場合のフォールバック値
-							if rayResult then
-								-- ヒットした地面のY座標 + プレイヤーのHipHeight（足元の位置）
-								local hipHeight = entitylib.character.Humanoid.HipHeight or 2
-								groundY = rayResult.Position.Y + hipHeight
-							end
-							
-							-- 検出した地面の高さにテレポート
-							root.CFrame = CFrame.new(targetPos.X, groundY, targetPos.Z)
-							
-							-- Return to the sky part after the specified stay time
-							task.delay(GroundStayTime.Value, function()
-								if GodKill.Enabled and godKillPart and godKillPart.Parent then
-									root.CFrame = godKillPart.CFrame
+							-- 地面に落とすタイミングかチェック
+							if tick() - lastDropTime >= Interval.Value then
+								lastDropTime = tick()
+								
+								-- Raycastで地面の高さを検出
+								local rayParams = RaycastParams.new()
+								rayParams.FilterDescendantsInstances = {lplr.Character}
+								rayParams.CollisionGroup = root.CollisionGroup
+								
+								local rayOrigin = targetPos + Vector3.new(0, 2, 0)
+								local rayDirection = Vector3.new(0, -30, 0)
+								local rayResult = workspace:Raycast(rayOrigin, rayDirection, rayParams)
+								
+								local groundY = targetPos.Y + 1 -- フォールバック値
+								if rayResult then
+									local hipHeight = entitylib.character.Humanoid.HipHeight or 2
+									groundY = rayResult.Position.Y + hipHeight
 								end
-							end)
+								
+								-- 検出した地面の高さにテレポート
+								root.CFrame = CFrame.new(targetPos.X, groundY, targetPos.Z)
+								
+								-- 地面滞在状態へ移行
+								isOnGround = true
+								groundTimer = tick()
+							end
+						else
+							-- 地面滞在時間が経過したら空中に戻る状態へ
+							if tick() - groundTimer >= GroundStayTime.Value then
+								isOnGround = false
+							end
 						end
 					else
-						-- Cleanup if target is dead or out of range
-						if godKillWeld then
-							godKillWeld:Destroy()
-							godKillWeld = nil
-						end
-						if godKillPart then
-							godKillPart:Destroy()
-							godKillPart = nil
-						end
+						-- ターゲットがいない、または死亡した場合は状態をリセット
+						isOnGround = false
 					end
 				end))
 			else
-				-- Cleanup on disable
-				if godKillWeld then
-					godKillWeld:Destroy()
-					godKillWeld = nil
-				end
-				if godKillPart then
-					godKillPart:Destroy()
-					godKillPart = nil
-				end
+				-- モジュールがオフになったときに状態をリセット
+				isOnGround = false
 			end
 		end,
 		Tooltip = 'Elevates you above the target and periodically drops you to the ground.'
@@ -17041,7 +17017,6 @@ run(function()
 		Suffix = 's'
 	})
 
-	-- 追加: 地面滞在時間のスライダー
 	GroundStayTime = GodKill:CreateSlider({
 		Name = 'Ground Stay Time',
 		Min = 0.05,
