@@ -16853,3 +16853,96 @@ run(function()
         Default = 100
     })
 end)
+
+run(function()
+	local RealTimeSpeed
+	local WallCheck
+	local AutoJump
+	local AlwaysJump
+	local rayCheck = RaycastParams.new()
+	rayCheck.RespectCanCollide = true
+	
+	RealTimeSpeed = vape.Categories.Blatant:CreateModule({
+		Name = 'RealTimeSpeed',
+		Function = function(callback)
+			-- 元のコードと同様の初期化処理（Vapeフレームワークとの互換性のため維持）
+			frictionTable.Speed = callback or nil
+			updateVelocity()
+			pcall(function()
+				debug.setconstant(bedwars.WindWalkerController.updateSpeed, 7, callback and 'constantSpeedMultiplier' or 'moveSpeedMultiplier')
+			end)
+
+			if callback then
+				local cycleTimer = 0
+				local isBoosted = false -- falseなら23、trueなら25
+				
+				RealTimeSpeed:Clean(runService.PreSimulation:Connect(function(dt)
+					bedwars.StatefulEntityKnockbackController.lastImpulseTime = callback and math.huge or time()
+					
+					if entitylib.isAlive and not Fly.Enabled and not InfiniteFly.Enabled and not LongJump.Enabled and isnetworkowner(entitylib.character.RootPart) then
+						local state = entitylib.character.Humanoid:GetState()
+						if state == Enum.HumanoidStateType.Climbing then return end
+
+						-- 経過時間を加算し、2秒ごとにスピード状態を切り替え
+						cycleTimer += dt
+						if cycleTimer >= 2 then
+							cycleTimer = 0
+							isBoosted = not isBoosted
+						end
+						
+						-- 現在のターゲット速度を決定 (23 または 25)
+						local currentTargetSpeed = isBoosted and 25 or 23
+
+						local root, velo = entitylib.character.RootPart, getSpeed()
+						local moveDirection = AntiFallDirection or entitylib.character.Humanoid.MoveDirection
+						
+						-- 元の Value.Value の代わりに、自動切り替えされる currentTargetSpeed を使用
+						local destination = (moveDirection * math.max(currentTargetSpeed - velo, 0) * dt)
+
+						if WallCheck.Enabled then
+							rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+							rayCheck.CollisionGroup = root.CollisionGroup
+							local ray = workspace:Raycast(root.Position, destination, rayCheck)
+							if ray then
+								destination = ((ray.Position + ray.Normal) - root.Position)
+							end
+						end
+
+						root.CFrame += destination
+						root.AssemblyLinearVelocity = (moveDirection * velo) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+						
+						if AutoJump.Enabled and (state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.Landed) and moveDirection ~= Vector3.zero and (Attacking or AlwaysJump.Enabled) then
+							entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+						end
+					end
+				end))
+			end
+		end,
+		ExtraText = function()
+			return 'HIYOKO VAPE PREMIUM'
+		end,
+		Tooltip = 'NEW DISABLER'
+	})
+
+	-- オプション: Wall Check
+	WallCheck = RealTimeSpeed:CreateToggle({
+		Name = 'Wall Check',
+		Default = true
+	})
+	
+	-- オプション: AutoJump
+	AutoJump = RealTimeSpeed:CreateToggle({
+		Name = 'AutoJump',
+		Function = function(callback)
+			-- AutoJumpがオンのときのみ AlwaysJump を表示
+			AlwaysJump.Object.Visible = callback
+		end
+	})
+	
+	-- オプション: Always Jump (初期状態は非表示)
+	AlwaysJump = RealTimeSpeed:CreateToggle({
+		Name = 'Always Jump',
+		Visible = false,
+		Darker = true
+	})
+end)
