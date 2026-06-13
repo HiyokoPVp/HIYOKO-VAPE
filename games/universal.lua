@@ -8695,7 +8695,7 @@ run(function()
 end)
 
 run(function()
-	local debug = true
+	local debug = false
 
 	if debug == true then
 		print("vape loaded")
