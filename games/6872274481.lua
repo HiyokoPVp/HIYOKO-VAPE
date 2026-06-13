@@ -304,6 +304,12 @@ local function getSword()
             end
         end
     end
+    
+    
+    if not bestSword then
+        return {itemType = "wood_sword", amount = 0}, 0
+    end
+    
     return bestSword, bestSwordSlot
 end
 
