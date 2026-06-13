@@ -280,13 +280,13 @@ local function getBow()
 	return bestBow, bestBowSlot
 end
 
-local function getItem(itemName, inv)
-	for slot, item in (inv or store.inventory.inventory.items) do
-		if item.itemType == itemName then
-			return item, slot
-		end
-	end
-	return nil
+local function getItem(itemName, inv, find)
+    for slot, item in (inv or store.inventory.inventory.items) do
+        if find and item.itemType:find(itemName) or item.itemType == itemName then -- ★部分一致も許可
+            return item, slot
+        end
+    end
+    return nil
 end
 
 local function getRoactRender(func)
