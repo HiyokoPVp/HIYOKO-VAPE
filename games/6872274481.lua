@@ -17548,3 +17548,75 @@ run(function()
         end
     })
 end)
+
+run(function()
+    local Disabler = vape.Categories.Blatant:CreateModule({
+        Name = 'Anti-Lagback',
+        Function = function(callback)
+            if callback then
+                local airTime = 0
+                local lastPosition = nil
+                local moveTimer = 0
+                local moveDistance = 0
+                
+                Disabler:Clean(runService.PreSimulation:Connect(function(dt)
+                    if not entitylib.isAlive then return end
+                    
+                    local root = entitylib.character.RootPart
+                    local humanoid = entitylib.character.Humanoid
+                    
+                    -- 1. Air Time Bypass (空中2秒LAGBACK対策)
+                    -- 空中にいる時間が1.8秒に達したら、着地状態に偽装してアンチチートのタイマーをリセット
+                    if humanoid.FloorMaterial == Enum.Material.Air then
+                        airTime = airTime + dt
+                        if airTime >= 1.8 then
+                            humanoid:ChangeState(Enum.HumanoidStateType.Landed)
+                            airTime = 0
+                        end
+                    else
+                        airTime = 0
+                    end
+                    
+                    -- 2. Speed Bypass (1秒20スタッドLAGBACK対策)
+                    if SpeedLimit.Enabled then
+                        if not lastPosition then
+                            lastPosition = root.Position
+                            moveTimer = 0
+                            moveDistance = 0
+                            return
+                        end
+                        
+                        moveTimer = moveTimer + dt
+                        moveDistance = moveDistance + (root.Position - lastPosition).Magnitude
+                        lastPosition = root.Position
+                        
+                        -- 1秒経過したらカウンターをリセット
+                        if moveTimer >= 1 then
+                            moveTimer = 0
+                            moveDistance = 0
+                        end
+                        
+                        -- 制限値(20 studs/sec)に近づいたら、移動量を強制的に制限する
+                        if moveDistance > 18 then
+                            local maxMovePerFrame = 20 * dt
+                            local currentMove = (root.Position - lastPosition).Magnitude
+                            
+                            if currentMove > maxMovePerFrame then
+                                -- 移動方向を維持したまま、距離を制限値内にクランプする
+                                local dir = (root.Position - lastPosition).Unit
+                                root.CFrame = CFrame.new(lastPosition + dir * maxMovePerFrame) * root.CFrame.Rotation
+                            end
+                        end
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Prevents LAGBACK from air time (>2s) and excessive speed (>20 studs/sec).'
+    })
+    
+    local SpeedLimit = Disabler:CreateToggle({
+        Name = 'Speed Limit (Anti-Lagback)',
+        Default = false,
+        Tooltip = 'Clamps movement to 20 studs/sec to prevent speed LAGBACK. (Note: This may restrict Fly/Speed modules when enabled)'
+    })
+end)
