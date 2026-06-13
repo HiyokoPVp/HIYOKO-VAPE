@@ -17441,3 +17441,110 @@ run(function()
         Tooltip = "Adjusts how bright the night environment is. Higher = brighter."
     })
 end)
+
+run(function()
+    local BedwarsAnimationPlayer
+    local AnimationId
+    local Loop
+    local Speed
+    local currentTrack = nil
+    local animationInstance = nil
+
+    -- アニメーションを再生する関数
+    local function playCustomAnimation(character)
+        if not character or not character:FindFirstChild("Humanoid") then return end
+        
+        local humanoid = character:FindFirstChild("Humanoid")
+        local animator = humanoid:FindFirstChild("Animator") or Instance.new("Animator", humanoid)
+        
+        -- 既存のアニメーショントラックをすべて停止して競合を防ぐ
+        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+            track:Stop(0)
+        end
+
+        -- アニメーションIDの整形 (数字のみの入力にも対応)
+        local rawId = AnimationId.Value:gsub("%s+", "")
+        local animId = rawId
+        if rawId:match("^%d+$") then
+            animId = "rbxassetid://" .. rawId
+        elseif not rawId:match("^rbxassetid://") and not rawId:match("^rbxasset://") then
+            animId = "rbxassetid://" .. rawId
+        end
+
+        -- アニメーションインスタンスの作成と読み込み
+        animationInstance = Instance.new("Animation")
+        animationInstance.AnimationId = animId
+        
+        local success, loadedTrack = pcall(function()
+            return animator:LoadAnimation(animationInstance)
+        end)
+
+        if success and loadedTrack then
+            currentTrack = loadedTrack
+            -- Action4 は Roblox 内で最も高いアニメーション優先度（既存のアニメーションを上書きする）
+            currentTrack.Priority = Enum.AnimationPriority.Action4
+            currentTrack.Looped = Loop.Enabled
+            currentTrack:Play(0.1, 1, Speed.Value)
+        else
+            vape:CreateNotification("BedwarsAnimationPlayer", "Invalid Animation ID", 3, "alert")
+        end
+    end
+
+    -- アニメーションを停止する関数
+    local function stopCustomAnimation()
+        if currentTrack then
+            currentTrack:Stop(0.2)
+            currentTrack = nil
+        end
+        if animationInstance then
+            animationInstance:Destroy()
+            animationInstance = nil
+        end
+    end
+
+    BedwarsAnimationPlayer = vape.Categories.Legit:CreateModule({
+        Name = 'BedwarsAnimationPlayer',
+        Function = function(callback)
+            if callback then
+                -- 現在生きていれば即座に適用
+                if entitylib.isAlive then
+                    playCustomAnimation(entitylib.character.Character)
+                end
+                
+                -- リスポーン時にも自動的に適用
+                BedwarsAnimationPlayer:Clean(entitylib.Events.LocalAdded:Connect(function(ent)
+                    if ent == entitylib.character then
+                        playCustomAnimation(ent.Character)
+                    end
+                end))
+            else
+                stopCustomAnimation()
+            end
+        end,
+        Tooltip = 'Forces a custom animation to play with highest priority, overriding default animations like walking or attacking.'
+    })
+
+    AnimationId = BedwarsAnimationPlayer:CreateTextBox({
+        Name = 'Animation ID',
+        Default = '560832030', -- 例: 何か適当なアニメーションID (数字のみでも可)
+        Placeholder = 'rbxassetid://...'
+    })
+
+    Loop = BedwarsAnimationPlayer:CreateToggle({
+        Name = 'Loop Animation',
+        Default = true
+    })
+
+    Speed = BedwarsAnimationPlayer:CreateSlider({
+        Name = 'Playback Speed',
+        Min = 0.1,
+        Max = 3.0,
+        Default = 1.0,
+        Decimal = 10,
+        Function = function(val)
+            if currentTrack and BedwarsAnimationPlayer.Enabled then
+                currentTrack:AdjustSpeed(val)
+            end
+        end
+    })
+end)
