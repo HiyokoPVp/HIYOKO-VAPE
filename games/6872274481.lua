@@ -16706,7 +16706,7 @@ end)
 run(function()
     local old
 
-    vape.Categories.Kits:CreateModule({
+    vape.Categories.Blatant:CreateModule({
     	Name = 'Krystal Disabler',
     	Tooltip = 'Gives you max momentum forever',
     	Function = function(call)
