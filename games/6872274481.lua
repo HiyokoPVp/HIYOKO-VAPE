@@ -16922,7 +16922,7 @@ run(function()
 			if callback then
 				local cycleTimer = 0
 				local isBoosted = true -- 最初は25からスタート
-				local currentTargetSpeed = 25
+				local currentTargetSpeed = 24
 				
 				-- 有効化時の最初の通知
 				notif('RealTimeSpeed', 'Speed boosted! (25)', 2, 'info')
