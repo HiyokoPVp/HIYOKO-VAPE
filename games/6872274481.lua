@@ -17278,3 +17278,91 @@ run(function()
 	})
 end)
 
+run(function()
+    local DamageBoost
+    local Multiplier
+    local OnlyPlayers
+    local lastAttackerIsEntity = false
+    local lastDamageTime = 0
+    local oldApplyKnockback
+
+    DamageBoost = vape.Categories.Combat:CreateModule({
+        Name = 'DamageBoost',
+        Function = function(callback)
+            if callback then
+                -- 1. エンティティからのダメージイベントを監視
+                DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
+                    -- 自分がダメージを受けた場合のみ処理
+                    if damageTable.entityInstance == lplr.Character then
+                        local fromEntity = damageTable.fromEntity
+                        local isEntityAttack = false
+                        
+                        if fromEntity then
+                            local attacker = playersService:GetPlayerFromCharacter(fromEntity)
+                            if OnlyPlayers.Enabled then
+                                -- 「プレイヤーのみ」モード: 攻撃者がプレイヤーかつ自分自身でない場合
+                                if attacker and attacker ~= lplr then
+                                    isEntityAttack = true
+                                end
+                            else
+                                -- 「すべてのエンティティ」モード: 攻撃者が自分自身でなければOK（NPCなども含む）
+                                if attacker ~= lplr or not attacker then
+                                    isEntityAttack = true
+                                end
+                            end
+                        end
+                        
+                        if isEntityAttack then
+                            lastAttackerIsEntity = true
+                            lastDamageTime = tick()
+                        end
+                    end
+                end))
+                
+                -- 2. ノックバック適用処理をフックして倍率を上書き
+                oldApplyKnockback = bedwars.KnockbackUtil.applyKnockback
+                bedwars.KnockbackUtil.applyKnockback = function(root, mass, dir, knockback, ...)
+                    -- エンティティからの攻撃直後であり、かつタイミングが合致する場合
+                    if lastAttackerIsEntity and (tick() - lastDamageTime) < 0.15 then
+                        knockback = knockback or {}
+                        local boost = Multiplier.Value / 100
+                        
+                        -- 水平・垂直方向のノックバックを増幅
+                        knockback.horizontal = (knockback.horizontal or 1) * (1 + boost)
+                        knockback.vertical = (knockback.vertical or 1) * (1 + boost)
+                        
+                        -- フラグをリセット（連続ヒット時の誤作動防止）
+                        lastAttackerIsEntity = false 
+                    end
+                    return oldApplyKnockback(root, mass, dir, knockback, ...)
+                end
+                
+                -- クリーンアップ登録
+                DamageBoost:Clean(function()
+                    bedwars.KnockbackUtil.applyKnockback = oldApplyKnockback
+                end)
+            else
+                -- オフになったときは元の関数に戻す
+                if oldApplyKnockback then
+                    bedwars.KnockbackUtil.applyKnockback = oldApplyKnockback
+                end
+            end
+        end,
+        Tooltip = 'Boosts knockback multiplier only when attacked by an entity (ignores fall/environmental damage).'
+    })
+
+    Multiplier = DamageBoost:CreateSlider({
+        Name = 'Boost Amount',
+        Min = 0,
+        Max = 500,
+        Default = 100,
+        Suffix = '%',
+        Tooltip = '100% = Double knockback, 0% = Normal knockback'
+    })
+
+    OnlyPlayers = DamageBoost:CreateToggle({
+        Name = 'Only Players',
+        Default = true,
+        Tooltip = 'If enabled, only boosts knockback from players. If disabled, also boosts from NPCs/Entities.'
+    })
+end)
