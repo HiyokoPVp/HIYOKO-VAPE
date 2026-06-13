@@ -16704,101 +16704,24 @@ run(function()
 end)
 
 run(function()
-	local vape = shared.vape
-	local runService = game:GetService('RunService')
-	local KrystalDisabler
-	local old = nil
-	local renderConn = nil
-	local bedwarsCtrl = nil
-	local store = getgenv().store or {}
+    local old
 
-	print("[KrystalDisabler] Module loaded.")
-
-	local function setup()
-		print("[KrystalDisabler] Setup function called.")
-		
-		local ok, Knit = pcall(function()
-			return bedwars.Knit
-		end)
-		
-		if not ok then
-			warn("[KrystalDisabler] Failed to get Knit!")
-			return false
-		end
-		
-		if not Knit.Controllers.GlacialSkaterController then
-			warn("[KrystalDisabler] GlacialSkaterController not found!")
-			return false
-		end
-
-		if store.equippedKit ~= 'glacial_skater' then
-			warn("[KrystalDisabler] Not equipped with Glacial Skater kit! Current kit:", store.equippedKit)
-			return false
-		end
-
-		print("[KrystalDisabler] Kit check passed. Hooking...")
-
-		local Client = require(game.ReplicatedStorage.TS.remotes).default.Client
-		bedwarsCtrl = { GlacialSkaterController = Knit.Controllers.GlacialSkaterController }
-		
-		old = bedwarsCtrl.GlacialSkaterController.updateMomentum
-		
-		bedwarsCtrl.GlacialSkaterController.updateMomentum = function(self, ...)
-			print("[KrystalDisabler] updateMomentum called! Setting momentum to 9e9")
-			self.momentum = 9e9
-			self.lastMomentumReport = 9e9
-			
-			pcall(function()
-				Client:Get('MomentumUpdate'):SendToServer({ momentumValue = 9e9 })
-				print("[KrystalDisabler] MomentumUpdate sent to server")
-			end)
-		end
-
-		print("[KrystalDisabler] Hook successful!")
-		return true
-	end
-
-	KrystalDisabler = vape.Categories.Blatant:CreateModule({
-		Name = 'KrystalDisabler',
-		Tooltip = 'Requires Krystal kit. (Debug Version)',
-		Function = function(callback)
-			print("[KrystalDisabler] Module toggled. State:", callback)
-
-			if callback then
-				local ok = setup()
-
-				renderConn = runService.RenderStepped:Connect(function()
-					if not bedwarsCtrl then return end
-					pcall(function()
-						bedwarsCtrl.GlacialSkaterController:updateMomentum(9e9, 'newValue')
-						-- print("[KrystalDisabler] RenderStepped: Momentum forced") -- 頻繁すぎる場合はコメントアウト推奨
-					end)
-				end)
-
-				vape:CreateNotification("KrystalDisabler", "Enabled (Debug Mode)", 5)
-				print("[KrystalDisabler] RenderStepped connection established.")
-			else
-				print("[KrystalDisabler] Disabling module...")
-
-				if renderConn then
-					renderConn:Disconnect()
-					renderConn = nil
-					print("[KrystalDisabler] RenderStepped disconnected.")
-				end
-
-				if bedwarsCtrl and old then
-					bedwarsCtrl.GlacialSkaterController.updateMomentum = old
-					old = nil
-					print("[KrystalDisabler] Original function restored.")
-				end
-
-				bedwarsCtrl = nil
-				print("[KrystalDisabler] Module fully disabled.")
-			end
-		end
-	})
-
-	print("[KrystalDisabler] Module registration completed.")
+    vape.Categories.Kits:CreateModule({
+    	Name = 'Krystal Disabler',
+    	Tooltip = 'Gives you max momentum forever',
+    	Function = function(call)
+    		if call then
+    			old = bedwars.GlacialSkaterController.updateMomentum
+    			bedwars.GlacialSkaterController.updateMomentum = function(self, ...)
+    				self.momentum = 9e9
+    				self.lastMomentumReport = 9e9
+    				return old(self, ...)
+    			end
+    		else
+    			bedwars.GlacialSkaterController.updateMomentum = old
+    		end
+    	end
+    })
 end)
 
 local InfiniteFly
