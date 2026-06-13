@@ -294,23 +294,17 @@ local function getRoactRender(func)
 end
 
 local function getSword()
-	local bestSword, bestSwordSlot, bestSwordDamage = nil, nil, 0
-	for slot, item in store.inventory.inventory.items do
-		local swordMeta = bedwars.ItemMeta[item.itemType].sword
-		if swordMeta then
-			local swordDamage = swordMeta.damage or 0
-			if swordDamage > bestSwordDamage then
-				bestSword, bestSwordSlot, bestSwordDamage = item, slot, swordDamage
-			end
-		end
-	end
-	
-	
-	if not bestSword then
-		return {itemType = "wood_sword", amount = 0}, 0
-	end
-	
-	return bestSword, bestSwordSlot
+    local bestSword, bestSwordSlot, bestSwordDamage = nil, nil, 0
+    for slot, item in store.inventory.inventory.items do
+        local swordMeta = bedwars.ItemMeta[item.itemType].sword
+        if swordMeta then
+            local swordDamage = swordMeta.damage or 0
+            if swordDamage > bestSwordDamage then
+                bestSword, bestSwordSlot, bestSwordDamage = item, slot, swordDamage
+            end
+        end
+    end
+    return bestSword, bestSwordSlot
 end
 
 local function getTool(breakType)
