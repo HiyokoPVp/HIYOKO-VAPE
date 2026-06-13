@@ -17373,7 +17373,7 @@ end)
 run(function()
     local Lighting = game:GetService("Lighting")
     local NightMode
-    local Darkness
+    local Brightness
     local originalSettings = {}
 
     -- 現在の照明設定を保存する関数
@@ -17387,18 +17387,20 @@ run(function()
 
     -- 夜の照明設定を適用する関数
     local function applyNightMode()
-        local darkLevel = Darkness.Value / 100 -- 0.0 ~ 1.0
+        local brightLevel = Brightness.Value / 100 -- 0.0 ~ 1.0
         
         Lighting.ClockTime = 0 -- 真夜中に固定
         
-        -- 暗さに応じて環境光を補間 (真っ暗な青黒色 ～ 少し明るめの夜)
-        local baseDarkColor = Color3.fromRGB(15, 15, 25)
-        local baseLightColor = Color3.fromRGB(60, 60, 80)
-        local targetColor = baseDarkColor:Lerp(baseLightColor, darkLevel)
+        -- 環境光を補間 (真っ暗な青黒色 ～ 明るい月夜)
+        local baseDarkColor = Color3.fromRGB(10, 10, 20)
+        local baseLightColor = Color3.fromRGB(130, 130, 150) -- 上限を明るく調整
+        local targetColor = baseDarkColor:Lerp(baseLightColor, brightLevel)
         
         Lighting.Ambient = targetColor
         Lighting.OutdoorAmbient = targetColor
-        Lighting.Brightness = 0.2 + (0.8 * darkLevel)
+        
+        -- 全体の明るさ(Brightness)も連動して調整 (最小0.3 ～ 最大1.5)
+        Lighting.Brightness = 0.3 + (1.2 * brightLevel)
         Lighting.GlobalShadows = true
     end
 
@@ -17421,14 +17423,14 @@ run(function()
                 restoreSettings()
             end
         end,
-        Tooltip = "Changes the world lighting to a dark night theme."
+        Tooltip = "Changes the world lighting to a night theme. Adjust brightness to your liking."
     })
 
-    Darkness = NightMode:CreateSlider({
-        Name = "Darkness",
+    Brightness = NightMode:CreateSlider({
+        Name = "Night Brightness",
         Min = 0,
         Max = 100,
-        Default = 80,
+        Default = 60, -- デフォルトを少し明るめ(60%)に設定
         Suffix = "%",
         Function = function()
             -- スライダーを動かした際、モジュールが有効なら即座に設定を更新
@@ -17436,6 +17438,6 @@ run(function()
                 applyNightMode()
             end
         end,
-        Tooltip = "Adjusts how dark the night environment is."
+        Tooltip = "Adjusts how bright the night environment is. Higher = brighter."
     })
 end)
