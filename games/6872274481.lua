@@ -974,7 +974,7 @@ run(function()
 	end
 
 for i, v in remoteNames do
-	if type(v) == "function" then -- ★vが関数であるかを確認
+	if type(v) == "function" then -- ここなおした
 		local remote = dumpRemote(debug.getconstants(v))
 		if remote == '' then
 			notif('Vape', 'Failed to grab remote ('..i..')', 10, 'alert')
