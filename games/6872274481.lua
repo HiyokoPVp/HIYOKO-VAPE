@@ -12874,7 +12874,7 @@ run(function()
     })
 end)
 
-run(function() 
+(function() 
 	local BowAssist
 	local Targets
 	local Sort
@@ -12974,9 +12974,20 @@ run(function()
 							if inputService.MouseEnabled and entitylib.character.Head.LocalTransparencyModifier == 1 then
 								gameCamera.CFrame = cframe
 							elseif ThirdPerson.Enabled and inputService.MouseEnabled then
-								local viewport = gameCamera:WorldToViewportPoint(predicted)
-								local pos = (Vector2.new(viewport.X, viewport.Y) - inputService:GetMouseLocation()) * (speed / 15)
-								mousemoverel(pos.X, pos.Y)
+								-- 【修正】predictedがnilの場合のフォールバック
+								local aimTarget = predicted or ent.RootPart.Position
+								local viewport = gameCamera:WorldToViewportPoint(aimTarget)
+								-- 【修正】viewportが有効かチェック
+								if viewport and viewport.Z > 0 then
+									local mousePos = inputService:GetMouseLocation()
+									local pos = (Vector2.new(viewport.X, viewport.Y) - mousePos) * (speed / 15)
+									-- 【修正】posが有効な数値かチェック
+									if pos.X == pos.X and pos.Y == pos.Y and math.abs(pos.X) < 10000 and math.abs(pos.Y) < 10000 then
+										if type(mousemoverel) == 'function' then
+											mousemoverel(pos.X, pos.Y)
+										end
+									end
+								end
 							end
 						end
 					end
