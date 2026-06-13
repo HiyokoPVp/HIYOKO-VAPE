@@ -473,36 +473,18 @@ local function roundPos(vec)
 end
 
 local function switchItem(tool, delayTime)
-	delayTime = delayTime or 0.05
-
-	if not tool or typeof(tool) ~= "Instance" then return end
-	if not lplr.Character then return end
-
-	local check = lplr.Character:FindFirstChild("HandInvItem")
-	if not check then return end
-
-	if check.Value == tool then return end
-	if not tool.Parent then return end
-
-	-- remote安全確認
-	if not remotes or not remotes.EquipItem then
-		warn("EquipItem remote missing")
-		return
-	end
-
-	task.spawn(function()
-		bedwars.Client:Get(remotes.EquipItem):CallServerAsync({
-			hand = tool
-		})
-	end)
-
-	check.Value = tool
-
-	if delayTime > 0 then
-		task.wait(delayTime)
-	end
-
-	return true
+    delayTime = delayTime or 0.05
+    local check = lplr.Character and lplr.Character:FindFirstChild('HandInvItem') or nil
+    if check and check.Value ~= tool and tool.Parent ~= nil then
+        task.spawn(function()
+            bedwars.Client:Get(remotes.EquipItem):CallServerAsync({hand = tool})
+        end)
+        check.Value = tool
+        if delayTime > 0 then
+            task.wait(delayTime)
+        end
+        return true
+    end
 end
 
 local function waitForChildOfType(obj, name, timeout, prop)
