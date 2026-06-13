@@ -17284,15 +17284,16 @@ run(function()
     local OnlyPlayers
     local lastDamageTime = 0
     local lastAttackerPos = nil
+    local stack = 0
 
     DamageBoost = vape.Categories.Combat:CreateModule({
         Name = 'DamageBoost',
         Function = function(callback)
             if callback then
-                -- 1. エンティティからのダメージイベントを監視
+                -- 1. エンティティからのダメージイベントを監視（提示いただいたしくみをベースに構築）
                 DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-                    -- 自分がダメージを受けた場合のみ処理
-                    if damageTable.entityInstance == lplr.Character then
+                    -- 自分が生きており、クールダウン中ではなく、自分がダメージを受け、LongJumpと競合しない場合
+                    if entitylib.isAlive and tick() > stack and damageTable.entityInstance == lplr.Character and not LongJump.Enabled then
                         local fromEntity = damageTable.fromEntity
                         local isEntityAttack = false
                         
@@ -17312,26 +17313,32 @@ run(function()
                         end
                         
                         if isEntityAttack then
-                            lastDamageTime = tick()
-                            -- 攻撃者の位置を取得（座標データまたはキャラクターの位置）
+                            -- 連続ヒット防止のクールダウン管理
+                            local horizontal = (damageTable.knockbackMultiplier and damageTable.knockbackMultiplier.horizontal or 0)
+                            stack = tick() + (horizontal / 3.5) 
+                            
+                            -- 攻撃者の位置を保存
                             if damageTable.fromPosition then
                                 lastAttackerPos = Vector3.new(damageTable.fromPosition.X, damageTable.fromPosition.Y, damageTable.fromPosition.Z)
                             elseif fromEntity and fromEntity.PrimaryPart then
                                 lastAttackerPos = fromEntity.PrimaryPart.Position
                             end
+                            
+                            lastDamageTime = tick()
                         end
                     end
                 end))
                 
-                -- 2. PreSimulationでVelocityを直接操作してPull（引き寄せ）させる
+                -- 2. Pull処理 (PreSimulationで直接Velocityを操作して引き寄せる)
                 DamageBoost:Clean(runService.PreSimulation:Connect(function(dt)
-                    if entitylib.isAlive and lastAttackerPos and (tick() - lastDamageTime) < 0.25 then
+                    -- ダメージを受けてから短時間（0.3秒）以内かつ、攻撃者の位置がわかっている場合
+                    if entitylib.isAlive and lastAttackerPos and (tick() - lastDamageTime) < 0.3 then
                         local root = entitylib.character.RootPart
                         
                         -- 自分の位置から攻撃者の位置への方向ベクトルを計算
                         local dirToAttacker = (lastAttackerPos - root.Position).Unit
                         
-                        -- Pullの強さを計算 (Multiplierの値を調整)
+                        -- Pullの強さを計算 (Multiplierの値を使用)
                         local pullStrength = Multiplier.Value / 10
                         
                         -- 現在のVelocityに、攻撃者方向への力を加算（Y軸は重力干渉を防ぐため0に）
@@ -17344,7 +17351,7 @@ run(function()
                 end))
             end
         end,
-        Tooltip = 'Pulls you towards the attacker when hit by an entity (No internal hooks used).'
+        Tooltip = 'Pulls you towards the attacker when hit by an entity (No hooks, event-based).'
     })
 
     Multiplier = DamageBoost:CreateSlider({
@@ -17359,6 +17366,6 @@ run(function()
     OnlyPlayers = DamageBoost:CreateToggle({
         Name = 'Only Players',
         Default = true,
-        Tooltip = 'If enabled, only triggers when hit by a player.'
+        Tooltip = 'If enabled, only triggers when hit by a player. If disabled, also boosts from NPCs/Entities.'
     })
 end)
