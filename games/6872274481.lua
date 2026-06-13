@@ -770,14 +770,13 @@ run(function()
 end)
 entitylib.start()
 local function safeGetProto(func, index)
-    if not func then return nil end
-    local success, proto = pcall(safeGetProto, func, index)
-    if success then
-        return proto
-    else
-        --warn("function:", func, "index:", index,", WM - proto") 
-        return nil
-    end
+	if not func then return nil end
+	local success, proto = pcall(debug.getproto, func, index) -- ★debug.getproto に修正
+	if success then
+		return proto
+	else
+		return nil
+	end
 end
 run(function()
 	local KnitInit, Knit
@@ -974,13 +973,18 @@ run(function()
 		return ind and tab[ind + 1] or ''
 	end
 
-	for i, v in remoteNames do
+for i, v in remoteNames do
+	if type(v) == "function" then -- ★vが関数であるかを確認
 		local remote = dumpRemote(debug.getconstants(v))
 		if remote == '' then
 			notif('Vape', 'Failed to grab remote ('..i..')', 10, 'alert')
 		end
 		remotes[i] = remote
+	else
+		remotes[i] = ''
+		notif('Vape', 'Failed to grab remote ('..i..'): Not a function', 10, 'alert')
 	end
+end
 
 	OldBreak = bedwars.BlockController.isBlockBreakable
 
