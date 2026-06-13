@@ -5267,6 +5267,7 @@ end
 
 function mainapi:CreateNotification(title, text, duration, type)
 	if not self.Notifications.Enabled then return end
+	if getgenv().ClosetCheat then return end
 	task.delay(0, function()
 		if self.ThreadFix then
 			setthreadidentity(8)
