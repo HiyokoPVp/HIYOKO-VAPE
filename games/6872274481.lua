@@ -1,4 +1,5 @@
--- hiyoko vape ver 2.1 fixed
+-- hiyoko vape ver 2.2 fixed
+local canDebug = true
 
 local run = function(func)
 	func()
@@ -5236,51 +5237,228 @@ run(function()
 end)
 	
 run(function()
-	local shooting, old = false
-	
-	local function getCrossbows()
-		local crossbows = {}
-		for i, v in store.inventory.hotbar do
-			if v.item and v.item.itemType:find('crossbow') and i ~= (store.inventory.hotbarSlot + 1) then table.insert(crossbows, i - 1) end
-		end
-		return crossbows
-	end
-	
-	vape.Categories.Utility:CreateModule({
-		Name = 'AutoShoot',
-		Function = function(callback)
-			if callback then
-				old = bedwars.ProjectileController.createLocalProjectile
-				bedwars.ProjectileController.createLocalProjectile = function(...)
-					local source, data, proj = ...
-					if source and (proj == 'arrow' or proj == 'fireball') and not shooting then
-						task.spawn(function()
-							local bows = getCrossbows()
-							if #bows > 0 then
-								shooting = true
-								task.wait(0.15)
-								local selected = store.inventory.hotbarSlot
-								for _, v in getCrossbows() do
-									if hotbarSwitch(v) then
-										task.wait(0.05)
-										mouse1click()
-										task.wait(0.05)
-									end
-								end
-								hotbarSwitch(selected)
-								shooting = false
-							end
-						end)
-					end
-					return old(...)
-				end
-			else
-				bedwars.ProjectileController.createLocalProjectile = old
-			end
-		end,
-		Tooltip = 'Automatically crossbow macro\'s'
-	})
-	
+    local AutoShoot
+    local Targets
+    local Check
+    local Range
+    local Projectiles
+    local Delay
+    local Next
+    local Rate
+    
+    local function getAmmo(check)
+    	for _, item in store.inventory.inventory.items do
+    		if check.ammoItemTypes and table.find(check.ammoItemTypes, item.itemType) then
+    			return item.itemType
+    		end
+    	end
+    	return
+    end
+    
+    local function getProjectiles()
+    	local items = {}
+    	for _, item in store.inventory.inventory.items do
+    		local proj = bedwars.ItemMeta[item.itemType].projectileSource
+    		local ammo = proj and getAmmo(proj)
+    		if ammo and table.find(Projectiles.ListEnabled, ammo) then
+    			table.insert(items, {
+    				item,
+    				ammo,
+    				proj.projectileType(ammo),
+    				proj,
+    			})
+    		end
+    	end
+    	return items
+    end
+    
+    local FireRate = {}
+    
+    local function getAttackData()
+    	local hand = store.hand
+    	if not hand or not hand.tool then
+    		return
+    	end
+    
+    	local meta = bedwars.ItemMeta[hand.tool.Name]
+    	if not meta or not meta.projectileSource then
+    		return
+    	end
+    
+    	if (FireRate[hand.tool.Name] or 0) > tick() then
+    		return
+    	end
+    
+    	local ammo = getAmmo(meta.projectileSource)
+    	local frosty = hand.tool.Name:find('frost_staff')
+    	if not ammo and not frosty then
+    		return
+    	end
+    
+    	if frosty then
+    		ammo = hand.tool.Name:gsub('frost_staff', 'frosty_snowball')
+    	end
+    
+    	local callback = canDebug and meta.projectileType or function(res)
+    		return 'arrow'
+    	end
+    
+    	return hand, meta, ammo, callback(ammo)
+    end
+    
+    local function shootFunc(ignore)
+    	if not inputService.MouseEnabled or ignore then
+    		local proj, meta, ammo, projectile = getAttackData()
+    
+    		if proj then
+    			local projmeta = bedwars.ProjectileMeta[ammo]
+    			local projSpeed = projmeta.launchVelocity
+    
+    			local selfpos = entitylib.character.RootPart.Position
+    			local calc = selfpos + gameCamera.CFrame.LookVector * 50
+    			local ent = ignore and entitylib.EntityPosition({
+                    Part = 'RootPart',
+                    Range = 1000,
+                    Players = true,
+                    NPCs = true,
+                    Wallcheck = true,
+                }) or nil
+    			if ent then
+    				calc = prediction.SolveTrajectory(
+    					selfpos,
+    					projSpeed,
+    					meta.gravitationalAcceleration or 196.2,
+    					Vector3.new(ent.RootPart.Velocity.X, 0, ent.RootPart.Velocity.Z),
+    					workspace.Gravity,
+    					ent.HipHeight,
+    					nil,
+    					RaycastParams.new(),
+    					nil,
+    					lplr:GetNetworkPing()
+    				)
+    			end
+    
+    			local dir = CFrame.lookAt(selfpos, calc).LookVector
+    			local shootPosition, id = (CFrame.new(selfpos, calc) * CFrame.new(Vector3.new(-bedwars.BowConstantsTable.RelX,-bedwars.BowConstantsTable.RelY,-bedwars.BowConstantsTable.RelZ))).Position,
+    				httpService:GenerateGUID(true)
+    
+    			--bedwars.ProjectileController:createLocalProjectile(meta, ammo, projectile, shootPosition, id, dir * projSpeed, {drawDurationSeconds = 1})
+    			bedwars.Client:Get(remotes.FireProjectile):CallServerAsync(proj.tool, ammo, projectile, shootPosition, selfpos, dir * projSpeed, id, {
+                    drawDurationSeconds = 1,
+                    shotId = httpService:GenerateGUID(false),
+                }, workspace:GetServerTimeNow() - 0.045):andThen(function(res)
+                    if res then
+                        res.Parent = replicatedStorage
+                    end
+                end)
+    			local shoot = meta.projectileSource.launchSound
+    			shoot = shoot and shoot[math.random(1, #shoot)] or nil
+    			if shoot then
+    				bedwars.SoundManager:playSound(shoot)
+    			end
+    		end
+    	else
+    		mouse1click()
+    	end
+    end
+    
+    AutoShoot = vape.Categories.Utility:CreateModule({
+    	Name = 'Auto Shoot',
+    	Function = function(call)
+    		if call then
+    			local start = tick()
+    			repeat
+    				if store.hand.toolType == 'sword' then
+    					if (tick() - bedwars.SwordController.lastSwing) < 0.29 and (not Check.Enabled or entitylib.EntityPosition({
+    						Range = Range.Value,
+                            Wallcheck = Targets.Walls.Enabled or nil,
+                            Part = 'RootPart',
+                            Players = Targets.Players.Enabled,
+                            NPCs = Targets.NPCs.Enabled
+    					})) then
+    						if tick() > start then
+    							for _, data in getProjectiles() do
+    								if (FireRate[data[1].itemType] or 0) < tick() then
+    									local hotbar, old = getHotbar(data[1].tool), store.hand.tool and getHotbar(store.hand.tool) or 0
+    									if hotbar and old and hotbarSwitch(hotbar) then
+    										local ignore = vape.Modules['Silent Aura'].Enabled or not inputService.MouseEnabled
+    										task.wait(Delay.Value)
+    										shootFunc()
+    										if vape.Modules['Auto Clicker'].Enabled and not ignore then
+    											task.delay(runService.PostSimulation:Wait(), mouse1press)
+    										end
+    										task.wait(Delay.Value)
+    										FireRate[data[1].itemType] = tick() + (data[4].fireDelaySec + Rate:GetRandomValue())
+    										hotbarSwitch(old)
+    										task.wait(Next.Value)
+    										if (tick() - bedwars.SwordController.lastSwing) > 0.29 then
+    											break
+    										end
+    									end
+    								end
+    							end
+    						end
+    					else
+    						start = tick() + 0.75
+    					end
+    				end
+    				task.wait(0.1)
+    			until not AutoShoot.Enabled
+    		end
+    	end,
+        Tooltip = 'Automatically swaps to another projectile source while swinging ur sword'
+    })
+    
+    Targets = AutoShoot:CreateTargets({Walls = true, Darker = true})
+    Check = AutoShoot:CreateToggle({
+    	Name = 'Target Check',
+    	Default = true,
+    	Function = function(callback)
+    		Targets.Object.Visible = callback
+    		pcall(function()
+    			Range.Object.Visible = callback
+    		end)
+    	end
+    })
+    Range = AutoShoot:CreateSlider({
+    	Name = 'Range',
+    	Min = 1,
+    	Max = 80,
+    	Default = 65,
+    	Darker = true,
+    	Suffix = function(val)
+    		return val <= 1 and 'stud' or 'studs'
+    	end
+    })
+    Projectiles = AutoShoot:CreateTextList({
+    	Name = 'Projectiles',
+    	Default = {'arrow'},
+    	Placeholder = 'projectile'
+    })
+    Rate = AutoShoot:CreateTwoSlider({
+    	Name = 'Fire Rate',
+    	Min = 0,
+    	Max = 1,
+    	DefaultMin = 0.05,
+    	DefaultMax = 0.12,
+    	Decimal = 100
+    })
+    Next = AutoShoot:CreateSlider({
+    	Name = 'Change Delay',
+    	Min = 0,
+    	Max = 1,
+    	Decimal = 100,
+    	Suffix = 'seconds',
+    	Default = 0.75
+    })
+    Delay = AutoShoot:CreateSlider({
+    	Name = 'Delay',
+    	Min = 0,
+    	Max = 1,
+    	Decimal = 100,
+    	Suffix = 'seconds',
+    	Default = 0.05
+    })
 end)
 	
 run(function()
