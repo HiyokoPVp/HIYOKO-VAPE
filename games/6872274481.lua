@@ -12874,7 +12874,7 @@ run(function()
     })
 end)
 
-(function() 
+run(function() 
 	local BowAssist
 	local Targets
 	local Sort
@@ -12980,11 +12980,14 @@ end)
 								-- 【修正】viewportが有効かチェック
 								if viewport and viewport.Z > 0 then
 									local mousePos = inputService:GetMouseLocation()
-									local pos = (Vector2.new(viewport.X, viewport.Y) - mousePos) * (speed / 15)
-									-- 【修正】posが有効な数値かチェック
+									-- 【修正】曖昧な構文エラーを防ぐため、計算式を明確にし、セミコロンで区切る
+									local pos = (Vector2.new(viewport.X, viewport.Y) - mousePos) * (speed / 15);
+									
+									-- 【修正】posが有効な数値かチェック (NaN防止)
 									if pos.X == pos.X and pos.Y == pos.Y and math.abs(pos.X) < 10000 and math.abs(pos.Y) < 10000 then
+										-- 【修正】mousemoverelが存在するか確認してから呼び出す
 										if type(mousemoverel) == 'function' then
-											mousemoverel(pos.X, pos.Y)
+											mousemoverel(pos.X, pos.Y);
 										end
 									end
 								end
@@ -12994,7 +12997,7 @@ end)
 				end))
 			else
 				if launchHook then
-					launchHook()
+					launchHook();
 					launchHook = nil
 				end
 			end
