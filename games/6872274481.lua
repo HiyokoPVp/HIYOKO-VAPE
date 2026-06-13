@@ -16952,7 +16952,7 @@ run(function()
 								cycleTimer = 0
 								isBoosted = true
 								currentTargetSpeed = 25
-								notif('RealTimeSpeed', 'Speed boosted! (25)', 2, 'info')
+								notif('RealTimeSpeed', 'Speed boosted! (27)', 2, 'info')
 							end
 						end
 
