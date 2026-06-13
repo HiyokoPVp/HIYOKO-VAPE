@@ -16912,7 +16912,7 @@ run(function()
 	RealTimeSpeed = vape.Categories.Blatant:CreateModule({
 		Name = 'RealTimeSpeed',
 		Function = function(callback)
-			-- 元のコードと同様の初期化処理（Vapeフレームワークとの互換性のため維持）
+			-- 元のコードと同様の初期化処理
 			frictionTable.Speed = callback or nil
 			updateVelocity()
 			pcall(function()
@@ -16921,7 +16921,11 @@ run(function()
 
 			if callback then
 				local cycleTimer = 0
-				local isBoosted = false -- falseなら23、trueなら25
+				local isBoosted = true -- 最初は25からスタート
+				local currentTargetSpeed = 25
+				
+				-- 有効化時の最初の通知
+				notif('RealTimeSpeed', 'Speed boosted! (25)', 2, 'info')
 				
 				RealTimeSpeed:Clean(runService.PreSimulation:Connect(function(dt)
 					bedwars.StatefulEntityKnockbackController.lastImpulseTime = callback and math.huge or time()
@@ -16930,20 +16934,32 @@ run(function()
 						local state = entitylib.character.Humanoid:GetState()
 						if state == Enum.HumanoidStateType.Climbing then return end
 
-						-- 経過時間を加算し、2秒ごとにスピード状態を切り替え
+						-- 経過時間を加算
 						cycleTimer += dt
-						if cycleTimer >= 1 then
-							cycleTimer = 0
-							isBoosted = not isBoosted
-						end
 						
-						-- 現在のターゲット速度を決定 (23 または 25)
-						local currentTargetSpeed = isBoosted and 24.25 or 23
+						-- 状態に応じた切り替え処理
+						if isBoosted then
+							-- 25の状態が1.5秒続いたら23に戻す
+							if cycleTimer >= 1.5 then
+								cycleTimer = 0
+								isBoosted = false
+								currentTargetSpeed = 23
+								notif('RealTimeSpeed', 'Speed returned to normal (23)', 2, 'info')
+							end
+						else
+							-- 23の状態が3秒続いたら25に戻す
+							if cycleTimer >= 3 then
+								cycleTimer = 0
+								isBoosted = true
+								currentTargetSpeed = 25
+								notif('RealTimeSpeed', 'Speed boosted! (25)', 2, 'info')
+							end
+						end
 
 						local root, velo = entitylib.character.RootPart, getSpeed()
 						local moveDirection = AntiFallDirection or entitylib.character.Humanoid.MoveDirection
 						
-						-- 元の Value.Value の代わりに、自動切り替えされる currentTargetSpeed を使用
+						-- 自動切り替えされる currentTargetSpeed を使用
 						local destination = (moveDirection * math.max(currentTargetSpeed - velo, 0) * dt)
 
 						if WallCheck.Enabled then
@@ -16966,7 +16982,7 @@ run(function()
 			end
 		end,
 		ExtraText = function()
-			return 'HIYOKO VAPE PREMIUM'
+			return 'HIYOKO VAPE DEVELOPER'
 		end,
 		Tooltip = 'NEW DISABLER'
 	})
@@ -16981,7 +16997,6 @@ run(function()
 	AutoJump = RealTimeSpeed:CreateToggle({
 		Name = 'AutoJump',
 		Function = function(callback)
-			-- AutoJumpがオンのときのみ AlwaysJump を表示
 			AlwaysJump.Object.Visible = callback
 		end
 	})
