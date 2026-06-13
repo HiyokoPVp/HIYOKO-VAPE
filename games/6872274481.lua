@@ -17369,3 +17369,73 @@ run(function()
         Tooltip = 'If enabled, only triggers when hit by a player. If disabled, also boosts from NPCs/Entities.'
     })
 end)
+
+run(function()
+    local Lighting = game:GetService("Lighting")
+    local NightMode
+    local Darkness
+    local originalSettings = {}
+
+    -- 現在の照明設定を保存する関数
+    local function saveOriginalSettings()
+        originalSettings.ClockTime = Lighting.ClockTime
+        originalSettings.Ambient = Lighting.Ambient
+        originalSettings.OutdoorAmbient = Lighting.OutdoorAmbient
+        originalSettings.Brightness = Lighting.Brightness
+        originalSettings.GlobalShadows = Lighting.GlobalShadows
+    end
+
+    -- 夜の照明設定を適用する関数
+    local function applyNightMode()
+        local darkLevel = Darkness.Value / 100 -- 0.0 ~ 1.0
+        
+        Lighting.ClockTime = 0 -- 真夜中に固定
+        
+        -- 暗さに応じて環境光を補間 (真っ暗な青黒色 ～ 少し明るめの夜)
+        local baseDarkColor = Color3.fromRGB(15, 15, 25)
+        local baseLightColor = Color3.fromRGB(60, 60, 80)
+        local targetColor = baseDarkColor:Lerp(baseLightColor, darkLevel)
+        
+        Lighting.Ambient = targetColor
+        Lighting.OutdoorAmbient = targetColor
+        Lighting.Brightness = 0.2 + (0.8 * darkLevel)
+        Lighting.GlobalShadows = true
+    end
+
+    -- 元の照明設定に戻す関数
+    local function restoreSettings()
+        Lighting.ClockTime = originalSettings.ClockTime
+        Lighting.Ambient = originalSettings.Ambient
+        Lighting.OutdoorAmbient = originalSettings.OutdoorAmbient
+        Lighting.Brightness = originalSettings.Brightness
+        Lighting.GlobalShadows = originalSettings.GlobalShadows
+    end
+
+    NightMode = vape.Categories.Render:CreateModule({
+        Name = "NightMode",
+        Function = function(callback)
+            if callback then
+                saveOriginalSettings()
+                applyNightMode()
+            else
+                restoreSettings()
+            end
+        end,
+        Tooltip = "Changes the world lighting to a dark night theme."
+    })
+
+    Darkness = NightMode:CreateSlider({
+        Name = "Darkness",
+        Min = 0,
+        Max = 100,
+        Default = 80,
+        Suffix = "%",
+        Function = function()
+            -- スライダーを動かした際、モジュールが有効なら即座に設定を更新
+            if NightMode.Enabled then
+                applyNightMode()
+            end
+        end,
+        Tooltip = "Adjusts how dark the night environment is."
+    })
+end)
