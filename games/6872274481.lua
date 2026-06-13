@@ -17282,9 +17282,8 @@ run(function()
     local DamageBoost
     local Multiplier
     local OnlyPlayers
-    local lastAttackerIsEntity = false
     local lastDamageTime = 0
-    local oldApplyKnockback
+    local lastAttackerPos = nil
 
     DamageBoost = vape.Categories.Combat:CreateModule({
         Name = 'DamageBoost',
@@ -17313,56 +17312,53 @@ run(function()
                         end
                         
                         if isEntityAttack then
-                            lastAttackerIsEntity = true
                             lastDamageTime = tick()
+                            -- 攻撃者の位置を取得（座標データまたはキャラクターの位置）
+                            if damageTable.fromPosition then
+                                lastAttackerPos = Vector3.new(damageTable.fromPosition.X, damageTable.fromPosition.Y, damageTable.fromPosition.Z)
+                            elseif fromEntity and fromEntity.PrimaryPart then
+                                lastAttackerPos = fromEntity.PrimaryPart.Position
+                            end
                         end
                     end
                 end))
                 
-                -- 2. ノックバック適用処理をフックして倍率を上書き
-                oldApplyKnockback = bedwars.KnockbackUtil.applyKnockback
-                bedwars.KnockbackUtil.applyKnockback = function(root, mass, dir, knockback, ...)
-                    -- エンティティからの攻撃直後であり、かつタイミングが合致する場合
-                    if lastAttackerIsEntity and (tick() - lastDamageTime) < 0.15 then
-                        knockback = knockback or {}
-                        local boost = Multiplier.Value / 100
+                -- 2. PreSimulationでVelocityを直接操作してPull（引き寄せ）させる
+                DamageBoost:Clean(runService.PreSimulation:Connect(function(dt)
+                    if entitylib.isAlive and lastAttackerPos and (tick() - lastDamageTime) < 0.25 then
+                        local root = entitylib.character.RootPart
                         
-                        -- 水平・垂直方向のノックバックを増幅
-                        knockback.horizontal = (knockback.horizontal or 1) * (1 + boost)
-                        knockback.vertical = (knockback.vertical or 1) * (1 + boost)
+                        -- 自分の位置から攻撃者の位置への方向ベクトルを計算
+                        local dirToAttacker = (lastAttackerPos - root.Position).Unit
                         
-                        -- フラグをリセット（連続ヒット時の誤作動防止）
-                        lastAttackerIsEntity = false 
+                        -- Pullの強さを計算 (Multiplierの値を調整)
+                        local pullStrength = Multiplier.Value / 10
+                        
+                        -- 現在のVelocityに、攻撃者方向への力を加算（Y軸は重力干渉を防ぐため0に）
+                        local currentVel = root.AssemblyLinearVelocity
+                        root.AssemblyLinearVelocity = currentVel + (dirToAttacker * Vector3.new(1, 0, 1)) * pullStrength
+                        
+                        -- 一度適用したらリセット（連続して干渉しすぎないようにする）
+                        lastAttackerPos = nil
                     end
-                    return oldApplyKnockback(root, mass, dir, knockback, ...)
-                end
-                
-                -- クリーンアップ登録
-                DamageBoost:Clean(function()
-                    bedwars.KnockbackUtil.applyKnockback = oldApplyKnockback
-                end)
-            else
-                -- オフになったときは元の関数に戻す
-                if oldApplyKnockback then
-                    bedwars.KnockbackUtil.applyKnockback = oldApplyKnockback
-                end
+                end))
             end
         end,
-        Tooltip = 'Boosts knockback multiplier only when attacked by an entity (ignores fall/environmental damage).'
+        Tooltip = 'Pulls you towards the attacker when hit by an entity (No internal hooks used).'
     })
 
     Multiplier = DamageBoost:CreateSlider({
-        Name = 'Boost Amount',
+        Name = 'Pull Strength',
         Min = 0,
         Max = 500,
         Default = 100,
         Suffix = '%',
-        Tooltip = '100% = Double knockback, 0% = Normal knockback'
+        Tooltip = 'Higher value = stronger pull towards the attacker'
     })
 
     OnlyPlayers = DamageBoost:CreateToggle({
         Name = 'Only Players',
         Default = true,
-        Tooltip = 'If enabled, only boosts knockback from players. If disabled, also boosts from NPCs/Entities.'
+        Tooltip = 'If enabled, only triggers when hit by a player.'
     })
 end)
