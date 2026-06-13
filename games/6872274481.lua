@@ -17550,7 +17550,7 @@ run(function()
 end)
 
 run(function()
-    local Disabler = vape.Categories.Blatant:CreateModule({
+    local AntiLagback = vape.Categories.Blatant:CreateModule({
         Name = 'Anti-Lagback',
         Function = function(callback)
             if callback then
@@ -17559,7 +17559,7 @@ run(function()
                 local moveTimer = 0
                 local moveDistance = 0
                 
-                Disabler:Clean(runService.PreSimulation:Connect(function(dt)
+                AntiLagback:Clean(runService.PreSimulation:Connect(function(dt)
                     if not entitylib.isAlive then return end
                     
                     local root = entitylib.character.RootPart
@@ -17578,7 +17578,7 @@ run(function()
                     end
                     
                     -- 2. Speed Bypass (1秒20スタッドLAGBACK対策)
-                    if SpeedLimit.Enabled then
+                    if SpeedBypass.Enabled then
                         if not lastPosition then
                             lastPosition = root.Position
                             moveTimer = 0
@@ -17614,8 +17614,8 @@ run(function()
         Tooltip = 'Prevents LAGBACK from air time (>2s) and excessive speed (>20 studs/sec).'
     })
     
-    local SpeedLimit = Disabler:CreateToggle({
-        Name = 'Speed Limit (Anti-Lagback)',
+    local SpeedBypass = AntiLagback:CreateToggle({
+        Name = 'Speed Bypass (Clamp to 20 studs/s)',
         Default = false,
         Tooltip = 'Clamps movement to 20 studs/sec to prevent speed LAGBACK. (Note: This may restrict Fly/Speed modules when enabled)'
     })
