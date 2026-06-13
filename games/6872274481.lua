@@ -12970,7 +12970,7 @@ run(function()
 						update = tick()
 						if tick() - lastpredicted < 0.1 then
                         	targetinfo.Targets[ent] = tick() + 1
-							local cframe, speed = findAim(gameCamera.CFrame, predicted or ent.RootPart.Position, dt, found, multi + ((entitylib.character.RootPart.Position.Y - ent.RootPart.Position.Y) / 7))
+							local cframe, speed = findAim(gameCamera.CFrame, predicted or ent.RootPart.Position, dt, found, 0)
 							if inputService.MouseEnabled and entitylib.character.Head.LocalTransparencyModifier == 1 then
 								gameCamera.CFrame = cframe
 							elseif ThirdPerson.Enabled and inputService.MouseEnabled then
