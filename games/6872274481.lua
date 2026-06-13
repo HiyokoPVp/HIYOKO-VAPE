@@ -17502,7 +17502,7 @@ run(function()
         end
     end
 
-    BedwarsAnimationPlayer = vape.Categories.Legit:CreateModule({
+    BedwarsAnimationPlayer = vape.Categories.Blatant:CreateModule({
         Name = 'BedwarsAnimationPlayer',
         Function = function(callback)
             if callback then
