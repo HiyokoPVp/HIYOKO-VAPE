@@ -17835,3 +17835,160 @@ run(function()
         Tooltip = "Uses Humanoid:MoveTo to simulate natural wandering."
     })
 end)
+
+run(function()
+    local AutoBedwarsPlay
+    local RequireSplit
+    local Combat
+    local AutoBridge
+
+    -- チームメイトを取得するヘルパー関数
+    local function getTeammates()
+        local teammates = {}
+        for _, ent in entitylib.List do
+            if ent.Player and ent.Player ~= lplr and ent.Player:GetAttribute('Team') == lplr:GetAttribute('Team') and ent.Health > 0 then
+                table.insert(teammates, ent)
+            end
+        end
+        return teammates
+    end
+
+    -- 自チームのベース位置を取得するヘルパー関数
+    local function getBasePos()
+        local teamId = lplr:GetAttribute('Team')
+        if workspace:FindFirstChild("MapCFrames") then
+            local bed = workspace.MapCFrames:FindFirstChild(teamId.."_bed")
+            if bed then return bed.Value end
+            local spawn = workspace.MapCFrames:FindFirstChild(teamId.."_spawn")
+            if spawn then return spawn.Value end
+        end
+        return nil
+    end
+
+    -- ジェネレーター位置を検索するヘルパー関数
+    local function getGeneratorPosition(type)
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj.Name == "GeneratorAdornee" then
+                local id = obj:GetAttribute("Id")
+                if id and string.find(string.lower(id), type) then
+                    return obj:GetPivot().Position
+                end
+            end
+        end
+        return nil
+    end
+
+    AutoBedwarsPlay = vape.Categories.Utility:CreateModule({
+        Name = "AutoBedwarsPlay",
+        Function = function(callback)
+            if callback then
+                -- AutoBuyは必須なので自動的に有効化する
+                if vape.Modules.AutoBuy and not vape.Modules.AutoBuy.Enabled then
+                    vape.Modules.AutoBuy:Toggle()
+                end
+                
+                task.spawn(function()
+                    while AutoBedwarsPlay.Enabled and entitylib.isAlive and store.matchState == 1 do
+                        local root = entitylib.character.RootPart
+                        local hum = entitylib.character.Humanoid
+                        
+                        -- 1. 戦闘ロジック (Legit風)
+                        if Combat.Enabled then
+                            local enemy = entitylib.EntityPosition({
+                                Range = 18,
+                                Part = 'RootPart',
+                                Players = true,
+                                Sort = sortmethods.Distance
+                            })
+                            if enemy then
+                                -- 剣を装備して攻撃
+                                if store.hand.toolType ~= 'sword' and store.tools.sword then
+                                    switchItem(store.tools.sword.tool)
+                                end
+                                bedwars.SwordController:swingSwordAtMouse()
+                            end
+                        end
+
+                        -- 2. ターゲット選定ロジック
+                        local targetPos = nil
+                        local basePos = getBasePos()
+                        local diamondPos = getGeneratorPosition("diamond")
+                        local emeraldPos = getGeneratorPosition("emerald")
+                        local ironPos = getGeneratorPosition("iron") or basePos
+                        
+                        -- RequireSplit (鉄の共有) ロジック
+                        local canTakeIron = true
+                        if RequireSplit.Enabled and ironPos then
+                            local teammates = getTeammates()
+                            for _, mate in pairs(teammates) do
+                                -- チームメイトがベース付近(25スタッド以内)にいる場合は鉄を取りに行かない
+                                if mate.RootPart and (mate.RootPart.Position - ironPos).Magnitude < 25 then
+                                    canTakeIron = false
+                                    break
+                                end
+                            end
+                        end
+
+                        -- 優先順: ダイヤ > エメラルド > 鉄(条件付き) > ベース
+                        if diamondPos and (root.Position - diamondPos).Magnitude > 15 then
+                            targetPos = diamondPos
+                        elseif emeraldPos and (root.Position - emeraldPos).Magnitude > 15 then
+                            targetPos = emeraldPos
+                        elseif canTakeIron and ironPos then
+                            targetPos = ironPos
+                        elseif basePos then
+                            targetPos = basePos
+                        end
+
+                        -- 3. 移動とブリッジ
+                        if targetPos then
+                            -- Legitな移動 (Humanoid:MoveTo)
+                            hum:MoveTo(targetPos)
+                            
+                            -- AutoBridgeがオンの場合、Scaffoldモジュールを連携
+                            if AutoBridge.Enabled then
+                                if vape.Modules.Scaffold and not vape.Modules.Scaffold.Enabled then
+                                    vape.Modules.Scaffold:Toggle()
+                                end
+                            else
+                                if vape.Modules.Scaffold and vape.Modules.Scaffold.Enabled then
+                                    vape.Modules.Scaffold:Toggle()
+                                end
+                            end
+                            
+                            -- 落下中の簡単なジャンプ処理
+                            if hum.FloorMaterial == Enum.Material.Air and not hum.Jumping then
+                                hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                            end
+                        end
+                        
+                        task.wait(0.2)
+                    end
+                end)
+            else
+                -- 無効化時のクリーンアップ
+                if vape.Modules.Scaffold and vape.Modules.Scaffold.Enabled then
+                    vape.Modules.Scaffold:Toggle()
+                end
+            end
+        end,
+        Tooltip = "Automatically plays Bedwars (Legit behavior, requires AutoBuy)"
+    })
+
+    -- オプション設定
+    RequireSplit = AutoBedwarsPlay:CreateToggle({
+        Name = "Require Split (Iron)",
+        Default = true,
+        Tooltip = "Don't take iron if teammates are at base"
+    })
+    Combat = AutoBedwarsPlay:CreateToggle({
+        Name = "Auto Combat",
+        Default = true,
+        Tooltip = "Attacks nearby enemies"
+    })
+    AutoBridge = AutoBedwarsPlay:CreateToggle({
+        Name = "Auto Bridge",
+        Default = true,
+        Tooltip = "Enables Scaffold for bridging"
+    })
+end)
