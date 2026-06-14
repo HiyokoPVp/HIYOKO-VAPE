@@ -17682,7 +17682,8 @@ end)
 
 run(function()
     local AutoLegitFarm
-    
+    local RandomQueue -- RandomQueue設定用の変数
+
     -- Anti-AFK 機能
     local function disableAfk()
         pcall(function()
@@ -17692,24 +17693,29 @@ run(function()
         end)
     end
 
-    -- キューに参加する機能 (ランダムな利用可能モードを選択)
+    -- キューに参加する機能
     local function joinQueue()
         local state = bedwars.Store:getState()
         -- パーティリーダーであり、現在キュー中ではない場合のみ実行
         if state.Party.leader.userId == lplr.UserId and state.Party.queueState == 0 then
-            local listofmodes = {}
-            for i, v in bedwars.QueueMeta do
-                if not v.disabled and not v.voiceChatOnly and not v.rankCategory then
-                    table.insert(listofmodes, i)
-                end
-            end
             
-            if #listofmodes > 0 then
-                -- 利用可能なモードからランダムに選択
-                local randomMode = listofmodes[math.random(1, #listofmodes)]
-                bedwars.QueueController:joinQueue(randomMode)
+            if RandomQueue.Enabled then
+                -- ランダムモードでキュー
+                local listofmodes = {}
+                for i, v in bedwars.QueueMeta do
+                    if not v.disabled and not v.voiceChatOnly and not v.rankCategory then
+                        table.insert(listofmodes, i)
+                    end
+                end
+                
+                if #listofmodes > 0 then
+                    local randomMode = listofmodes[math.random(1, #listofmodes)]
+                    bedwars.QueueController:joinQueue(randomMode)
+                else
+                    bedwars.QueueController:joinQueue(store.queueType)
+                end
             else
-                -- フォールバック: 現在のモードでキュー
+                -- 現在のモードでキュー
                 bedwars.QueueController:joinQueue(store.queueType)
             end
         end
@@ -17745,11 +17751,10 @@ run(function()
                         
                         -- matchState 1: 試合中
                         if matchState == 1 then
-                            disableAfk() -- 定期的にAFK対策を更新
+                            disableAfk()
                             local sword = getSword()
                             if sword then
                                 pcall(function()
-                                    -- 既存の switchItem 関数を使用 (コード内に定義されているはず)
                                     if switchItem then
                                         switchItem(sword, 0.1)
                                     end
@@ -17763,7 +17768,7 @@ run(function()
                 -- 3. イベントベースのキュー再参加
                 -- 試合が正常に終了した場合
                 AutoLegitFarm:Clean(vapeEvents.MatchEndEvent.Event:Connect(function()
-                    task.wait(2) -- UI表示などのために少し待機
+                    task.wait(2)
                     joinQueue()
                 end))
 
@@ -17771,14 +17776,14 @@ run(function()
                 AutoLegitFarm:Clean(vapeEvents.EntityDeathEvent.Event:Connect(function(deathTable)
                     if deathTable.entityInstance == lplr.Character then
                         local state = bedwars.Store:getState()
-                        if state.Game.matchState == 2 then -- 2 は Match End 状態
+                        if state.Game.matchState == 2 then
                             task.wait(2)
                             joinQueue()
                         end
                     end
                 end))
 
-                -- 自分のチームのベッドが破壊された場合 (要件: 「ベッド壊されたり...queueする」)
+                -- 自分のチームのベッドが破壊された場合
                 AutoLegitFarm:Clean(vapeEvents.BedwarsBedBreak.Event:Connect(function(bedTable)
                     local myTeam = tonumber(lplr:GetAttribute('Team'))
                     local brokenTeam = tonumber(bedTable.brokenBedTeam.id)
@@ -17788,11 +17793,15 @@ run(function()
                         joinQueue()
                     end
                 end))
-
-            else
-                -- モジュールが無効化された時のクリーンアップ (必要に応じて)
             end
         end,
-        Tooltip = "Anti-AFK, auto-queues random games, and legit swings sword during match. Re-queues on match end or bed break."
+        Tooltip = "Anti-AFK, auto-queues, and legit swings sword. Re-queues on match end or bed break."
+    })
+
+    -- ★ Random Queue のオン/オフを切り替えるトグルを追加 ★
+    RandomQueue = AutoLegitFarm:CreateToggle({
+        Name = "Random Queue",
+        Default = true,
+        Tooltip = "If enabled, queues a random available mode. If disabled, queues the current mode."
     })
 end)
