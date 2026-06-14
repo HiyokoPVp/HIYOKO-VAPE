@@ -17685,9 +17685,6 @@ run(function()
     local RandomQueue
     local AutoMovement
     
-    -- VirtualInputManagerの取得 (移動用)
-    local vim = game:GetService("VirtualInputManager")
-
     -- Anti-AFK
     local function disableAfk()
         pcall(function()
@@ -17739,8 +17736,6 @@ run(function()
                 
                 -- メインループ
                 task.spawn(function()
-                    local moveKeys = {Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D}
-                    local currentMoveKey = nil
                     local moveTimer = 0
                     local camTimer = 0
                     
@@ -17762,46 +17757,38 @@ run(function()
                             end
                         end
                         
-                        -- AutoMovement ロジック
+                        -- AutoMovement ロジック (Humanoid:MoveTo使用)
                         if AutoMovement.Enabled and entitylib.isAlive then
-                            -- WASD ランダム入力
+                            local hum = entitylib.character.Humanoid
+                            local root = entitylib.character.RootPart
+                            
+                            -- MoveTo の更新 (0.5〜1.5秒ごとにランダムな地点へ)
                             moveTimer = moveTimer - 0.1
                             if moveTimer <= 0 then
-                                -- 前のキーを離す
-                                if currentMoveKey then
-                                    pcall(function() vim:SendKeyEvent(false, currentMoveKey, false, game) end)
-                                end
+                                moveTimer = math.random(5, 15) / 10
                                 
-                                -- 新しいキーを選択
-                                currentMoveKey = moveKeys[math.random(1, #moveKeys)]
-                                moveTimer = math.random(8, 25) / 10 -- 0.8〜2.5秒
+                                -- 現在位置からランダムなオフセットを計算
+                                local offsetX = math.random(-15, 15)
+                                local offsetZ = math.random(-15, 15)
+                                local targetPos = root.Position + Vector3.new(offsetX, 0, offsetZ)
                                 
-                                -- キーを押す
-                                pcall(function() vim:SendKeyEvent(true, currentMoveKey, false, game) end)
+                                -- Humanoid:MoveTo で移動指示
+                                pcall(function()
+                                    hum:MoveTo(targetPos)
+                                end)
                             end
                             
                             -- カメラの自然な揺れ
                             camTimer = camTimer - 0.1
                             if camTimer <= 0 then
                                 camTimer = math.random(10, 30) / 10
-                                local rx = math.random(-5, 5) / 100
-                                local ry = math.random(-5, 5) / 100
+                                local rx = math.random(-3, 3) / 100
+                                local ry = math.random(-3, 3) / 100
                                 pcall(function()
                                     gameCamera.CFrame = gameCamera.CFrame * CFrame.Angles(rx, ry, 0)
                                 end)
                             end
-                        else
-                            -- AutoMovementがオフならキーを解放
-                            if currentMoveKey then
-                                pcall(function() vim:SendKeyEvent(false, currentMoveKey, false, game) end)
-                                currentMoveKey = nil
-                            end
                         end
-                    end
-                    
-                    -- ループ終了時のクリーンアップ
-                    if currentMoveKey then
-                        pcall(function() vim:SendKeyEvent(false, currentMoveKey, false, game) end)
                     end
                 end)
 
@@ -17831,11 +17818,9 @@ run(function()
                         joinQueue()
                     end
                 end))
-            else
-                -- モジュール無効化時
             end
         end,
-        Tooltip = "Anti-AFK, legit farm, auto queue & natural movement simulation."
+        Tooltip = "Anti-AFK, legit farm, auto queue & Humanoid:MoveTo movement."
     })
 
     RandomQueue = AutoLegitFarm:CreateToggle({
@@ -17847,6 +17832,6 @@ run(function()
     AutoMovement = AutoLegitFarm:CreateToggle({
         Name = "Auto Movement",
         Default = false,
-        Tooltip = "Simulates WASD movement and camera sway to look legit."
+        Tooltip = "Uses Humanoid:MoveTo to simulate natural wandering."
     })
 end)
