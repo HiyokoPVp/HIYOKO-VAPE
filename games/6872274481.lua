@@ -17682,7 +17682,8 @@ end)
 
 run(function()
     local AutoLegitFarm
-    local RandomQueue -- RandomQueue設定用の変数
+    local RandomQueue -- RandomQueue設定用
+    local AutoMovement -- AutoMovement設定用
 
     -- Anti-AFK 機能
     local function disableAfk()
@@ -17696,11 +17697,8 @@ run(function()
     -- キューに参加する機能
     local function joinQueue()
         local state = bedwars.Store:getState()
-        -- パーティリーダーであり、現在キュー中ではない場合のみ実行
         if state.Party.leader.userId == lplr.UserId and state.Party.queueState == 0 then
-            
             if RandomQueue.Enabled then
-                -- ランダムモードでキュー
                 local listofmodes = {}
                 for i, v in bedwars.QueueMeta do
                     if not v.disabled and not v.voiceChatOnly and not v.rankCategory then
@@ -17715,7 +17713,6 @@ run(function()
                     bedwars.QueueController:joinQueue(store.queueType)
                 end
             else
-                -- 現在のモードでキュー
                 bedwars.QueueController:joinQueue(store.queueType)
             end
         end
@@ -17739,19 +17736,71 @@ run(function()
         Name = "AutoLegitFarm",
         Function = function(callback)
             if callback then
-                -- 1. 起動時に Anti-AFK を適用
                 disableAfk()
 
-                -- 2. メインループ (試合中のレジットな行動)
+                -- 1. メインループ (試合中のレジットな行動 + AutoMovement)
                 task.spawn(function()
+                    local moveTimer = 0
+                    local currentKey = nil
+                    local camTimer = 0
+                    local camOffset = 0
+                    
                     while AutoLegitFarm.Enabled do
-                        task.wait(1)
+                        task.wait(0.1) -- 0.1秒ごとに更新
+                        
                         local state = bedwars.Store:getState()
                         local matchState = state.Game.matchState
                         
-                        -- matchState 1: 試合中
+                        -- Anti-AFK 常時実行
+                        disableAfk()
+
+                        -- AutoMovement ロジック
+                        if AutoMovement.Enabled then
+                            moveTimer = moveTimer - 0.1
+                            
+                            -- キー入力の切り替えタイミング
+                            if moveTimer <= 0 or (currentKey and not inputService:IsKeyDown(currentKey)) then
+                                -- ランダムな方向キーを選択 (W, A, S, D)
+                                local keys = {Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D}
+                                currentKey = keys[math.random(1, #keys)]
+                                
+                                -- ランダムな持続時間 (0.5秒 〜 2.5秒)
+                                moveTimer = math.random(5, 25) / 10
+                                
+                                -- キーを押すシミュレーション (FireEventを使用)
+                                -- 注意: 一部のゲームでは直接Inputをフックしないと動かない場合がありますが、
+                                -- Robloxの標準的な移動制御ではこれで動作することが多いです。
+                                pcall(function()
+                                    fireinputevent(inputService, currentKey, true)
+                                end)
+                                
+                                -- 次のキーのために現在のキーを離すタイマーを設定（簡易的実装のため、次のループで上書きされる形で制御）
+                            end
+                            
+                            -- カメラの自然な揺れ (マウスルック模倣)
+                            camTimer = camTimer - 0.1
+                            if camTimer <= 0 then
+                                -- ランダムな角度変化 (-5度 〜 +5度)
+                                camOffset = camOffset + (math.random(-10, 10) / 10)
+                                camTimer = math.random(10, 30) / 10 -- 0.1〜0.3秒ごとに変化
+                                
+                                -- カメラCFrameを少し回転させる
+                                local currentCFrame = gameCamera.CFrame
+                                local newCFrame = currentCFrame * CFrame.Angles(0, math.rad(camOffset), 0)
+                                gameCamera.CFrame = newCFrame
+                            end
+                        else
+                            -- AutoMovementがオフの時は状態リセット
+                            if currentKey then
+                                pcall(function()
+                                    fireinputevent(inputService, currentKey, false)
+                                end)
+                                currentKey = nil
+                            end
+                        end
+
+                        -- 試合中のレジットな行動 (剣を振る)
                         if matchState == 1 then
-                            disableAfk()
                             local sword = getSword()
                             if sword then
                                 pcall(function()
@@ -17765,14 +17814,12 @@ run(function()
                     end
                 end)
 
-                -- 3. イベントベースのキュー再参加
-                -- 試合が正常に終了した場合
+                -- 2. イベントベースのキュー再参加
                 AutoLegitFarm:Clean(vapeEvents.MatchEndEvent.Event:Connect(function()
                     task.wait(2)
                     joinQueue()
                 end))
 
-                -- 自分がデスし、かつ試合が終了状態になった場合
                 AutoLegitFarm:Clean(vapeEvents.EntityDeathEvent.Event:Connect(function(deathTable)
                     if deathTable.entityInstance == lplr.Character then
                         local state = bedwars.Store:getState()
@@ -17783,7 +17830,6 @@ run(function()
                     end
                 end))
 
-                -- 自分のチームのベッドが破壊された場合
                 AutoLegitFarm:Clean(vapeEvents.BedwarsBedBreak.Event:Connect(function(bedTable)
                     local myTeam = tonumber(lplr:GetAttribute('Team'))
                     local brokenTeam = tonumber(bedTable.brokenBedTeam.id)
@@ -17795,13 +17841,20 @@ run(function()
                 end))
             end
         end,
-        Tooltip = "Anti-AFK, auto-queues, and legit swings sword. Re-queues on match end or bed break."
+        Tooltip = "Anti-AFK, auto-queues, legit swings, and natural movement simulation."
     })
 
-    -- ★ Random Queue のオン/オフを切り替えるトグルを追加 ★
+    -- ★ オプション: Random Queue ★
     RandomQueue = AutoLegitFarm:CreateToggle({
         Name = "Random Queue",
         Default = true,
         Tooltip = "If enabled, queues a random available mode. If disabled, queues the current mode."
+    })
+
+    -- ★ オプション: Auto Movement ★
+    AutoMovement = AutoLegitFarm:CreateToggle({
+        Name = "Auto Movement",
+        Default = false,
+        Tooltip = "Simulates natural WASD movement and camera sway to avoid AFK detection."
     })
 end)
