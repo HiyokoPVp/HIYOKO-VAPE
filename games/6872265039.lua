@@ -123,3 +123,24 @@ run(function()
 	})
 end)
 	
+run(function()
+	local AutoQueue
+
+	AutoQueue = vape.Categories.Minigames:CreateModule({
+		Name = "AutoQueue",
+		Function = function(callback)
+			if callback then
+				local args = {
+    [1] = {
+        ["queueType"] = "bedwars_to1"
+    }
+}
+
+game:GetService("ReplicatedStorage"):WaitForChild("events-@easy-games/lobby:shared/event/lobby-events@getEvents.Events"):WaitForChild("joinQueue"):FireServer(unpack(args))
+
+else
+	
+			end
+		end
+	})
+end)
