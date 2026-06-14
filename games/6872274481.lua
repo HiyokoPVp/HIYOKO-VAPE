@@ -17682,10 +17682,13 @@ end)
 
 run(function()
     local AutoLegitFarm
-    local RandomQueue -- RandomQueue設定用
-    local AutoMovement -- AutoMovement設定用
+    local RandomQueue
+    local AutoMovement
+    
+    -- VirtualInputManagerの取得 (移動用)
+    local vim = game:GetService("VirtualInputManager")
 
-    -- Anti-AFK 機能
+    -- Anti-AFK
     local function disableAfk()
         pcall(function()
             for _, v in getconnections(lplr.Idled) do
@@ -17694,7 +17697,7 @@ run(function()
         end)
     end
 
-    -- キューに参加する機能
+    -- キュー参加機能
     local function joinQueue()
         local state = bedwars.Store:getState()
         if state.Party.leader.userId == lplr.UserId and state.Party.queueState == 0 then
@@ -17705,10 +17708,8 @@ run(function()
                         table.insert(listofmodes, i)
                     end
                 end
-                
                 if #listofmodes > 0 then
-                    local randomMode = listofmodes[math.random(1, #listofmodes)]
-                    bedwars.QueueController:joinQueue(randomMode)
+                    bedwars.QueueController:joinQueue(listofmodes[math.random(1, #listofmodes)])
                 else
                     bedwars.QueueController:joinQueue(store.queueType)
                 end
@@ -17718,13 +17719,11 @@ run(function()
         end
     end
 
-    -- 剣を取得するヘルパー関数
-    local function getSword()
-        local state = bedwars.Store:getState()
-        local inventory = state.Inventory and state.Inventory.observedInventory and state.Inventory.observedInventory.inventory and state.Inventory.observedInventory.inventory.items
-        if not inventory then return nil end
-        
-        for _, item in pairs(inventory) do
+    -- 剣を取得 (ベースコードのgetSwordとは別に簡易版を用意)
+    local function getMySword()
+        local inv = store.inventory and store.inventory.inventory and store.inventory.inventory.items
+        if not inv then return nil end
+        for _, item in pairs(inv) do
             if item.itemType and string.find(item.itemType:lower(), "sword") then
                 return item.itemType
             end
@@ -17737,89 +17736,82 @@ run(function()
         Function = function(callback)
             if callback then
                 disableAfk()
-
-                -- 1. メインループ (試合中のレジットな行動 + AutoMovement)
+                
+                -- メインループ
                 task.spawn(function()
+                    local moveKeys = {Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D}
+                    local currentMoveKey = nil
                     local moveTimer = 0
-                    local currentKey = nil
                     local camTimer = 0
-                    local camOffset = 0
                     
                     while AutoLegitFarm.Enabled do
-                        task.wait(0.1) -- 0.1秒ごとに更新
+                        task.wait(0.1)
+                        disableAfk()
                         
                         local state = bedwars.Store:getState()
                         local matchState = state.Game.matchState
                         
-                        -- Anti-AFK 常時実行
-                        disableAfk()
-
-                        -- AutoMovement ロジック
-                        if AutoMovement.Enabled then
-                            moveTimer = moveTimer - 0.1
-                            
-                            -- キー入力の切り替えタイミング
-                            if moveTimer <= 0 or (currentKey and not inputService:IsKeyDown(currentKey)) then
-                                -- ランダムな方向キーを選択 (W, A, S, D)
-                                local keys = {Enum.KeyCode.W, Enum.KeyCode.A, Enum.KeyCode.S, Enum.KeyCode.D}
-                                currentKey = keys[math.random(1, #keys)]
-                                
-                                -- ランダムな持続時間 (0.5秒 〜 2.5秒)
-                                moveTimer = math.random(5, 25) / 10
-                                
-                                -- キーを押すシミュレーション (FireEventを使用)
-                                -- 注意: 一部のゲームでは直接Inputをフックしないと動かない場合がありますが、
-                                -- Robloxの標準的な移動制御ではこれで動作することが多いです。
-                                pcall(function()
-                                    fireinputevent(inputService, currentKey, true)
-                                end)
-                                
-                                -- 次のキーのために現在のキーを離すタイマーを設定（簡易的実装のため、次のループで上書きされる形で制御）
-                            end
-                            
-                            -- カメラの自然な揺れ (マウスルック模倣)
-                            camTimer = camTimer - 0.1
-                            if camTimer <= 0 then
-                                -- ランダムな角度変化 (-5度 〜 +5度)
-                                camOffset = camOffset + (math.random(-10, 10) / 10)
-                                camTimer = math.random(10, 30) / 10 -- 0.1〜0.3秒ごとに変化
-                                
-                                -- カメラCFrameを少し回転させる
-                                local currentCFrame = gameCamera.CFrame
-                                local newCFrame = currentCFrame * CFrame.Angles(0, math.rad(camOffset), 0)
-                                gameCamera.CFrame = newCFrame
-                            end
-                        else
-                            -- AutoMovementがオフの時は状態リセット
-                            if currentKey then
-                                pcall(function()
-                                    fireinputevent(inputService, currentKey, false)
-                                end)
-                                currentKey = nil
-                            end
-                        end
-
-                        -- 試合中のレジットな行動 (剣を振る)
+                        -- 試合中のレジット行動 (剣振り)
                         if matchState == 1 then
-                            local sword = getSword()
+                            local sword = getMySword()
                             if sword then
                                 pcall(function()
-                                    if switchItem then
-                                        switchItem(sword, 0.1)
-                                    end
+                                    switchItem(sword, 0.1)
                                     bedwars.SwordController:swingSwordAtMouse()
                                 end)
                             end
                         end
+                        
+                        -- AutoMovement ロジック
+                        if AutoMovement.Enabled and entitylib.isAlive then
+                            -- WASD ランダム入力
+                            moveTimer = moveTimer - 0.1
+                            if moveTimer <= 0 then
+                                -- 前のキーを離す
+                                if currentMoveKey then
+                                    pcall(function() vim:SendKeyEvent(false, currentMoveKey, false, game) end)
+                                end
+                                
+                                -- 新しいキーを選択
+                                currentMoveKey = moveKeys[math.random(1, #moveKeys)]
+                                moveTimer = math.random(8, 25) / 10 -- 0.8〜2.5秒
+                                
+                                -- キーを押す
+                                pcall(function() vim:SendKeyEvent(true, currentMoveKey, false, game) end)
+                            end
+                            
+                            -- カメラの自然な揺れ
+                            camTimer = camTimer - 0.1
+                            if camTimer <= 0 then
+                                camTimer = math.random(10, 30) / 10
+                                local rx = math.random(-5, 5) / 100
+                                local ry = math.random(-5, 5) / 100
+                                pcall(function()
+                                    gameCamera.CFrame = gameCamera.CFrame * CFrame.Angles(rx, ry, 0)
+                                end)
+                            end
+                        else
+                            -- AutoMovementがオフならキーを解放
+                            if currentMoveKey then
+                                pcall(function() vim:SendKeyEvent(false, currentMoveKey, false, game) end)
+                                currentMoveKey = nil
+                            end
+                        end
+                    end
+                    
+                    -- ループ終了時のクリーンアップ
+                    if currentMoveKey then
+                        pcall(function() vim:SendKeyEvent(false, currentMoveKey, false, game) end)
                     end
                 end)
 
-                -- 2. イベントベースのキュー再参加
+                -- 試合終了時の再キュー
                 AutoLegitFarm:Clean(vapeEvents.MatchEndEvent.Event:Connect(function()
                     task.wait(2)
                     joinQueue()
                 end))
 
+                -- 死亡 + 試合終了時の再キュー
                 AutoLegitFarm:Clean(vapeEvents.EntityDeathEvent.Event:Connect(function(deathTable)
                     if deathTable.entityInstance == lplr.Character then
                         local state = bedwars.Store:getState()
@@ -17830,31 +17822,31 @@ run(function()
                     end
                 end))
 
+                -- ベッド破壊時の再キュー
                 AutoLegitFarm:Clean(vapeEvents.BedwarsBedBreak.Event:Connect(function(bedTable)
                     local myTeam = tonumber(lplr:GetAttribute('Team'))
                     local brokenTeam = tonumber(bedTable.brokenBedTeam.id)
-                    
                     if myTeam and brokenTeam and myTeam == brokenTeam then
                         task.wait(1.5)
                         joinQueue()
                     end
                 end))
+            else
+                -- モジュール無効化時
             end
         end,
-        Tooltip = "Anti-AFK, auto-queues, legit swings, and natural movement simulation."
+        Tooltip = "Anti-AFK, legit farm, auto queue & natural movement simulation."
     })
 
-    -- ★ オプション: Random Queue ★
     RandomQueue = AutoLegitFarm:CreateToggle({
         Name = "Random Queue",
         Default = true,
-        Tooltip = "If enabled, queues a random available mode. If disabled, queues the current mode."
+        Tooltip = "Queues a random available mode instead of current mode."
     })
 
-    -- ★ オプション: Auto Movement ★
     AutoMovement = AutoLegitFarm:CreateToggle({
         Name = "Auto Movement",
         Default = false,
-        Tooltip = "Simulates natural WASD movement and camera sway to avoid AFK detection."
+        Tooltip = "Simulates WASD movement and camera sway to look legit."
     })
 end)
