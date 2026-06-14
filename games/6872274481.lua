@@ -17853,7 +17853,7 @@ run(function()
         return teammates
     end
 
-    -- 自チームのベース位置を取得するヘルパー関数
+    -- ベース（ベッドまたはスポーン）の位置を取得
     local function getBasePos()
         local teamId = lplr:GetAttribute('Team')
         if workspace:FindFirstChild("MapCFrames") then
@@ -17862,10 +17862,23 @@ run(function()
             local spawn = workspace.MapCFrames:FindFirstChild(teamId.."_spawn")
             if spawn then return spawn.Value end
         end
-        return nil
+        -- フォールバック: 一番近いショップを探す
+        local closestShop, closestMag = nil, math.huge
+        if store.shop then
+            for _, shop in pairs(store.shop) do
+                if shop.RootPart then
+                    local mag = (shop.RootPart.Position - entitylib.character.RootPart.Position).Magnitude
+                    if mag < closestMag then
+                        closestMag = mag
+                        closestShop = shop.RootPart.Position
+                    end
+                end
+            end
+        end
+        return closestShop or entitylib.character.RootPart.Position
     end
 
-    -- ジェネレーター位置を検索するヘルパー関数
+    -- ジェネレーター位置を検索
     local function getGeneratorPosition(type)
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj.Name == "GeneratorAdornee" then
@@ -17878,11 +17891,25 @@ run(function()
         return nil
     end
 
+    -- インベントリ内のブロック総数をカウント
+    local function getBlockCount()
+        local count = 0
+        if store.inventory and store.inventory.inventory and store.inventory.inventory.items then
+            for _, item in pairs(store.inventory.inventory.items) do
+                local meta = bedwars.ItemMeta[item.itemType]
+                if meta and meta.block then
+                    count = count + (item.amount or 0)
+                end
+            end
+        end
+        return count
+    end
+
     AutoBedwarsPlay = vape.Categories.Utility:CreateModule({
         Name = "AutoBedwarsPlay",
         Function = function(callback)
             if callback then
-                -- AutoBuyは必須なので自動的に有効化する
+                -- AutoBuyは必須なので自動的に有効化
                 if vape.Modules.AutoBuy and not vape.Modules.AutoBuy.Enabled then
                     vape.Modules.AutoBuy:Toggle()
                 end
@@ -17901,7 +17928,7 @@ run(function()
                                 Sort = sortmethods.Distance
                             })
                             if enemy then
-                                -- 剣を装備して攻撃
+                                -- 剣を装備して攻撃 (AimAssist等と併用するとよりLegit)
                                 if store.hand.toolType ~= 'sword' and store.tools.sword then
                                     switchItem(store.tools.sword.tool)
                                 end
@@ -17909,8 +17936,12 @@ run(function()
                             end
                         end
 
-                        -- 2. ターゲット選定ロジック
+                        -- 2. 状況判断とターゲット選定
+                        local blockCount = getBlockCount()
+                        local needsBlocks = blockCount < 16 -- ブロックが16個未満なら補充が必要
                         local targetPos = nil
+                        local shouldBridge = false
+                        
                         local basePos = getBasePos()
                         local diamondPos = getGeneratorPosition("diamond")
                         local emeraldPos = getGeneratorPosition("emerald")
@@ -17929,34 +17960,47 @@ run(function()
                             end
                         end
 
-                        -- 優先順: ダイヤ > エメラルド > 鉄(条件付き) > ベース
-                        if diamondPos and (root.Position - diamondPos).Magnitude > 15 then
-                            targetPos = diamondPos
-                        elseif emeraldPos and (root.Position - emeraldPos).Magnitude > 15 then
-                            targetPos = emeraldPos
-                        elseif canTakeIron and ironPos then
-                            targetPos = ironPos
-                        elseif basePos then
+                        -- ターゲット優先順位の決定
+                        if needsBlocks and basePos then
+                            -- 【重要】ブロックがない/少ない場合はベース（ショップ）に戻ってAutoBuyに任せる
+                            -- ベースは安全地帯なのでScaffoldをオフにして普通に歩く（奈落防止）
                             targetPos = basePos
+                            shouldBridge = false
+                        else
+                            -- ブロックが足りている場合のリソース収集
+                            if diamondPos and (root.Position - diamondPos).Magnitude > 15 then
+                                targetPos = diamondPos
+                                shouldBridge = true
+                            elseif emeraldPos and (root.Position - emeraldPos).Magnitude > 15 then
+                                targetPos = emeraldPos
+                                shouldBridge = true
+                            elseif canTakeIron and ironPos and (root.Position - ironPos).Magnitude > 10 then
+                                targetPos = ironPos
+                                shouldBridge = false
+                            elseif basePos then
+                                targetPos = basePos
+                                shouldBridge = false
+                            end
                         end
 
-                        -- 3. 移動とブリッジ
+                        -- 3. Scaffold (ブリッジ) の厳密な制御
+                        -- 「ブロックを持っていて」かつ「橋が必要」ときだけScaffoldをオン
+                        if AutoBridge.Enabled and shouldBridge and blockCount > 0 then
+                            if vape.Modules.Scaffold and not vape.Modules.Scaffold.Enabled then
+                                vape.Modules.Scaffold:Toggle()
+                            end
+                        else
+                            -- ベースへ帰還中や、ブロックがない時は必ずオフにする
+                            if vape.Modules.Scaffold and vape.Modules.Scaffold.Enabled then
+                                vape.Modules.Scaffold:Toggle()
+                            end
+                        end
+
+                        -- 4. 移動 (LegitなMoveTo)
                         if targetPos then
-                            -- Legitな移動 (Humanoid:MoveTo)
                             hum:MoveTo(targetPos)
                             
-                            -- AutoBridgeがオンの場合、Scaffoldモジュールを連携
-                            if AutoBridge.Enabled then
-                                if vape.Modules.Scaffold and not vape.Modules.Scaffold.Enabled then
-                                    vape.Modules.Scaffold:Toggle()
-                                end
-                            else
-                                if vape.Modules.Scaffold and vape.Modules.Scaffold.Enabled then
-                                    vape.Modules.Scaffold:Toggle()
-                                end
-                            end
-                            
-                            -- 落下中の簡単なジャンプ処理
+                            -- 落下中の簡単なジャンプ処理 (Legit風)
                             if hum.FloorMaterial == Enum.Material.Air and not hum.Jumping then
                                 hum:ChangeState(Enum.HumanoidStateType.Jumping)
                             end
@@ -17972,7 +18016,7 @@ run(function()
                 end
             end
         end,
-        Tooltip = "Automatically plays Bedwars (Legit behavior, requires AutoBuy)"
+        Tooltip = "Automatically plays Bedwars (Legit behavior, manages blocks & AutoBuy)"
     })
 
     -- オプション設定
@@ -17989,6 +18033,6 @@ run(function()
     AutoBridge = AutoBedwarsPlay:CreateToggle({
         Name = "Auto Bridge",
         Default = true,
-        Tooltip = "Enables Scaffold for bridging"
+        Tooltip = "Enables Scaffold only when holding blocks"
     })
 end)
