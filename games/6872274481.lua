@@ -16868,7 +16868,7 @@ run(function()
 							if cycleTimer >= 3 then
 								cycleTimer = 0
 								isBoosted = true
-								currentTargetSpeed = 25
+								currentTargetSpeed = 24
 								notif('RealTimeSpeed', 'Speed boosted! (27)', 2, 'info')
 							end
 						end
@@ -17677,5 +17677,122 @@ run(function()
     	Name = 'Blacklisted',
     	Default = { 'fireball', 'telepearl', 'gloop' },
     	Darker = true,
+    })
+end)
+
+run(function()
+    local AutoLegitFarm
+    
+    -- Anti-AFK 機能
+    local function disableAfk()
+        pcall(function()
+            for _, v in getconnections(lplr.Idled) do
+                v:Disconnect()
+            end
+        end)
+    end
+
+    -- キューに参加する機能 (ランダムな利用可能モードを選択)
+    local function joinQueue()
+        local state = bedwars.Store:getState()
+        -- パーティリーダーであり、現在キュー中ではない場合のみ実行
+        if state.Party.leader.userId == lplr.UserId and state.Party.queueState == 0 then
+            local listofmodes = {}
+            for i, v in bedwars.QueueMeta do
+                if not v.disabled and not v.voiceChatOnly and not v.rankCategory then
+                    table.insert(listofmodes, i)
+                end
+            end
+            
+            if #listofmodes > 0 then
+                -- 利用可能なモードからランダムに選択
+                local randomMode = listofmodes[math.random(1, #listofmodes)]
+                bedwars.QueueController:joinQueue(randomMode)
+            else
+                -- フォールバック: 現在のモードでキュー
+                bedwars.QueueController:joinQueue(store.queueType)
+            end
+        end
+    end
+
+    -- 剣を取得するヘルパー関数
+    local function getSword()
+        local state = bedwars.Store:getState()
+        local inventory = state.Inventory and state.Inventory.observedInventory and state.Inventory.observedInventory.inventory and state.Inventory.observedInventory.inventory.items
+        if not inventory then return nil end
+        
+        for _, item in pairs(inventory) do
+            if item.itemType and string.find(item.itemType:lower(), "sword") then
+                return item.itemType
+            end
+        end
+        return nil
+    end
+
+    AutoLegitFarm = vape.Categories.Utility:CreateModule({
+        Name = "AutoLegitFarm",
+        Function = function(callback)
+            if callback then
+                -- 1. 起動時に Anti-AFK を適用
+                disableAfk()
+
+                -- 2. メインループ (試合中のレジットな行動)
+                task.spawn(function()
+                    while AutoLegitFarm.Enabled do
+                        task.wait(1)
+                        local state = bedwars.Store:getState()
+                        local matchState = state.Game.matchState
+                        
+                        -- matchState 1: 試合中
+                        if matchState == 1 then
+                            disableAfk() -- 定期的にAFK対策を更新
+                            local sword = getSword()
+                            if sword then
+                                pcall(function()
+                                    -- 既存の switchItem 関数を使用 (コード内に定義されているはず)
+                                    if switchItem then
+                                        switchItem(sword, 0.1)
+                                    end
+                                    bedwars.SwordController:swingSwordAtMouse()
+                                end)
+                            end
+                        end
+                    end
+                end)
+
+                -- 3. イベントベースのキュー再参加
+                -- 試合が正常に終了した場合
+                AutoLegitFarm:Clean(vapeEvents.MatchEndEvent.Event:Connect(function()
+                    task.wait(2) -- UI表示などのために少し待機
+                    joinQueue()
+                end))
+
+                -- 自分がデスし、かつ試合が終了状態になった場合
+                AutoLegitFarm:Clean(vapeEvents.EntityDeathEvent.Event:Connect(function(deathTable)
+                    if deathTable.entityInstance == lplr.Character then
+                        local state = bedwars.Store:getState()
+                        if state.Game.matchState == 2 then -- 2 は Match End 状態
+                            task.wait(2)
+                            joinQueue()
+                        end
+                    end
+                end))
+
+                -- 自分のチームのベッドが破壊された場合 (要件: 「ベッド壊されたり...queueする」)
+                AutoLegitFarm:Clean(vapeEvents.BedwarsBedBreak.Event:Connect(function(bedTable)
+                    local myTeam = tonumber(lplr:GetAttribute('Team'))
+                    local brokenTeam = tonumber(bedTable.brokenBedTeam.id)
+                    
+                    if myTeam and brokenTeam and myTeam == brokenTeam then
+                        task.wait(1.5)
+                        joinQueue()
+                    end
+                end))
+
+            else
+                -- モジュールが無効化された時のクリーンアップ (必要に応じて)
+            end
+        end,
+        Tooltip = "Anti-AFK, auto-queues random games, and legit swings sword during match. Re-queues on match end or bed break."
     })
 end)
