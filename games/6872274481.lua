@@ -12218,14 +12218,11 @@ run(function()
 	local InstantBreak
 	local LimitItem
 	local AutoTool = {Enabled = false}
-	-- ===== NEW =====
-	local BreakNearestBlock
-	local NearestBlockAngle
-	-- ===============
 	local customlist, parts = {}, {}
 	
 	local function customHealthbar(self, blockRef, health, maxHealth, changeHealth, block)
 		xpcall(function()
+			--if block:GetAttribute('NoHealthbar') then return end
 			if not self.healthbarPart or not self.healthbarBlockRef or self.healthbarBlockRef.blockPosition ~= blockRef.blockPosition then
 				self.healthbarMaid:DoCleaning()
 				self.healthbarBlockRef = blockRef
@@ -12329,64 +12326,6 @@ run(function()
 	
 	local function attemptBreak(tab, localPosition)
 		if not tab then return end
-		
-		-- ===== NEW: BreakNearestBlock mode =====
-		-- Only breaks the single nearest block within your look direction cone
-		if BreakNearestBlock.Enabled and #tab > 0 then
-			local character = entitylib.character
-			if not character or not character.RootPart then return false end
-			
-			local rootPart = character.RootPart
-			local lookVector = rootPart.CFrame.LookVector
-			local maxAngleCos = math.cos(math.rad(NearestBlockAngle.Value))
-			
-			local nearestBlock = nil
-			local nearestDistance = math.huge
-			
-			for _, v in ipairs(tab) do
-				local blockPos = v.Position
-				local toBlock = (blockPos - localPosition).Unit
-				local dot = lookVector:Dot(toBlock)
-				
-				-- Check if block is within the angle cone
-				if dot >= maxAngleCos then
-					local distance = (blockPos - localPosition).Magnitude
-					if distance < Range.Value and distance < nearestDistance then
-						if bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then
-							if not SelfBreak.Enabled and v:GetAttribute('PlacedByUserId') == lplr.UserId then continue end
-							if (v:GetAttribute('BedShieldEndTime') or 0) > workspace:GetServerTimeNow() then continue end
-							if LimitItem.Enabled and not (store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then continue end
-							
-							nearestBlock = v
-							nearestDistance = distance
-						end
-					end
-				end
-			end
-			
-			if nearestBlock then
-				hit += 1
-				local target, path, endpos = bedwars.breakBlock(nearestBlock, Effect.Enabled, Animation.Enabled, CustomHealth.Enabled and customHealthbar or nil, InstantBreak.Enabled, AutoTool.Enabled, Mode.Value, Angle.Value, Closest.Enabled)
-				if path then
-					local currentnode = target
-					for _, part in parts do
-						part.Position = currentnode or Vector3.zero
-						if currentnode then
-							part.BoxHandleAdornment.Color3 = currentnode == endpos and Color3.new(1, 0.2, 0.2) or currentnode == target and Color3.new(0.2, 0.2, 1) or Color3.new(0.2, 1, 0.2)
-						end
-						currentnode = path[currentnode]
-					end
-				end
-				
-				task.wait(InstantBreak.Enabled and (store.damageBlockFail > tick() and 4.5 or 0) or BreakSpeed.Value)
-				return true
-			end
-			
-			return false
-		end
-		-- ========================================
-		
-		-- Original logic (unchanged)
 		if #tab > 1 then
 			pcall(function()
 				table.sort(tab, function(a, b)
@@ -12592,21 +12531,6 @@ run(function()
 		Name = 'Limit to items',
 		Tooltip = 'Only breaks when tools are held'
 	})
-	
-	-- ===== NEW OPTIONS ADDED BELOW =====
-	BreakNearestBlock = Breaker:CreateToggle({
-		Name = 'Break Nearest Block',
-		Tooltip = 'Only breaks the nearest block in your looking direction (less detectable)',
-		Default = false
-	})
-	NearestBlockAngle = Breaker:CreateSlider({
-		Name = 'Nearest Block Max Angle',
-		Min = 1,
-		Max = 180,
-		Default = 45,
-		Suffix = '°'
-	})
-	-- ====================================
 end)
 
 run(function()
