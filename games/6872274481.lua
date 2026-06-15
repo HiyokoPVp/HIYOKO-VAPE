@@ -12495,6 +12495,9 @@ run(function()
     local LimitItem
     local customlist, parts = {}, {}
     
+    -- tweenService と lplr, store, playersService, gameCamera, bedwars, entitylib, color, uipallet, breakmethods, collection などは
+    -- スクリプトの他の部分で定義されている前提です。ここには含まれていませんが、元の環境に合わせてください。
+
     local function customHealthbar(self, blockRef, health, maxHealth, changeHealth, block)
         if block:GetAttribute('NoHealthbar') then return end
         if not self.healthbarPart or not self.healthbarBlockRef or self.healthbarBlockRef.blockPosition ~= blockRef.blockPosition then
@@ -12597,8 +12600,12 @@ run(function()
     
     local hit = 0
     
+    -- 【修正点】ここで tab が nil または テーブルでない場合に早期リターン
     local function attemptBreak(tab, localPosition)
-        if not tab then return end
+        if not tab or type(tab) ~= "table" then 
+            return false 
+        end
+        
         for _, v in tab do
             if (v.Position - localPosition).Magnitude < Range.Value and bedwars.BlockController:isBlockBreakable({blockPosition = v.Position / 3}, lplr) then
                 if not SelfBreak.Enabled and v:GetAttribute('PlacedByUserId') == lplr.UserId then continue end
@@ -12680,6 +12687,8 @@ run(function()
                     if entitylib.isAlive then
                         local localPosition = entitylib.character.RootPart.Position
     
+                        -- 【修正点】各トグルがオフの場合、attemptBreak に nil が渡される可能性があるため、
+                        -- 上記の attemptBreak 内のガード節で安全に処理されます。
                         if attemptBreak(Bed.Enabled and beds, localPosition) then continue end
                         if attemptBreak(Tesla.Enabled and teslas, localPosition) then continue end
                         if attemptBreak(Hive.Enabled and hives, localPosition) then continue end
