@@ -17774,7 +17774,7 @@ run(function()
                                 
                                 -- Humanoid:MoveTo で移動指示
                                 pcall(function()
-                                    hum:MoveTo(targetPos)
+                                    hum:Move(targetPos)
                                 end)
                             end
                             
