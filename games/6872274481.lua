@@ -1408,22 +1408,24 @@ for _, v in {'AntiRagdoll', 'TriggerBot', 'SilentAim', 'AutoRejoin', 'Rejoin', '
 	vape:Remove(v)
 end
 run(function()
-    local AimAssist
+	local AimAssist
     local Mode
-    local Targets
-    local Sort
+	local Targets
+	local Sort
     local AimPart
-    local AimSpeed
+	local AimSpeed
     local Shake
-    local Distance
-    local AngleSlider
-    local StrafeIncrease
+	local Distance
+	local AngleSlider
+	local StrafeIncrease
     local BlockBreak
-    local KillauraTarget
-    local PriorityKillauraTarget
-    local ClickAim
-    local Mouse
+	local KillauraTarget
+	local PriorityKillauraTarget
+	local ClickAim
+	local Mouse
     local Limit
+    
+    -- 追加されたオプションの変数
     local OnlyEnableFirstPerson
     local AlwaysAimAssist
 
@@ -1440,23 +1442,27 @@ run(function()
         if inputService.TouchEnabled then
             return gameCamera.ViewportSize / 2
         end
-        return inputService:GetMouseLocation()
+        return inputService.GetMouseLocation(inputService)
     end
     
+    -- 1人称視点かどうかを判定する関数
+    local function isFirstPerson()
+        return (gameCamera.Focus.p - gameCamera.CFrame.p).Magnitude < 0.6
+    end
+
     local function getAim(ent)
         if AimPart.Value == 'Closest' then
             if not cache[ent.Character] then
                 cache[ent.Character] = ent.Character:GetChildren()
             end
-            local localPosition = getMousePosition()
-            local magnitude = 9e9
-            local part = nil
-            
-            for _, v in ipairs(cache[ent.Character]) do
+            local localPosition, magnitude, part = getMousePosition(), 9e9, nil
+            for _, v in cache[ent.Character] do
                 if v and v:IsA('BasePart') then
-                    local position, vis = gameCamera:WorldToViewportPoint(v.Position)
+                    local position, vis = gameCamera.WorldToViewportPoint(gameCamera, v.Position)
+
                     if vis then
-                        local mag = (localPosition - Vector2.new(position.X, position.Y)).Magnitude
+                        local mag = (localPosition - Vector2.new(position.x, position.y)).Magnitude
+
                         if mag < magnitude then
                             magnitude = mag
                             part = v
@@ -1464,7 +1470,6 @@ run(function()
                     end
                 end
             end
-            
             if part then
                 return part.Position
             end
@@ -1472,8 +1477,7 @@ run(function()
         return ent.RootPart.Position
     end
 
-    local started = 0
-    local lasttarget = nil
+    local started, lasttarget = 0, nil
     local randomOffset = Vector3.new(0, 0, 0)
     local lastOffsetUpdate = 0
     local hitTimer = 0
@@ -1481,28 +1485,21 @@ run(function()
     local aimfuncs = {
         Simple = function(localcframe, ent, fps)
             local rng = Random.new()
-            local shakeVec = Vector3.new(
+            return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + Vector3.new(
                 (rng:NextNumber() - 0.5) * Shake.Value * fps,
                 (rng:NextNumber() - 0.5) * Shake.Value * fps,
                 (rng:NextNumber() - 0.5) * Shake.Value * fps
-            )
-            local speed = AimSpeed.Value + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 0)
-            return localcframe:Lerp(CFrame.lookAt(localcframe.Position, getAim(ent) + shakeVec), speed * fps) 
+            )), (AimSpeed.Value + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 0)) * fps) 
         end,
-        
         Adaptive = function(localcframe, ent, fps)
-            local prog = ease(math.min(tick() - started, 1))
-            local rng = Random.new()
-            local shakeVec = Vector3.new(
+            local prog, rng = ease(math.min(tick() - started, 1)), Random.new()
+            local speed = (AimSpeed.Value * 0.1 * prog) + (1 - prog) + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 5)
+            return localcframe:Lerp(CFrame.lookAt(localcframe.p, getAim(ent) + Vector3.new(
                 (rng:NextNumber() - 0.5) * Shake.Value * fps,
                 (rng:NextNumber() - 0.5) * Shake.Value * fps,
                 (rng:NextNumber() - 0.5) * Shake.Value * fps
-            )
-            local baseSpeed = (AimSpeed.Value * 0.1 * prog) + (1 - prog)
-            local strafeBonus = (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 10 or 5)
-            return localcframe:Lerp(CFrame.lookAt(localcframe.Position, getAim(ent) + shakeVec), (baseSpeed + strafeBonus) * fps) 
+            )), speed * fps) 
         end,
-        
         RandomCC = function(localcframe, ent, fps)
             local rng = Random.new()
             local currentTime = tick()
@@ -1518,7 +1515,9 @@ run(function()
                 hitTimer = currentTime + (2 + rng:NextNumber() * 3) 
             end
             
+            local targetPos = getAim(ent)
             local finalOffset = randomOffset
+            
             if currentTime >= hitTimer and rng:NextNumber() * 100 < RandomCCHitChance.Value then
                 finalOffset = Vector3.new(
                     (rng:NextNumber() - 0.5) * 0.1,
@@ -1528,43 +1527,38 @@ run(function()
                 hitTimer = currentTime + (1.5 + rng:NextNumber() * 2.5)
             end
             
-            local shakeVec = Vector3.new(
+            local speed = (RandomCCSpeed.Value * 0.1) + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 0.5 or 0)
+            
+            return localcframe:Lerp(CFrame.lookAt(localcframe.p, targetPos + finalOffset + Vector3.new(
                 (rng:NextNumber() - 0.5) * Shake.Value * fps * 0.5,
                 (rng:NextNumber() - 0.5) * Shake.Value * fps * 0.5,
                 (rng:NextNumber() - 0.5) * Shake.Value * fps * 0.5
-            )
-            
-            local speed = (RandomCCSpeed.Value * 0.1) + (StrafeIncrease.Enabled and (inputService:IsKeyDown(Enum.KeyCode.A) or inputService:IsKeyDown(Enum.KeyCode.D)) and 0.5 or 0)
-            return localcframe:Lerp(CFrame.lookAt(localcframe.Position, getAim(ent) + finalOffset + shakeVec), speed * fps)
+            )), speed * fps)
         end
     }
 
-    local function GetTarget()
-        if not lasttarget then return false end
-        
-        local char = entitylib.character
-        if not char or not char.RootPart then return false end
-        
-        local localPosition = char.RootPart.Position
-        if not lasttarget.RootPart or not lasttarget.Humanoid or lasttarget.Humanoid.Health <= 0 then
-            return false
-        end
-        
-        if (localPosition - lasttarget.RootPart.Position).Magnitude > Distance.Value then
-            return false
-        end
-        
-        if Targets.Walls.Enabled and entitylib.Wallcheck(localPosition, lasttarget.RootPart.Position) then
-            return false
-        end
-        
-        return lasttarget
-    end
+	local function GetTarget()
+		if lasttarget then
+			local localPosition = entitylib.character.RootPart.Position
+			if not lasttarget or not lasttarget.RootPart or not lasttarget.Humanoid or not lasttarget.Humanoid.Health or lasttarget.Humanoid.Health <= 0 then
+				return false
+			end
+			if (localPosition - lasttarget.RootPart.Position).Magnitude > Distance.Value then
+				return false
+			end
+			if Targets.Walls.Enabled and entitylib.Wallcheck(localPosition, lasttarget.RootPart.Position, Targets.Walls.Enabled) then
+				return false
+			end
+			return lasttarget
+		end
+
+		return false
+	end
 
     local function getAttackData()
         if not entitylib.isAlive then return false end
         if Mouse.Enabled and not inputService:IsMouseButtonPressed(0) and (tick() - bedwars.SwordController.lastSwing) > 0.15 then return false end
-        if ClickAim.Enabled and (tick() - bedwars.SwordController.lastSwing) > 0.3 then return false end
+		if ClickAim.Enabled and (tick() - bedwars.SwordController.lastSwing) > 0.3 then return false end
         if BlockBreak.Enabled and (tick() - store.lastHit) < 0.3 then return false end
         if Limit.Enabled and store.hand.toolType ~= 'sword' then return false end
 
@@ -1578,152 +1572,146 @@ run(function()
         end
 
         if (tick() - started) > 1 or not lasttarget or not lasttarget.Parent or not lasttarget.Humanoid or lasttarget.Humanoid.Health <= 0 then
-            local ent = GetTarget() 
-            if not ent and KillauraTarget.Enabled then
-                ent = store.KillauraTarget
-            end
-            if not ent then
-                ent = entitylib.EntityPosition({
-                    Range = Distance.Value,
-                    Part = 'RootPart',
-                    Wallcheck = Targets.Walls.Enabled,
-                    Players = Targets.Players.Enabled,
-                    NPCs = Targets.NPCs.Enabled,
-                    Sort = sortmethods[Sort.Value]
-                })
-            end
-            
+            local ent = GetTarget() or KillauraTarget.Enabled and store.KillauraTarget or entitylib.EntityPosition({
+                Range = Distance.Value,
+                Part = 'RootPart',
+                Wallcheck = Targets.Walls.Enabled,
+                Players = Targets.Players.Enabled,
+                NPCs = Targets.NPCs.Enabled,
+                Sort = sortmethods[Sort.Value]
+            })
             if ent then
                 started = tick()
             end
             lasttarget = ent
         end
-        
         return lasttarget
     end
 	
-    AimAssist = vape.Categories.Combat:CreateModule({
-        Name = 'AimAssist',
-        Function = function(callback)
-            if callback then
-                AimAssist:Clean(runService.PostSimulation:Connect(function(dt)
-                    -- ご指定の3人称チェック
-                    local isThirdPerson = (gameCamera.CameraSubject and gameCamera.CameraSubject:IsA("Humanoid") and gameCamera.CameraType == Enum.CameraType.Custom)
-                        and (gameCamera.CFrame.Position - gameCamera.Focus.Position).Magnitude > 1
-
-                    if OnlyEnableFirstPerson.Enabled and isThirdPerson then
-                        return
+	AimAssist = vape.Categories.Combat:CreateModule({
+		Name = 'AimAssist',
+		Function = function(callback)
+			if callback then
+				AimAssist:Clean(runService.PostSimulation:Connect(function(dt)
+                    local isFirst = isFirstPerson()
+                    
+                    -- OnlyEnableFirstPersonチェック
+                    if OnlyEnableFirstPerson.Enabled and not isFirst then 
+                        return 
                     end
 
                     local ent = getAttackData()
-                    
+                    local rng = Random.new()
+
                     if ent then
+                        -- ターゲットが存在する場合のエイム処理
                         local delta = (ent.RootPart.Position - entitylib.character.RootPart.Position)
                         local localfacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
-                        local angle = math.acos(math.clamp(localfacing.Unit:Dot((delta * Vector3.new(1, 0, 1)).Unit), -1, 1))
-                        
+                        local angle = math.acos(localfacing:Dot((delta * Vector3.new(1, 0, 1)).Unit))
                         if angle >= (math.rad(AngleSlider.Value) / 2) then return end
-                        
                         targetinfo.Targets[ent] = tick() + 1
-                        local newCFrame = aimfuncs[Mode.Value](gameCamera.CFrame, ent, dt)
                         
-                        if isThirdPerson then
-                            local lookDiff = newCFrame.LookVector - gameCamera.CFrame.LookVector
-                            local sens = AimSpeed.Value * 50 * dt
-                            mousemoverel(lookDiff.X * sens, -lookDiff.Y * sens)
+                        if isFirst then
+                            -- 1人称時は従来のCamera CFrame書き換え
+                            gameCamera.CFrame = aimfuncs[Mode.Value](gameCamera.CFrame, ent, dt)
                         else
-                            gameCamera.CFrame = newCFrame
+                            -- 3人称時はmousemoverelを使用
+                            local targetPos = getAim(ent)
+                            local screenPos, vis = gameCamera:WorldToViewportPoint(targetPos)
+                            if vis then
+                                local mousePos = getMousePosition()
+                                local moveX = (screenPos.X - mousePos.X) * (AimSpeed.Value / 20)
+                                local moveY = (screenPos.Y - mousePos.Y) * (AimSpeed.Value / 20)
+                                
+                                -- Shake値の適用
+                                if Shake.Value > 0 then
+                                    moveX = moveX + (rng:NextNumber() - 0.5) * Shake.Value
+                                    moveY = moveY + (rng:NextNumber() - 0.5) * Shake.Value
+                                end
+                                
+                                if typeof(mousemoverel) == "function" then
+                                    mousemoverel(moveX, moveY)
+                                end
+                            end
                         end
+                    elseif AlwaysAimAssist.Enabled and Shake.Value > 0 then
+                        -- ターゲットがおらず、AlwaysAimAssistがオンの場合のカメラ微揺れ処理
+                        local shakeX = (rng:NextNumber() - 0.5) * Shake.Value * dt * 10
+                        local shakeY = (rng:NextNumber() - 0.5) * Shake.Value * dt * 10
                         
-                    elseif AlwaysAimAssist.Enabled then
-                        local rng = Random.new()
-                        local shakeAmt = Shake.Value * dt * 0.01
-                        local idleCFrame = gameCamera.CFrame * CFrame.Angles(
-                            (rng:NextNumber() - 0.5) * shakeAmt,
-                            (rng:NextNumber() - 0.5) * shakeAmt,
-                            0
-                        )
-                        
-                        if isThirdPerson then
-                            local lookDiff = idleCFrame.LookVector - gameCamera.CFrame.LookVector
-                            local sens = 30 * dt
-                            mousemoverel(lookDiff.X * sens, -lookDiff.Y * sens)
+                        if isFirst then
+                            gameCamera.CFrame = gameCamera.CFrame * CFrame.Angles(math.rad(shakeY), math.rad(shakeX), 0)
                         else
-                            gameCamera.CFrame = idleCFrame
+                            if typeof(mousemoverel) == "function" then
+                                mousemoverel(shakeX * 5, shakeY * 5)
+                            end
                         end
                     end
-                end))
-            end
-        end,
-        Tooltip = 'Smoothly aims to closest valid target with sword'
-    })
-    
+				end))
+			end
+		end,
+		Tooltip = 'Smoothly aims to closest valid target with sword'
+	})
     local modes = {}
-    for k in pairs(aimfuncs) do
-        table.insert(modes, k)
+    for i in aimfuncs do
+        table.insert(modes, i)
     end
-    
     Mode = AimAssist:CreateDropdown({
         Name = 'Mode',
         List = modes,
-        Tooltip = 'Simple - Smooth aiming\nAdaptive - Advanced tracking\nRandomCC - Random aim around target',
+        Tooltip = 'Simple - Smooth aiming\nAdaptive - Advanced tracking\nRandomCC - Random aim around target (anti-detection)',
         Default = modes[1]
     })
-    
-    Targets = AimAssist:CreateTargets({
-        Players = true,
-        Walls = true
-    })
-    
-    local methods = {'Damage', 'Distance'}
-    for k in pairs(sortmethods) do
-        if not table.find(methods, k) then
-            table.insert(methods, k)
-        end
-    end
-    
-    OnlyEnableFirstPerson = AimAssist:CreateToggle({
-        Name = 'Only enable first person',
-        Tooltip = 'Disables aim assist when in third person view'
-    })
-    
-    AlwaysAimAssist = AimAssist:CreateToggle({
-        Name = 'Always aim assist',
-        Tooltip = 'Applies camera shake even without a target to look legit'
-    })
-    
+	Targets = AimAssist:CreateTargets({
+		Players = true,
+		Walls = true
+	})
+	local methods = {'Damage', 'Distance'}
+	for i in sortmethods do
+		if not table.find(methods, i) then
+			table.insert(methods, i)
+		end
+	end
     ClickAim = AimAssist:CreateToggle({
-        Name = 'Click aim',
-        Default = true
-    })
-    
-    Mouse = AimAssist:CreateToggle({Name = 'Require mouse down'})
-    StrafeIncrease = AimAssist:CreateToggle({Name = 'Strafe increase'})
+		Name = 'Click aim',
+		Default = true
+	})
+	Mouse = AimAssist:CreateToggle({Name = 'Require mouse down'})
+	StrafeIncrease = AimAssist:CreateToggle({Name = 'Strafe increase'})
     BlockBreak = AimAssist:CreateToggle({Name = 'Check block break'})
     KillauraTarget = AimAssist:CreateToggle({Name = 'Use killaura target'})
+	PriorityKillauraTarget = AimAssist:CreateToggle({
+		Name = 'Priority killaura target',
+		Tooltip = 'Always aims at killaura target when available, ignoring all other targets'
+	})
     
-    PriorityKillauraTarget = AimAssist:CreateToggle({
-        Name = 'Priority killaura target',
-        Tooltip = 'Always aims at killaura target when available'
+    -- 新しいトグルボタンの追加
+    OnlyEnableFirstPerson = AimAssist:CreateToggle({
+        Name = 'Only enable first person',
+        Tooltip = 'Only activates AimAssist when in first person view',
+        Default = false
     })
-    
-    AimSpeed = AimAssist:CreateSlider({
-        Name = 'Aim speed',
-        Min = 1,
-        Max = 20,
-        Default = 6
+    AlwaysAimAssist = AimAssist:CreateToggle({
+        Name = 'Always AimAssist',
+        Tooltip = 'Simulates a constant idle hand shake even without targets',
+        Default = false
     })
-    
-    Distance = AimAssist:CreateSlider({
-        Name = 'Distance',
-        Min = 1,
-        Max = 30,
-        Default = 30,
-        Suffix = function(val)
-            return val == 1 and 'stud' or 'studs'
-        end
-    })
-    
+
+	AimSpeed = AimAssist:CreateSlider({
+		Name = 'Aim speed',
+		Min = 1,
+		Max = 20,
+		Default = 6
+	})
+	Distance = AimAssist:CreateSlider({
+		Name = 'Distance',
+		Min = 1,
+		Max = 30,
+		Default = 30,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
     Shake = AimAssist:CreateSlider({
         Name = 'Shake',
         Min = 0,
@@ -1731,13 +1719,12 @@ run(function()
         Default = 0,
         Tooltip = 'Adds random jitter to simulate human aim'
     })
-    
-    AngleSlider = AimAssist:CreateSlider({
-        Name = 'Max angle',
-        Min = 1,
-        Max = 360,
-        Default = 70
-    })
+	AngleSlider = AimAssist:CreateSlider({
+		Name = 'Max angle',
+		Min = 1,
+		Max = 360,
+		Default = 70
+	})
    
     RandomCCRadius = AimAssist:CreateSlider({
         Name = 'RandomCC radius',
@@ -1746,7 +1733,6 @@ run(function()
         Default = 15,
         Tooltip = 'How far to aim around the target (RandomCC mode only)'
     })
-    
     RandomCCSpeed = AimAssist:CreateSlider({
         Name = 'RandomCC speed',
         Min = 1,
@@ -1754,7 +1740,6 @@ run(function()
         Default = 8,
         Tooltip = 'Aim speed for RandomCC mode'
     })
-    
     RandomCCHitChance = AimAssist:CreateSlider({
         Name = 'RandomCC hit %',
         Min = 5,
@@ -1763,23 +1748,20 @@ run(function()
         Suffix = '%',
         Tooltip = 'Chance to actually aim at target (lower = more legit)'
     })
-    
     Limit = AimAssist:CreateToggle({
         Name = 'Limit to items',
         Tooltip = 'Only attacks when sword is held'
     })
-    
     Sort = AimAssist:CreateDropdown({
-        Name = 'Target mode',
-        List = methods,
+		Name = 'Target mode',
+		List = methods,
         Default = 'Angle'
-    })
-    
+	})
     AimPart = AimAssist:CreateDropdown({
-        Name = 'Target area',
-        List = {'Center', 'Closest'},
+		Name = 'Target area',
+		List = {'Center', 'Closest'},
         Default = 'Center'
-    })
+	})
 end)
 	
 	
