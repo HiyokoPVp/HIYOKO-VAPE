@@ -14,35 +14,6 @@ local vapeEvents = setmetatable({}, {
 	end
 })
 
-local loadstring = function(...)
-	local res, err = loadstring(...)
-	if err and vape then
-		vape:CreateNotification('Vape', 'Failed to load : '..err, 30, 'alert')
-	end
-	return res
-end
-local isfile = isfile or function(file)
-	local suc, res = pcall(function()
-		return readfile(file)
-	end)
-	return suc and res ~= nil and res ~= ''
-end
-local function downloadFile(path, func)
-	if not isfile(path) then
-		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/HiyokoPVp/HIYOKO-VAPE/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
-		end)
-		if not suc or res == '404: Not Found' then
-			error(res)
-		end
-		if path:find('.lua') then
-			res = '--This watermark is used to delete the file if its cached, remove it to make the file persist after vape updates.\n'..res
-		end
-		writefile(path, res)
-	end
-	return (func or readfile)(path)
-end
-
 local playersService = cloneref(game:GetService('Players'))
 local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
 local runService = cloneref(game:GetService('RunService'))
@@ -799,24 +770,6 @@ run(function()
 	vape:Clean(entitylib.Events.LocalAdded:Connect(updateVelocity))
 end)
 entitylib.start()
-local require, debug = require, debug
-shared.gg = {}
-run(function()
-	canDebug = not table.find({'Solara', 'Xeno'}, ({identifyexecutor()})[1]) and true or false
-	if not canDebug then
-		local cheatenginelib = loadstring(downloadFile('newvape/libraries/cheatenginelib.lua'), 'cheatenginelib')(vape, vapeEvents, entitylib)
-		require = function(v) 
-			return cheatenginelib[({v:GetFullName():gsub("hiyokovape user hey maxlasertech, can i use cheatenginelib? sorry for using this. but forgive me", 'PlayerTemplate')})[1]]:await()
-		end
-		debug = setmetatable({getproto = function() return function() end end}, {
-			__index = function(self, index)
-				self[index] = function() end
-				return self[index]
-			end
-		})
-	end
-end)
-
 local function safeGetProto(func, index)
 	if not func then return nil end
 	local success, proto = pcall(debug.getproto, func, index) -- ★debug.getproto に修正
