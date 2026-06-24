@@ -8751,3 +8751,127 @@ run(function()
 	end
 end)
 
+run(function()
+    local HideMyUser
+    local Mode
+    local ReplaceText
+    local RealTime
+    
+    local originalTexts = {}
+    local connections = {}
+    local isUpdating = false
+    
+    local function escapePattern(s)
+        if not s then return "" end
+        return s:gsub("([^%w])", "%%%1")
+    end
+    
+    local function checkAndHide(obj)
+        if isUpdating then return end
+        if not obj:IsA('TextLabel') and not obj:IsA('TextButton') and not obj:IsA('TextBox') then return end
+        local text = obj.Text
+        if not text or typeof(text) ~= 'string' then return end
+        
+        local username = lplr.Name
+        local displayname = lplr.DisplayName
+        local replace = ReplaceText.Value
+        
+        local escUsername = escapePattern(username)
+        local escDisplayname = escapePattern(displayname)
+        
+        local shouldHide = false
+        if (Mode.Value == 'Username' or Mode.Value == 'Both') and username ~= '' and text:find(escUsername, 1, true) then
+            shouldHide = true
+        end
+        if (Mode.Value == 'Displayname' or Mode.Value == 'Both') and displayname and displayname ~= '' and text:find(escDisplayname, 1, true) then
+            shouldHide = true
+        end
+        
+        if shouldHide then
+            local newText = text
+            if (Mode.Value == 'Username' or Mode.Value == 'Both') and username ~= '' then
+                newText = newText:gsub(escUsername, replace)
+            end
+            if (Mode.Value == 'Displayname' or Mode.Value == 'Both') and displayname and displayname ~= '' then
+                newText = newText:gsub(escDisplayname, replace)
+            end
+            
+            if newText ~= text then
+                if not originalTexts[obj] then
+                    originalTexts[obj] = text
+                end
+                isUpdating = true
+                pcall(function() obj.Text = newText end)
+                isUpdating = false
+            end
+        end
+    end
+    
+    local function hookObject(obj)
+        if connections[obj] then return end
+        checkAndHide(obj)
+        local conn = obj:GetPropertyChangedSignal('Text'):Connect(function()
+            checkAndHide(obj)
+        end)
+        connections[obj] = conn
+        HideMyUser:Clean(conn)
+    end
+    
+    HideMyUser = vape.Categories.Render:CreateModule({
+        Name = 'HideMyUser',
+        Function = function(callback)
+            if callback then
+                -- 既存のGUIをすべてスキャン
+                for _, obj in ipairs(game:GetDescendants()) do
+                    if obj:IsA('TextLabel') or obj:IsA('TextButton') or obj:IsA('TextBox') then
+                        hookObject(obj)
+                    end
+                end
+                
+                -- リアルタイム監視
+                if RealTime.Enabled then
+                    HideMyUser:Clean(game.DescendantAdded:Connect(function(obj)
+                        if obj:IsA('TextLabel') or obj:IsA('TextButton') or obj:IsA('TextBox') then
+                            hookObject(obj)
+                        end
+                    end))
+                end
+            else
+                -- 接続を切断
+                for obj, conn in pairs(connections) do
+                    if conn then conn:Disconnect() end
+                end
+                table.clear(connections)
+                
+                -- 元のテキストに復元
+                for obj, text in pairs(originalTexts) do
+                    if obj and obj.Parent then
+                        isUpdating = true
+                        pcall(function() obj.Text = text end)
+                        isUpdating = false
+                    end
+                end
+                table.clear(originalTexts)
+            end
+        end,
+        Tooltip = 'Hides your username and displayname from all GUI elements'
+    })
+    
+    Mode = HideMyUser:CreateDropdown({
+        Name = 'Hide Mode',
+        List = {'Username', 'Displayname', 'Both'},
+        Default = 'Both'
+    })
+    
+    ReplaceText = HideMyUser:CreateTextBox({
+        Name = 'Replace Text',
+        Default = 'Hidden',
+        Placeholder = 'New Name'
+    })
+    
+    RealTime = HideMyUser:CreateToggle({
+        Name = 'Real-time Scan',
+        Default = true,
+        Tooltip = 'Continuously scans for new GUI elements and text changes'
+    })
+end)
