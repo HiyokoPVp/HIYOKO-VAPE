@@ -18002,14 +18002,13 @@ run(function()
     local SpeedValue
     local RadiusValue
     
-    local invisTracks = {}
-    
     MakePeopleusingHack = vape.Categories.Blatant:CreateModule({
         Name = 'MakePeopleusingHack',
         Function = function(callback)
             if callback then
                 MakePeopleusingHack:Clean(runService.RenderStepped:Connect(function(dt)
                     local targets = {}
+                    -- TargetListに入力されたプレイヤー名とentitylibを照合
                     for _, name in ipairs(TargetList.ListEnabled) do
                         for _, ent in ipairs(entitylib.List) do
                             if ent.Player and ent.Player.Name == name and ent.RootPart then
@@ -18023,106 +18022,42 @@ run(function()
                         local hum = ent.Humanoid
                         if root and hum and hum.Health > 0 then
                             local mode = HackMode.Value
-                            -- サーバーから同期された最新のCFrameを取得
-                            local currentCF = root.CFrame 
-                            
                             if mode == 'Fly' then
-                                -- 現在の位置に対してY軸を加算（空中を歩いているように見える）
-                                root.CFrame = currentCF + Vector3.new(0, SpeedValue.Value, 0)
-                                
+                                -- 無理やり上空へ飛ばす
+                                root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, SpeedValue.Value, root.AssemblyLinearVelocity.Z)
+                                root.CFrame = root.CFrame + Vector3.new(0, SpeedValue.Value * dt, 0)
                             elseif mode == 'Spin' then
-                                -- 現在の回転に対してY軸回転を加算
-                                root.CFrame = currentCF * CFrame.Angles(0, math.rad(SpeedValue.Value * dt * 10), 0)
-                                
+                                -- コマのように高速回転させる
+                                root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(SpeedValue.Value * dt * 5), 0)
                             elseif mode == 'Orbit' then
+                                -- 自分の周囲を衛星のように強制的に回らせる
                                 if entitylib.isAlive and entitylib.character.RootPart then
                                     local myPos = entitylib.character.RootPart.Position
                                     local angle = tick() * (SpeedValue.Value / 20)
                                     local offset = CFrame.new(math.cos(angle) * RadiusValue.Value, 5, math.sin(angle) * RadiusValue.Value)
-                                    -- 自分の周りを強制的に配置
                                     root.CFrame = CFrame.new(myPos) * offset
                                 end
-                                
                             elseif mode == 'Shake' then
-                                -- ランダムなオフセットを加えて振動させる
+                                -- 激しく振動させてパニック状態のように見せる
                                 local shake = Vector3.new(
                                     (math.random() - 0.5) * SpeedValue.Value,
                                     (math.random() - 0.5) * SpeedValue.Value,
                                     (math.random() - 0.5) * SpeedValue.Value
                                 )
-                                root.CFrame = currentCF + shake
-                                
+                                root.CFrame = root.CFrame + shake * dt
                             elseif mode == 'PushAway' then
+                                -- 自分から引き離すように弾き飛ばす
                                 if entitylib.isAlive and entitylib.character.RootPart then
                                     local dir = (root.Position - entitylib.character.RootPart.Position).Unit
-                                    -- 自分から離れる方向へCFrameを飛ばす
-                                    root.CFrame = currentCF + (dir * SpeedValue.Value * dt * 10)
-                                end
-                                
-                            elseif mode == 'Invis' then
-                                -- アニメーションバグのみ適用 (CFrameは操作しない)
-                                local animator = hum:FindFirstChildOfClass('Animator')
-                                if animator then
-                                    if not invisTracks[ent] then
-                                        local anim = Instance.new('Animation')
-                                        anim.AnimationId = 'rbxassetid://18537363391'
-                                        local track = animator:LoadAnimation(anim)
-                                        track.Priority = Enum.AnimationPriority.Action4
-                                        track.Looped = true
-                                        track:Play(0, 1, 1)
-                                        invisTracks[ent] = track
-                                        anim:Destroy()
-                                    else
-                                        if invisTracks[ent].TimePosition ~= 0.77 then
-                                            invisTracks[ent].TimePosition = 0.77
-                                        end
-                                    end
-                                end
-                                
-                            elseif mode == 'Spinbot' then
-                                -- 超高速回転 (CFrame乗算)
-                                root.CFrame = currentCF * CFrame.Angles(0, math.rad(SpeedValue.Value * dt * 50), 0)
-                                
-                            elseif mode == 'Desync' then
-                                -- Desync (FakeLag) 再現
-                                -- ランダムな確率で大きくワープさせ、サーバー同期と喧嘩させてガクガクさせる
-                                if math.random() < 0.5 then
-                                    local intensity = SpeedValue.Value
-                                    local randOffset = Vector3.new(
-                                        (math.random() - 0.5) * intensity,
-                                        (math.random() - 0.5) * intensity,
-                                        (math.random() - 0.5) * intensity
-                                    )
-                                    root.CFrame = currentCF + randOffset
-                                    -- 回転もランダムにねじ曲げる
-                                    root.CFrame = root.CFrame * CFrame.Angles(
-                                        math.rad(math.random(-180, 180)),
-                                        math.rad(math.random(-180, 180)),
-                                        math.rad(math.random(-180, 180))
-                                    )
+                                    root.AssemblyLinearVelocity = dir * SpeedValue.Value
                                 end
                             end
                         end
                     end
-                    
-                    -- クリーンアップ
-                    for ent, track in pairs(invisTracks) do
-                        local isTarget = false
-                        for _, t in ipairs(targets) do if t == ent then isTarget = true; break; end end
-                        if not isTarget or HackMode.Value ~= 'Invis' then
-                            if track then track:Stop() end
-                            invisTracks[ent] = nil
-                        end
-                    end
                 end))
-            else
-                for ent, track in pairs(invisTracks) do
-                    if track then track:Stop() end
-                end
-                table.clear(invisTracks)
             end
         end,
-        Tooltip = 'Client-sided visual hack (CFrame Override)'
+        Tooltip = 'Client-sided visual hack to make selected players look like they are cheating'
     })
     
     TargetList = MakePeopleusingHack:CreateTextList({
@@ -18132,8 +18067,9 @@ run(function()
     
     HackMode = MakePeopleusingHack:CreateDropdown({
         Name = 'Hack Mode',
-        List = {'Fly', 'Spin', 'Orbit', 'Shake', 'PushAway', 'Invis', 'Spinbot', 'Desync'},
+        List = {'Fly', 'Spin', 'Orbit', 'Shake', 'PushAway'},
         Default = 'Fly',
+        Tooltip = 'Fly: Upward | Spin: Rotate | Orbit: Circle around you | Shake: Jitter | PushAway: Repel'
     })
     
     SpeedValue = MakePeopleusingHack:CreateSlider({
@@ -18148,5 +18084,6 @@ run(function()
         Min = 5,
         Max = 50,
         Default = 15,
+        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
     })
 end)
