@@ -18002,6 +18002,9 @@ run(function()
     local SpeedValue
     local RadiusValue
     
+    local invisTracks = {}
+    local originalTransparencies = {}
+    
     MakePeopleusingHack = vape.Categories.Blatant:CreateModule({
         Name = 'MakePeopleusingHack',
         Function = function(callback)
@@ -18022,13 +18025,16 @@ run(function()
                         local hum = ent.Humanoid
                         if root and hum and hum.Health > 0 then
                             local mode = HackMode.Value
+                            
                             if mode == 'Fly' then
                                 -- 無理やり上空へ飛ばす
                                 root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, SpeedValue.Value, root.AssemblyLinearVelocity.Z)
                                 root.CFrame = root.CFrame + Vector3.new(0, SpeedValue.Value * dt, 0)
+                                
                             elseif mode == 'Spin' then
                                 -- コマのように高速回転させる
                                 root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(SpeedValue.Value * dt * 5), 0)
+                                
                             elseif mode == 'Orbit' then
                                 -- 自分の周囲を衛星のように強制的に回らせる
                                 if entitylib.isAlive and entitylib.character.RootPart then
@@ -18037,6 +18043,7 @@ run(function()
                                     local offset = CFrame.new(math.cos(angle) * RadiusValue.Value, 5, math.sin(angle) * RadiusValue.Value)
                                     root.CFrame = CFrame.new(myPos) * offset
                                 end
+                                
                             elseif mode == 'Shake' then
                                 -- 激しく振動させてパニック状態のように見せる
                                 local shake = Vector3.new(
@@ -18045,16 +18052,115 @@ run(function()
                                     (math.random() - 0.5) * SpeedValue.Value
                                 )
                                 root.CFrame = root.CFrame + shake * dt
+                                
                             elseif mode == 'PushAway' then
                                 -- 自分から引き離すように弾き飛ばす
                                 if entitylib.isAlive and entitylib.character.RootPart then
                                     local dir = (root.Position - entitylib.character.RootPart.Position).Unit
                                     root.AssemblyLinearVelocity = dir * SpeedValue.Value
                                 end
+                                
+                            elseif mode == 'Invis' then
+                                -- Invisibleチート再現
+                                -- 1. 透明化 (LocalTransparencyModifierを強制)
+                                if not originalTransparencies[ent] then
+                                    originalTransparencies[ent] = true
+                                    for _, part in ipairs(ent.Character:GetDescendants()) do
+                                        if part:IsA('BasePart') or part:IsA('Decal') then
+                                            part.LocalTransparencyModifier = 1
+                                        end
+                                    end
+                                end
+                                
+                                -- 2. アニメーション (18537363391) を再生して消えた状態を維持
+                                local animator = hum:FindFirstChildOfClass('Animator')
+                                if animator then
+                                    if not invisTracks[ent] then
+                                        local anim = Instance.new('Animation')
+                                        anim.AnimationId = 'rbxassetid://18537363391'
+                                        local track = animator:LoadAnimation(anim)
+                                        track.Priority = Enum.AnimationPriority.Action4
+                                        track.Looped = true
+                                        track:Play(0, 1, 1)
+                                        -- 消えた状態で固定 (TimePosition 0.77)
+                                        track.TimePosition = 0.77
+                                        track:AdjustSpeed(0)
+                                        invisTracks[ent] = track
+                                        anim:Destroy()
+                                    else
+                                        -- 毎フレーム維持
+                                        if invisTracks[ent].TimePosition ~= 0.77 then
+                                            invisTracks[ent].TimePosition = 0.77
+                                        end
+                                    end
+                                end
+                                
+                                -- 3. RootPartの挙動 (Invisibleチート特有の「見えない/ずれている」感じ)
+                                -- 本来の位置から少し下にずらし、反転させる
+                                local cf = root.CFrame
+                                root.CFrame = cf * CFrame.new(0, -3, 0) * CFrame.Angles(math.rad(180), 0, 0)
+                                
+                            elseif mode == 'Spinbot' then
+                                -- Spinbot (高速回転)
+                                hum.AutoRotate = false
+                                local spinSpeed = SpeedValue.Value * 15 -- 回転速度
+                                root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(spinSpeed * dt), 0)
                             end
                         end
                     end
+                    
+                    -- ターゲットリストにいないエンティティやモード変更時のクリーンアップ
+                    for ent, _ in pairs(originalTransparencies) do
+                        local isTarget = false
+                        for _, t in ipairs(targets) do if t == ent then isTarget = true; break; end end
+                        if not isTarget or HackMode.Value ~= 'Invis' then
+                            if ent.Character then
+                                for _, part in ipairs(ent.Character:GetDescendants()) do
+                                    if part:IsA('BasePart') or part:IsA('Decal') then
+                                        part.LocalTransparencyModifier = 0
+                                    end
+                                end
+                            end
+                            originalTransparencies[ent] = nil
+                        end
+                    end
+                    for ent, track in pairs(invisTracks) do
+                        local isTarget = false
+                        for _, t in ipairs(targets) do if t == ent then isTarget = true; break; end end
+                        if not isTarget or HackMode.Value ~= 'Invis' then
+                            if track then track:Stop() end
+                            invisTracks[ent] = nil
+                        end
+                    end
+                    for _, ent in ipairs(entitylib.List) do
+                        local isTarget = false
+                        for _, t in ipairs(targets) do if t == ent then isTarget = true; break; end end
+                        if not isTarget or HackMode.Value ~= 'Spinbot' then
+                            if ent.Humanoid then ent.Humanoid.AutoRotate = true end
+                        end
+                    end
                 end))
+            else
+                -- モジュールOFF時の完全クリーンアップ
+                for ent, _ in pairs(originalTransparencies) do
+                    if ent.Character then
+                        for _, part in ipairs(ent.Character:GetDescendants()) do
+                            if part:IsA('BasePart') or part:IsA('Decal') then
+                                part.LocalTransparencyModifier = 0
+                            end
+                        end
+                    end
+                end
+                table.clear(originalTransparencies)
+                
+                for ent, track in pairs(invisTracks) do
+                    if track then track:Stop() end
+                end
+                table.clear(invisTracks)
+                
+                for _, ent in ipairs(entitylib.List) do
+                    if ent.Humanoid then ent.Humanoid.AutoRotate = true end
+                end
             end
         end,
         Tooltip = 'Client-sided visual hack to make selected players look like they are cheating'
@@ -18067,9 +18173,9 @@ run(function()
     
     HackMode = MakePeopleusingHack:CreateDropdown({
         Name = 'Hack Mode',
-        List = {'Fly', 'Spin', 'Orbit', 'Shake', 'PushAway'},
+        List = {'Fly', 'Spin', 'Orbit', 'Shake', 'PushAway', 'Invis', 'Spinbot'},
         Default = 'Fly',
-        Tooltip = 'Fly: Upward | Spin: Rotate | Orbit: Circle around you | Shake: Jitter | PushAway: Repel'
+        Tooltip = 'Invis: Simulates Invisible cheat | Spinbot: High speed rotation'
     })
     
     SpeedValue = MakePeopleusingHack:CreateSlider({
