@@ -18023,40 +18023,44 @@ run(function()
                         local hum = ent.Humanoid
                         if root and hum and hum.Health > 0 then
                             local mode = HackMode.Value
+                            -- サーバーから同期された最新のCFrameを取得
+                            local currentCF = root.CFrame 
                             
                             if mode == 'Fly' then
-                                -- CFrame直接操作をやめ、Velocityのみで上昇させる（移動は維持）
-                                root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, SpeedValue.Value, root.AssemblyLinearVelocity.Z)
+                                -- 現在の位置に対してY軸を加算（空中を歩いているように見える）
+                                root.CFrame = currentCF + Vector3.new(0, SpeedValue.Value, 0)
                                 
                             elseif mode == 'Spin' then
-                                -- CFrameではなくAngularVelocityで回転させる
-                                root.AssemblyAngularVelocity = Vector3.new(0, SpeedValue.Value * 5, 0)
+                                -- 現在の回転に対してY軸回転を加算
+                                root.CFrame = currentCF * CFrame.Angles(0, math.rad(SpeedValue.Value * dt * 10), 0)
                                 
                             elseif mode == 'Orbit' then
                                 if entitylib.isAlive and entitylib.character.RootPart then
-                                    -- 円運動をするようなVelocityを加える
+                                    local myPos = entitylib.character.RootPart.Position
                                     local angle = tick() * (SpeedValue.Value / 20)
-                                    local dir = Vector3.new(math.cos(angle), 0, math.sin(angle))
-                                    root.AssemblyLinearVelocity = (dir * SpeedValue.Value * 2) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+                                    local offset = CFrame.new(math.cos(angle) * RadiusValue.Value, 5, math.sin(angle) * RadiusValue.Value)
+                                    -- 自分の周りを強制的に配置
+                                    root.CFrame = CFrame.new(myPos) * offset
                                 end
                                 
                             elseif mode == 'Shake' then
-                                -- ランダムなVelocityノイズを加えてパニック状態を再現
+                                -- ランダムなオフセットを加えて振動させる
                                 local shake = Vector3.new(
-                                    (math.random() - 0.5) * SpeedValue.Value * 2,
-                                    (math.random() - 0.5) * SpeedValue.Value * 2,
-                                    (math.random() - 0.5) * SpeedValue.Value * 2
+                                    (math.random() - 0.5) * SpeedValue.Value,
+                                    (math.random() - 0.5) * SpeedValue.Value,
+                                    (math.random() - 0.5) * SpeedValue.Value
                                 )
-                                root.AssemblyLinearVelocity = root.AssemblyLinearVelocity + shake
+                                root.CFrame = currentCF + shake
                                 
                             elseif mode == 'PushAway' then
                                 if entitylib.isAlive and entitylib.character.RootPart then
                                     local dir = (root.Position - entitylib.character.RootPart.Position).Unit
-                                    root.AssemblyLinearVelocity = dir * SpeedValue.Value
+                                    -- 自分から離れる方向へCFrameを飛ばす
+                                    root.CFrame = currentCF + (dir * SpeedValue.Value * dt * 10)
                                 end
                                 
                             elseif mode == 'Invis' then
-                                -- CFrameの操作は削除。アニメーションバグのみで透明化を再現
+                                -- アニメーションバグのみ適用 (CFrameは操作しない)
                                 local animator = hum:FindFirstChildOfClass('Animator')
                                 if animator then
                                     if not invisTracks[ent] then
@@ -18076,29 +18080,32 @@ run(function()
                                 end
                                 
                             elseif mode == 'Spinbot' then
-                                hum.AutoRotate = false
-                                -- AngularVelocityで超高速回転（移動は維持）
-                                root.AssemblyAngularVelocity = Vector3.new(0, SpeedValue.Value * 15, 0)
+                                -- 超高速回転 (CFrame乗算)
+                                root.CFrame = currentCF * CFrame.Angles(0, math.rad(SpeedValue.Value * dt * 50), 0)
                                 
                             elseif mode == 'Desync' then
-                                -- ランダムな大きなVelocityを加えてワープ/ラグを再現
-                                local intensity = SpeedValue.Value
-                                local randVel = Vector3.new(
-                                    (math.random() - 0.5) * intensity * 5,
-                                    (math.random() - 0.5) * intensity * 5,
-                                    (math.random() - 0.5) * intensity * 5
-                                )
-                                root.AssemblyLinearVelocity = root.AssemblyLinearVelocity + randVel
-                                root.AssemblyAngularVelocity = Vector3.new(
-                                    math.random(-intensity, intensity),
-                                    math.random(-intensity, intensity),
-                                    math.random(-intensity, intensity)
-                                )
+                                -- Desync (FakeLag) 再現
+                                -- ランダムな確率で大きくワープさせ、サーバー同期と喧嘩させてガクガクさせる
+                                if math.random() < 0.5 then
+                                    local intensity = SpeedValue.Value
+                                    local randOffset = Vector3.new(
+                                        (math.random() - 0.5) * intensity,
+                                        (math.random() - 0.5) * intensity,
+                                        (math.random() - 0.5) * intensity
+                                    )
+                                    root.CFrame = currentCF + randOffset
+                                    -- 回転もランダムにねじ曲げる
+                                    root.CFrame = root.CFrame * CFrame.Angles(
+                                        math.rad(math.random(-180, 180)),
+                                        math.rad(math.random(-180, 180)),
+                                        math.rad(math.random(-180, 180))
+                                    )
+                                end
                             end
                         end
                     end
                     
-                    -- ターゲット外またはモード変更時のクリーンアップ
+                    -- クリーンアップ
                     for ent, track in pairs(invisTracks) do
                         local isTarget = false
                         for _, t in ipairs(targets) do if t == ent then isTarget = true; break; end end
@@ -18107,39 +18114,15 @@ run(function()
                             invisTracks[ent] = nil
                         end
                     end
-                    
-                    for _, ent in ipairs(entitylib.List) do
-                        local isTarget = false
-                        for _, t in ipairs(targets) do if t == ent then isTarget = true; break; end end
-                        local currentMode = HackMode.Value
-                        
-                        -- AutoRotateの復元
-                        if not isTarget or (currentMode ~= 'Spinbot' and currentMode ~= 'Spin') then
-                            if ent.Humanoid then ent.Humanoid.AutoRotate = true end
-                        end
-                        
-                        -- AngularVelocityのリセット（回転系モード以外）
-                        if ent.RootPart then
-                            if not isTarget or (currentMode ~= 'Spinbot' and currentMode ~= 'Spin' and currentMode ~= 'Desync') then
-                                ent.RootPart.AssemblyAngularVelocity = Vector3.zero
-                            end
-                        end
-                    end
                 end))
             else
-                -- モジュールOFF時の完全クリーンアップ
                 for ent, track in pairs(invisTracks) do
                     if track then track:Stop() end
                 end
                 table.clear(invisTracks)
-                
-                for _, ent in ipairs(entitylib.List) do
-                    if ent.Humanoid then ent.Humanoid.AutoRotate = true end
-                    if ent.RootPart then ent.RootPart.AssemblyAngularVelocity = Vector3.zero end
-                end
             end
         end,
-        Tooltip = 'Client-sided visual hack to make selected players look like they are cheating'
+        Tooltip = 'Client-sided visual hack (CFrame Override)'
     })
     
     TargetList = MakePeopleusingHack:CreateTextList({
@@ -18151,7 +18134,6 @@ run(function()
         Name = 'Hack Mode',
         List = {'Fly', 'Spin', 'Orbit', 'Shake', 'PushAway', 'Invis', 'Spinbot', 'Desync'},
         Default = 'Fly',
-        Tooltip = 'Invis: 18537363391 Anim Bug | Desync: Random Velocity/Lag'
     })
     
     SpeedValue = MakePeopleusingHack:CreateSlider({
@@ -18166,6 +18148,5 @@ run(function()
         Min = 5,
         Max = 50,
         Default = 15,
-        Suffix = function(val) return val == 1 and 'stud' or 'studs' end
     })
 end)
