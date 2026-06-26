@@ -4131,7 +4131,7 @@ run(function()
 			end
 		end
 
-		-- 2. チェストの中身からの集計 (StorageESPと同じ仕組み)
+		-- 2. チェストの中身からの集計
 		for _, chestObj in pairs(collectionService:GetTagged('chest')) do
 			local chestFolder = chestObj:FindFirstChild("ChestFolderValue")
 			if chestFolder and chestFolder.Value and chestFolder.Value:IsA("Folder") then
@@ -4222,13 +4222,14 @@ run(function()
 		return ' [E:'..#images..']'
 	end
 
-	-- ★ DisplayResource: Normalモード用アイコン生成・更新
+	-- ★ DisplayResource: Normalモード用アイコン生成・更新 (位置修正版)
 	local function updateResourceIcons(ent, nametag)
 		if not DisplayResource.Enabled then return end
 		if not ent.Player then return end
 		
+		-- 既存のリソースアイコンを削除
 		for _, child in nametag:GetChildren() do
-			if child.Name:sub(1, 12) == 'ResIcon_' then child:Destroy() end
+			if child.Name:sub(1, 8) == 'ResIcon_' then child:Destroy() end
 		end
 
 		local counts = getPlayerResources(ent.Player)
@@ -4239,22 +4240,33 @@ run(function()
 		}
 
 		local xOffset = 0
+		-- ★ 修正: AbsoluteSizeではなく、計算済みのSize.Y.Offsetを基準にする
+		local yOffset = nametag.Size.Y.Offset + 4 
+		
 		for i, res in ipairs(resources) do
 			if res.count > 0 then
 				local iconImage = bedwars.getIcon({itemType = res.icon}, true)
 				
+				-- コンテナフレームでアイコンとテキストをまとめる
+				local container = Instance.new('Frame')
+				container.Name = 'ResIcon_Container_'..i
+				container.Size = UDim2.fromOffset(36, 16)
+				container.Position = UDim2.fromOffset(xOffset, yOffset)
+				container.BackgroundTransparency = 1
+				container.Parent = nametag
+				
 				local image = Instance.new('ImageLabel')
 				image.Name = 'ResIcon_Img_'..i
 				image.Size = UDim2.fromOffset(16, 16)
-				image.Position = UDim2.fromOffset(xOffset, nametag.AbsoluteSize.Y + 2)
+				image.Position = UDim2.fromOffset(0, 0)
 				image.BackgroundTransparency = 1
 				image.Image = iconImage
-				image.Parent = nametag
+				image.Parent = container
 				
 				local text = Instance.new('TextLabel')
 				text.Name = 'ResIcon_Txt_'..i
 				text.Size = UDim2.fromOffset(20, 16)
-				text.Position = UDim2.fromOffset(xOffset + 18, nametag.AbsoluteSize.Y + 2)
+				text.Position = UDim2.fromOffset(18, 0)
 				text.BackgroundTransparency = 1
 				text.Text = tostring(res.count)
 				text.TextColor3 = res.color
@@ -4262,16 +4274,16 @@ run(function()
 				text.Font = Enum.Font.GothamBold
 				text.TextStrokeTransparency = 0.5
 				text.TextXAlignment = Enum.TextXAlignment.Left
-				text.Parent = nametag
+				text.Parent = container
 				
-				xOffset += 42
+				xOffset += 40
 			end
 		end
 	end
 
 	local function removeResourceIcons(nametag)
 		for _, child in nametag:GetChildren() do
-			if child.Name:sub(1, 12) == 'ResIcon_' then child:Destroy() end
+			if child.Name:sub(1, 8) == 'ResIcon_' then child:Destroy() end
 		end
 	end
 
@@ -4461,8 +4473,12 @@ run(function()
 
 				if KitDisplay.Enabled and ent.Player then updateKitIcon(ent, nametag) else removeKitIcon(nametag) end
 				if EnchantDisplay.Enabled and ent.Player then updateEnchantIcons(ent, nametag) else removeEnchantIcons(nametag) end
-				-- ★ DisplayResource追加
-				if DisplayResource.Enabled and ent.Player then updateResourceIcons(ent, nametag) else removeResourceIcons(nametag) end
+				-- ★ DisplayResource追加 (リアルタイム更新のため毎回呼ぶ)
+				if DisplayResource.Enabled and ent.Player then 
+					updateResourceIcons(ent, nametag) 
+				else 
+					removeResourceIcons(nametag) 
+				end
 
 				local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
 				nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
@@ -4480,8 +4496,10 @@ run(function()
 				if Equipment.Enabled then Strings[ent] = Strings[ent]..getEquipmentText(ent) end
 				if KitDisplay.Enabled then Strings[ent] = Strings[ent]..getKitText(ent) end
 				if EnchantDisplay.Enabled then Strings[ent] = Strings[ent]..getEnchantText(ent) end
-				-- ★ DisplayResource追加
-				if DisplayResource.Enabled then Strings[ent] = Strings[ent]..getResourceText(ent) end
+				-- ★ DisplayResource追加 (リアルタイム更新のため毎回呼ぶ)
+				if DisplayResource.Enabled then 
+					Strings[ent] = Strings[ent]..getResourceText(ent) 
+				end
 
 				if Distance.Enabled then
 					Strings[ent] = '[%s] '..Strings[ent]
