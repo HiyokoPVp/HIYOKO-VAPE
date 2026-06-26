@@ -18217,3 +18217,194 @@ run(function()
         end,
     })
 end)
+
+run(function()
+    local ShowThemResource
+    local Reference = {} -- { [TeamId] = { Iron = 0, Diamond = 0, Emerald = 0, UI = Frame } }
+    local Folder = Instance.new("Folder")
+    Folder.Parent = vape.gui
+    
+    -- チームカラー定義 (Bedwars標準)
+    local teamColors = {
+        [1] = Color3.fromRGB(85, 150, 255),   -- Blue
+        [2] = Color3.fromRGB(255, 150, 50),   -- Orange
+        [3] = Color3.fromRGB(255, 100, 200),  -- Pink
+        [4] = Color3.fromRGB(255, 255, 50),   -- Yellow
+        [5] = Color3.fromRGB(75, 255, 75),    -- Lime/Other
+        [6] = Color3.fromRGB(150, 150, 150),  -- Gray
+    }
+
+    -- リソース名の判定用テーブル
+    local resourceTypes = {
+        ["iron"] = "Iron",
+        ["gold"] = "Gold",      -- Goldもカウントしたい場合は有効化
+        ["diamond"] = "Diamond",
+        ["emerald"] = "Emerald"
+    }
+
+    -- 指定されたフォルダからリソースを集計する関数
+    local function countResourcesInFolder(folder, counts)
+        if not folder or not folder:IsA("Instance") then return end
+        
+        for _, item in pairs(folder:GetChildren()) do
+            local name = item.Name:lower()
+            local amount = 1
+            
+            -- Amount属性があればそれを使う（チェストやインベントリ共通）
+            if item:GetAttribute("Amount") then
+                amount = item:GetAttribute("Amount")
+            end
+            
+            -- リソース名と一致するか確認
+            for key, resName in pairs(resourceTypes) do
+                if name == key or name:find(key) then
+                    counts[resName] = (counts[resName] or 0) + amount
+                    break
+                end
+            end
+        end
+    end
+
+    local function updateUI()
+        if not ShowThemResource.Enabled then return end
+        
+        local counts = {} -- [TeamId] = { Iron = n, Diamond = n, Emerald = n }
+        
+        -- 1. プレイヤーのインベントリから集計
+        local inventoriesFolder = replicatedStorage:FindFirstChild("Inventories")
+        if inventoriesFolder then
+            for _, playerFolder in pairs(inventoriesFolder:GetChildren()) do
+                if playerFolder:IsA("Folder") and playerFolder.Name ~= "CachedInvItems" then
+                    local plr = playersService:FindFirstChild(playerFolder.Name)
+                    if plr and plr:GetAttribute("Team") then
+                        local teamId = tonumber(plr:GetAttribute("Team"))
+                        if not counts[teamId] then
+                            counts[teamId] = { Iron = 0, Diamond = 0, Emerald = 0 }
+                        end
+                        -- プレイヤーの全子要素（hand, armor, inventoryなど）を確認
+                        countResourcesInFolder(playerFolder, counts[teamId])
+                    end
+                end
+            end
+        end
+        
+        -- 2. チェストの中身から集計
+        for _, chestObj in pairs(collectionService:GetTagged('chest')) do
+            local chestFolder = chestObj:FindFirstChild("ChestFolderValue")
+            if chestFolder and chestFolder.Value and chestFolder.Value:IsA("Folder") then
+                -- チェストの所有者（置いた人）のチームを取得
+                local ownerId = chestObj:GetAttribute("PlacedByUserId")
+                if ownerId then
+                    local ownerPlr = playersService:GetPlayerByUserId(ownerId)
+                    if ownerPlr and ownerPlr:GetAttribute("Team") then
+                        local teamId = tonumber(ownerPlr:GetAttribute("Team"))
+                        if not counts[teamId] then
+                            counts[teamId] = { Iron = 0, Diamond = 0, Emerald = 0 }
+                        end
+                        countResourcesInFolder(chestFolder.Value, counts[teamId])
+                    end
+                end
+            end
+        end
+
+        -- UI更新処理
+        for teamId, data in pairs(counts) do
+            if not Reference[teamId] then
+                -- 新しいチームのUI作成
+                local frame = Instance.new("Frame")
+                frame.Name = "TeamRes_" .. teamId
+                frame.Size = UDim2.fromOffset(140, 60)
+                frame.BackgroundColor3 = teamColors[teamId] or Color3.new(1,1,1)
+                frame.BackgroundTransparency = 0.2
+                frame.BorderSizePixel = 0
+                frame.Position = UDim2.new(0, 10, 1, -10 - (#Reference * 70))
+                frame.AnchorPoint = Vector2.new(0, 1)
+                
+                local corner = Instance.new("UICorner")
+                corner.CornerRadius = UDim.new(0, 4)
+                corner.Parent = frame
+                
+                local title = Instance.new("TextLabel")
+                title.Name = "Title"
+                title.Size = UDim2.new(1, 0, 0, 20)
+                title.BackgroundTransparency = 1
+                title.Text = "Team " .. teamId
+                title.TextColor3 = Color3.new(1,1,1)
+                title.TextStrokeTransparency = 0.5
+                title.Font = Enum.Font.GothamBold
+                title.TextSize = 14
+                title.Parent = frame
+                
+                local content = Instance.new("TextLabel")
+                content.Name = "Content"
+                content.Size = UDim2.new(1, -10, 1, -20)
+                content.Position = UDim2.new(0, 5, 0, 20)
+                content.BackgroundTransparency = 1
+                content.TextXAlignment = Enum.TextXAlignment.Left
+                content.TextYAlignment = Enum.TextYAlignment.Top
+                content.TextColor3 = Color3.new(1,1,1)
+                content.TextStrokeTransparency = 0.5
+                content.Font = Enum.Font.Gotham
+                content.TextSize = 12
+                content.Parent = frame
+                
+                frame.Parent = Folder
+                Reference[teamId] = { UI = frame, Content = content }
+            end
+            
+            local uiData = Reference[teamId]
+            if uiData then
+                uiData.Content.Text = 
+                    "🔩 Iron: " .. data.Iron .. "\n" ..
+                    "💎 Dia: " .. data.Diamond .. "\n" ..
+                    "❇ Em: " .. data.Emerald
+            end
+        end
+        
+        -- 存在しないチームのUIを削除
+        for teamId, data in pairs(Reference) do
+            if not counts[teamId] then
+                data.UI:Destroy()
+                Reference[teamId] = nil
+            end
+        end
+        
+        -- 位置調整（左下から上に積み上げる）
+        local index = 0
+        for teamId, data in pairs(Reference) do
+            data.UI.Position = UDim2.new(0, 10, 1, -10 - (index * 70))
+            index += 1
+        end
+    end
+
+    ShowThemResource = vape.Categories.Render:CreateModule({
+        Name = 'ShowThemResource',
+        Function = function(callback)
+            if callback then
+                -- ReplicatedStorage.Inventories の変更を監視
+                local invFolder = replicatedStorage:FindFirstChild("Inventories")
+                if invFolder then
+                    ShowThemResource:Clean(invFolder.ChildAdded:Connect(updateUI))
+                    ShowThemResource:Clean(invFolder.ChildRemoved:Connect(updateUI))
+                end
+                
+                -- チェストの増減を監視
+                ShowThemResource:Clean(collectionService:GetInstanceAddedSignal('chest'):Connect(updateUI))
+                ShowThemResource:Clean(collectionService:GetInstanceRemovedSignal('chest'):Connect(updateUI))
+                
+                -- プレイヤーのチーム変更を監視
+                ShowThemResource:Clean(playersService.PlayerAdded:Connect(function(plr)
+                    ShowThemResource:Clean(plr:GetAttributeChangedSignal('Team'):Connect(updateUI))
+                end))
+                
+                -- 初期実行と定期更新
+                updateUI()
+                ShowThemResource:Clean(runService.Heartbeat:Connect(updateUI))
+            else
+                Folder:ClearAllChildren()
+                table.clear(Reference)
+            end
+        end,
+        Tooltip = 'Shows total resources held by each team (Inventory + Chests).'
+    })
+end)
