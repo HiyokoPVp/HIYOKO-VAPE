@@ -4068,580 +4068,719 @@ run(function()
 end)
 	
 run(function()
-	local NameTags
-	local Targets
-	local Color
-	local Background
-	local DisplayName
-	local Health
-	local Distance
-	local Equipment
-	local KitDisplay
-	local EnchantDisplay
-	local DisplayResource -- ★ 追加
-	local DrawingToggle
-	local Scale
-	local FontOption
-	local Teammates
-	local DistanceCheck
-	local DistanceLimit
-	local Strings, Sizes, Reference = {}, {}, {}
-	local Folder = Instance.new('Folder')
-	Folder.Parent = vape.gui
-	local methodused
+local NameTags
+local Targets
+local Color
+local Background
+local DisplayName
+local Health
+local Distance
+local Equipment
+local KitDisplay
+local EnchantDisplay
+local DisplayResource -- ★追加
+local DrawingToggle
+local Scale
+local FontOption
+local Teammates
+local DistanceCheck
+local DistanceLimit
+local Strings, Sizes, Reference = {}, {}, {}
+local Folder = Instance.new('Folder')
+Folder.Parent = vape.gui
+local methodused
+local EQUIPMENT_SLOTS = {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'}
 
-	local EQUIPMENT_SLOTS = {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'}
+-- ▼▼▼ リソースカウント用関数 (ShowThemResource参考) ▼▼▼
+local resourceTypes = {
+    ["iron"] = "Iron",
+    ["gold"] = "Gold",
+    ["diamond"] = "Diamond",
+    ["emerald"] = "Emerald"
+}
 
-	-- ① KitMeta取得
-	local function getKitMeta(player)
-		local kit = player:GetAttribute('PlayingAsKits') or player:GetAttribute('PlayingAsKit') or 'none'
-		return bedwars.BedwarsKitMeta[kit] or bedwars.BedwarsKitMeta.none, kit
-	end
+local function countPlayerResources(plr)
+    local counts = {Iron = 0, Gold = 0, Diamond = 0, Emerald = 0}
+    if not plr then return counts end
+    
+    local inventoriesFolder = replicatedStorage:FindFirstChild("Inventories")
+    if inventoriesFolder then
+        local playerFolder = inventoriesFolder:FindFirstChild(plr.Name)
+        if playerFolder then
+            for _, item in pairs(playerFolder:GetChildren()) do
+                local name = item.Name:lower()
+                local amount = item:GetAttribute("Amount") or 1
+                for key, resName in pairs(resourceTypes) do
+                    if name == key or name:find(key) then
+                        counts[resName] = counts[resName] + amount
+                        break
+                    end
+                end
+            end
+        end
+    end
+    
+    for _, chestObj in pairs(collectionService:GetTagged('chest')) do
+        local chestFolder = chestObj:FindFirstChild("ChestFolderValue")
+        if chestFolder and chestFolder.Value and chestFolder.Value:IsA("Folder") then
+            local ownerId = chestObj:GetAttribute("PlacedByUserId")
+            if ownerId == plr.UserId then
+                for _, item in pairs(chestFolder.Value:GetChildren()) do
+                    local name = item.Name:lower()
+                    local amount = item:GetAttribute("Amount") or 1
+                    for key, resName in pairs(resourceTypes) do
+                        if name == key or name:find(key) then
+                            counts[resName] = counts[resName] + amount
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return counts
+end
 
-	-- ② エンチャント画像をStatusEffectHudから取得
-	local function getEnchantImages(player)
-		local images = {}
-		local ok, hud = pcall(function()
-			return player.PlayerGui:WaitForChild('StatusEffectHudScreen', 0.1)
-				:WaitForChild('StatusEffectHud', 0.1)
-		end)
-		if not ok or not hud then return images end
-		for _, child in hud:GetChildren() do
-			if child:IsA('ImageLabel') and child.Image ~= '' then
-				table.insert(images, child.Image)
-			end
-		end
-		return images
-	end
+local function getResourceTextNormal(ent)
+    if not DisplayResource or not DisplayResource.Enabled then return '' end
+    if not ent.Player then return '' end
+    local counts = countPlayerResources(ent.Player)
+    local parts = {}
+    if counts.Iron > 0 then table.insert(parts, '<font color="rgb(200,200,200)">I:'..counts.Iron..'</font>') end
+    if counts.Gold > 0 then table.insert(parts, '<font color="rgb(255,215,0)">G:'..counts.Gold..'</font>') end
+    if counts.Diamond > 0 then table.insert(parts, '<font color="rgb(85,200,255)">D:'..counts.Diamond..'</font>') end
+    if counts.Emerald > 0 then table.insert(parts, '<font color="rgb(0,255,100)">E:'..counts.Emerald..'</font>') end
+    if #parts > 0 then
+        return ' ['..table.concat(parts, ' ')..']'
+    end
+    return ''
+end
 
-	-- ★ リソース集計関数 (Inventory + Chest)
-	local function getPlayerResources(player)
-		local counts = { Iron = 0, Diamond = 0, Emerald = 0 }
-		
-		-- 1. インベントリからの集計
-		local inventory = store.inventories[player]
-		if inventory then
-			for _, item in pairs(inventory.items or {}) do
-				local name = (item.itemType or ''):lower()
-				local amount = item.amount or 1
-				if name:find('iron') then counts.Iron += amount
-				elseif name:find('diamond') then counts.Diamond += amount
-				elseif name:find('emerald') then counts.Emerald += amount
-				end
-			end
-		end
+local function getResourceTextDrawing(ent)
+    if not DisplayResource or not DisplayResource.Enabled then return '' end
+    if not ent.Player then return '' end
+    local counts = countPlayerResources(ent.Player)
+    local parts = {}
+    if counts.Iron > 0 then table.insert(parts, 'I:'..counts.Iron) end
+    if counts.Gold > 0 then table.insert(parts, 'G:'..counts.Gold) end
+    if counts.Diamond > 0 then table.insert(parts, 'D:'..counts.Diamond) end
+    if counts.Emerald > 0 then table.insert(parts, 'E:'..counts.Emerald) end
+    if #parts > 0 then
+        return ' ['..table.concat(parts, ' ')..']'
+    end
+    return ''
+end
+-- ▲▲▲ リソースカウント用関数ここまで ▲▲▲
 
-		-- 2. チェストの中身からの集計
-		for _, chestObj in pairs(collectionService:GetTagged('chest')) do
-			local chestFolder = chestObj:FindFirstChild("ChestFolderValue")
-			if chestFolder and chestFolder.Value and chestFolder.Value:IsA("Folder") then
-				local ownerId = chestObj:GetAttribute("PlacedByUserId")
-				if ownerId then
-					local ownerPlr = playersService:GetPlayerByUserId(ownerId)
-					if ownerPlr == player then
-						for _, item in pairs(chestFolder.Value:GetChildren()) do
-							local name = item.Name:lower()
-							local amount = item:GetAttribute("Amount") or 1
-							if name:find('iron') then counts.Iron += amount
-							elseif name:find('diamond') then counts.Diamond += amount
-							elseif name:find('emerald') then counts.Emerald += amount
-							end
-						end
-					end
-				end
-			end
-		end
-		
-		return counts
-	end
-
-	-- KitDisplay関連関数
-	local function createKitIcon(nametag)
-		local icon = Instance.new('ImageLabel')
-		icon.Name = 'KitDisplayIcon'
-		icon.Size = UDim2.fromOffset(24, 24)
-		icon.Position = UDim2.new(1, 4, 0, -4)
-		icon.BackgroundTransparency = 1
-		icon.Image = ''
-		icon.Parent = nametag
-		return icon
-	end
-
-	local function updateKitIcon(ent, nametag)
-		if not KitDisplay.Enabled then return end
-		if not ent.Player then return end
-		local kitMeta, _ = getKitMeta(ent.Player)
-		local icon = nametag:FindFirstChild('KitDisplayIcon')
-		if not icon then icon = createKitIcon(nametag) end
-		icon.Image = (kitMeta and kitMeta.renderImage) or kitImageIds['none'] or ''
-	end
-
-	local function removeKitIcon(nametag)
-		local icon = nametag:FindFirstChild('KitDisplayIcon')
-		if icon then icon:Destroy() end
-	end
-
-	local function getKitText(ent)
-		if not KitDisplay.Enabled then return '' end
-		if not ent.Player then return '' end
-		local _, kit = getKitMeta(ent.Player)
-		if not kit or kit == 'none' or kit == '' then return '' end
-		return ' <'..kit:gsub('_', ' ')..'>'
-	end
-
-	-- EnchantDisplay関連関数
-	local function updateEnchantIcons(ent, nametag)
-		if not EnchantDisplay.Enabled then return end
-		if not ent.Player then return end
-		for _, child in nametag:GetChildren() do
-			if child.Name:sub(1, 12) == 'EnchantIcon_' then child:Destroy() end
-		end
-		local images = getEnchantImages(ent.Player)
-		for i, img in ipairs(images) do
-			local icon = Instance.new('ImageLabel')
-			icon.Name = 'EnchantIcon_'..i
-			icon.Size = UDim2.fromOffset(20, 20)
-			icon.Position = UDim2.fromOffset((i - 1) * 22, nametag.AbsoluteSize.Y + 2)
-			icon.BackgroundTransparency = 1
-			icon.Image = img
-			icon.Parent = nametag
-		end
-	end
-
-	local function removeEnchantIcons(nametag)
-		for _, child in nametag:GetChildren() do
-			if child.Name:sub(1, 12) == 'EnchantIcon_' then child:Destroy() end
-		end
-	end
-
-	local function getEnchantText(ent)
-		if not EnchantDisplay.Enabled then return '' end
-		if not ent.Player then return '' end
-		local images = getEnchantImages(ent.Player)
-		if #images == 0 then return '' end
-		return ' [E:'..#images..']'
-	end
-
-	-- ★ DisplayResource: Normalモード用アイコン生成・更新 (位置修正版)
-	local function updateResourceIcons(ent, nametag)
-		if not DisplayResource.Enabled then return end
-		if not ent.Player then return end
-		
-		-- 既存のリソースアイコンを削除
-		for _, child in nametag:GetChildren() do
-			if child.Name:sub(1, 8) == 'ResIcon_' then child:Destroy() end
-		end
-
-		local counts = getPlayerResources(ent.Player)
-		local resources = {
-			{ name = 'Iron',    icon = 'iron',    color = Color3.fromRGB(200, 200, 200), count = counts.Iron },
-			{ name = 'Diamond', icon = 'diamond', color = Color3.fromRGB(85, 200, 255),  count = counts.Diamond },
-			{ name = 'Emerald', icon = 'emerald', color = Color3.fromRGB(0, 255, 100),   count = counts.Emerald }
-		}
-
-		local xOffset = 0
-		-- ★ 修正: AbsoluteSizeではなく、計算済みのSize.Y.Offsetを基準にする
-		local yOffset = nametag.Size.Y.Offset + 4 
-		
-		for i, res in ipairs(resources) do
-			if res.count > 0 then
-				local iconImage = bedwars.getIcon({itemType = res.icon}, true)
-				
-				-- コンテナフレームでアイコンとテキストをまとめる
-				local container = Instance.new('Frame')
-				container.Name = 'ResIcon_Container_'..i
-				container.Size = UDim2.fromOffset(36, 16)
-				container.Position = UDim2.fromOffset(xOffset, yOffset)
-				container.BackgroundTransparency = 1
-				container.Parent = nametag
-				
-				local image = Instance.new('ImageLabel')
-				image.Name = 'ResIcon_Img_'..i
-				image.Size = UDim2.fromOffset(16, 16)
-				image.Position = UDim2.fromOffset(0, 0)
-				image.BackgroundTransparency = 1
-				image.Image = iconImage
-				image.Parent = container
-				
-				local text = Instance.new('TextLabel')
-				text.Name = 'ResIcon_Txt_'..i
-				text.Size = UDim2.fromOffset(20, 16)
-				text.Position = UDim2.fromOffset(18, 0)
-				text.BackgroundTransparency = 1
-				text.Text = tostring(res.count)
-				text.TextColor3 = res.color
-				text.TextSize = 12
-				text.Font = Enum.Font.GothamBold
-				text.TextStrokeTransparency = 0.5
-				text.TextXAlignment = Enum.TextXAlignment.Left
-				text.Parent = container
-				
-				xOffset += 40
-			end
-		end
-	end
-
-	local function removeResourceIcons(nametag)
-		for _, child in nametag:GetChildren() do
-			if child.Name:sub(1, 8) == 'ResIcon_' then child:Destroy() end
-		end
-	end
-
-	-- ★ DisplayResource: Drawingモード用テキスト生成
-	local function getResourceText(ent)
-		if not DisplayResource.Enabled then return '' end
-		if not ent.Player then return '' end
-		
-		local counts = getPlayerResources(ent.Player)
-		local parts = {}
-		if counts.Iron > 0 then table.insert(parts, 'Fe:'..counts.Iron) end
-		if counts.Diamond > 0 then table.insert(parts, 'Di:'..counts.Diamond) end
-		if counts.Emerald > 0 then table.insert(parts, 'Em:'..counts.Emerald) end
-		
-		return #parts > 0 and (' {'..table.concat(parts, '|')..'}') or ''
-	end
-
-	-- 装備アイコン反映
-	local function updateEquipmentIcons(ent, nametag)
-		if not Equipment.Enabled then return end
-		if not ent.Player then return end
-		local _, kit = getKitMeta(ent.Player)
-		local inventory = store.inventories[ent.Player]
-		if not inventory then return end
-		nametag.Hand.Image = bedwars.getIcon(inventory.hand or {itemType = ''}, true)
-		nametag.Helmet.Image = bedwars.getIcon(inventory.armor[4] or {itemType = ''}, true)
-		nametag.Chestplate.Image = bedwars.getIcon(inventory.armor[5] or {itemType = ''}, true)
-		nametag.Boots.Image = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true)
-		nametag.Kit.Image = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit] and bedwars.BedwarsKitMeta[kit].renderImage or ''
-	end
-
-	local function getEquipmentText(ent)
-		if not Equipment.Enabled then return '' end
-		if not ent.Player then return '' end
-		local inventory = store.inventories[ent.Player]
-		if not inventory then return '' end
-		local _, kit = getKitMeta(ent.Player)
-		local parts = {}
-		if inventory.hand and inventory.hand.itemType ~= '' then table.insert(parts, inventory.hand.itemType) end
-		if kit and kit ~= 'none' then table.insert(parts, kit) end
-		return #parts > 0 and (' ['..table.concat(parts, '|')..']') or ''
-	end
-
-	local Added = {
-		Normal = function(ent)
-			if not Targets.Players.Enabled and ent.Player then return end
-			if not Targets.NPCs.Enabled and ent.NPC then return end
-			if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
-
-			local nametag = Instance.new('TextLabel')
-			Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
-
-			if Health.Enabled then
-				local healthColor = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
-				Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255))..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
-			end
-
-			if Distance.Enabled then
-				Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
-			end
-
-			if Equipment.Enabled and ent.Player then
-				for i, v in {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'} do
-					local Icon = Instance.new('ImageLabel')
-					Icon.Name = v
-					Icon.Size = UDim2.fromOffset(30, 30)
-					Icon.Position = UDim2.fromOffset(-60 + (i * 30), -30)
-					Icon.BackgroundTransparency = 1
-					Icon.Image = ''
-					Icon.Parent = nametag
-				end
-				updateEquipmentIcons(ent, nametag)
-			end
-
-			nametag.TextSize = 14 * Scale.Value
-			nametag.FontFace = FontOption.Value
-			local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
-			nametag.Name = ent.Player and ent.Player.Name or ent.Character.Name
-			nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
-			nametag.AnchorPoint = Vector2.new(0.5, 1)
-			nametag.BackgroundColor3 = Color3.new()
-			nametag.BackgroundTransparency = Background.Value
-			nametag.BorderSizePixel = 0
-			nametag.Visible = false
-			nametag.Text = Strings[ent]
-			nametag.TextColor3 = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
-			nametag.RichText = true
-			nametag.Parent = Folder
-			Reference[ent] = nametag
-
-			if KitDisplay.Enabled and ent.Player then updateKitIcon(ent, nametag) end
-			if EnchantDisplay.Enabled and ent.Player then updateEnchantIcons(ent, nametag) end
-			-- ★ DisplayResource追加
-			if DisplayResource.Enabled and ent.Player then updateResourceIcons(ent, nametag) end
-		end,
-		Drawing = function(ent)
-			if not Targets.Players.Enabled and ent.Player then return end
-			if not Targets.NPCs.Enabled and ent.NPC then return end
-			if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
-
-			local nametag = {}
-			nametag.BG = Drawing.new('Square')
-			nametag.BG.Filled = true
-			nametag.BG.Transparency = 1 - Background.Value
-			nametag.BG.Color = Color3.new()
-			nametag.BG.ZIndex = 1
-			nametag.Text = Drawing.new('Text')
-			nametag.Text.Size = 15 * Scale.Value
-			nametag.Text.Font = 0
-			nametag.Text.ZIndex = 2
-			Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
-
-			if Health.Enabled then Strings[ent] = Strings[ent]..' '..math.round(ent.Health) end
-			if Equipment.Enabled then Strings[ent] = Strings[ent]..getEquipmentText(ent) end
-			if KitDisplay.Enabled then Strings[ent] = Strings[ent]..getKitText(ent) end
-			if EnchantDisplay.Enabled then Strings[ent] = Strings[ent]..getEnchantText(ent) end
-			-- ★ DisplayResource追加
-			if DisplayResource.Enabled then Strings[ent] = Strings[ent]..getResourceText(ent) end
-
-			if Distance.Enabled then
-				Strings[ent] = '[%s] '..Strings[ent]
-				nametag.Text.Text = entitylib.isAlive and string.format(Strings[ent], math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude)) or string.format(Strings[ent], 0)
-			else
-				nametag.Text.Text = Strings[ent]
-			end
-
-			nametag.Text.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
-			nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
-			Reference[ent] = nametag
-		end
-	}
-
-	local Removed = {
-		Normal = function(ent)
-			local v = Reference[ent]
-			if v then
-				Reference[ent] = nil; Strings[ent] = nil; Sizes[ent] = nil
-				v:Destroy()
-			end
-		end,
-		Drawing = function(ent)
-			local v = Reference[ent]
-			if v then
-				Reference[ent] = nil; Strings[ent] = nil; Sizes[ent] = nil
-				for _, obj in v do
-					pcall(function() obj.Visible = false; obj:Remove() end)
-				end
-			end
-		end
-	}
-
-	local Updated = {
-		Normal = function(ent)
-			local nametag = Reference[ent]
-			if nametag then
-				Sizes[ent] = nil
-				Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
-
-				if Health.Enabled then
-					local healthColor = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
-					Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255))..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
-				end
-
-				if Distance.Enabled then
-					Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
-				end
-
-				if Equipment.Enabled and ent.Player then
-					if not nametag:FindFirstChild('Hand') then
-						for i, v in EQUIPMENT_SLOTS do
-							local Icon = Instance.new('ImageLabel')
-							Icon.Name = v
-							Icon.Size = UDim2.fromOffset(30, 30)
-							Icon.Position = UDim2.fromOffset(-60 + (i * 30), -30)
-							Icon.BackgroundTransparency = 1
-							Icon.Image = ''
-							Icon.Parent = nametag
-						end
-					end
-					updateEquipmentIcons(ent, nametag)
-				elseif not Equipment.Enabled and ent.Player then
-					for _, slotName in EQUIPMENT_SLOTS do
-						local icon = nametag:FindFirstChild(slotName)
-						if icon then icon:Destroy() end
-					end
-				end
-
-				if KitDisplay.Enabled and ent.Player then updateKitIcon(ent, nametag) else removeKitIcon(nametag) end
-				if EnchantDisplay.Enabled and ent.Player then updateEnchantIcons(ent, nametag) else removeEnchantIcons(nametag) end
-				-- ★ DisplayResource追加 (リアルタイム更新のため毎回呼ぶ)
-				if DisplayResource.Enabled and ent.Player then 
-					updateResourceIcons(ent, nametag) 
-				else 
-					removeResourceIcons(nametag) 
-				end
-
-				local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
-				nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
-				nametag.Text = Strings[ent]
-			end
-		end,
-		Drawing = function(ent)
-			local nametag = Reference[ent]
-			if nametag then
-				if vape.ThreadFix then setthreadidentity(8) end
-				Sizes[ent] = nil
-				Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
-
-				if Health.Enabled then Strings[ent] = Strings[ent]..' '..math.round(ent.Health) end
-				if Equipment.Enabled then Strings[ent] = Strings[ent]..getEquipmentText(ent) end
-				if KitDisplay.Enabled then Strings[ent] = Strings[ent]..getKitText(ent) end
-				if EnchantDisplay.Enabled then Strings[ent] = Strings[ent]..getEnchantText(ent) end
-				-- ★ DisplayResource追加 (リアルタイム更新のため毎回呼ぶ)
-				if DisplayResource.Enabled then 
-					Strings[ent] = Strings[ent]..getResourceText(ent) 
-				end
-
-				if Distance.Enabled then
-					Strings[ent] = '[%s] '..Strings[ent]
-					nametag.Text.Text = entitylib.isAlive and string.format(Strings[ent], math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude)) or string.format(Strings[ent], 0)
-				else
-					nametag.Text.Text = Strings[ent]
-				end
-
-				nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
-				nametag.Text.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
-			end
-		end
-	}
-
-	local ColorFunc = {
-		Normal = function(hue, sat, val)
-			local color = Color3.fromHSV(hue, sat, val)
-			for i, v in Reference do v.TextColor3 = entitylib.getEntityColor(i) or color end
-		end,
-		Drawing = function(hue, sat, val)
-			local color = Color3.fromHSV(hue, sat, val)
-			for i, v in Reference do v.Text.Color = entitylib.getEntityColor(i) or color end
-		end
-	}
-
-	local Loop = {
-		Normal = function()
-			for ent, nametag in Reference do
-				if DistanceCheck.Enabled then
-					local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
-					if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
-						nametag.Visible = false; continue
-					end
-				end
-
-				local headPos, headVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position + Vector3.new(0, ent.HipHeight + 1, 0))
-				nametag.Visible = headVis
-				if not headVis then continue end
-
-				if Distance.Enabled then
-					local mag = entitylib.isAlive and math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude) or 0
-					if Sizes[ent] ~= mag then
-						nametag.Text = string.format(Strings[ent], mag)
-						local ize = getfontsize(removeTags(nametag.Text), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
-						nametag.Size = UDim2.fromOffset(ize.X + 8, ize.Y + 7)
-						Sizes[ent] = mag
-					end
-				end
-				nametag.Position = UDim2.fromOffset(headPos.X, headPos.Y)
-			end
-		end,
-		Drawing = function()
-			for ent, nametag in Reference do
-				if DistanceCheck.Enabled then
-					local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
-					if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
-						nametag.Text.Visible = false; nametag.BG.Visible = false; continue
-					end
-				end
-
-				local headPos, headVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position + Vector3.new(0, ent.HipHeight + 1, 0))
-				nametag.Text.Visible = headVis; nametag.BG.Visible = headVis
-				if not headVis then continue end
-
-				if Distance.Enabled then
-					local mag = entitylib.isAlive and math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude) or 0
-					if Sizes[ent] ~= mag then
-						nametag.Text.Text = string.format(Strings[ent], mag)
-						nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
-						Sizes[ent] = mag
-					end
-				end
-				nametag.BG.Position = Vector2.new(headPos.X - (nametag.BG.Size.X / 2), headPos.Y - nametag.BG.Size.Y)
-				nametag.Text.Position = nametag.BG.Position + Vector2.new(4, 3)
-			end
-		end
-	}
-
-	NameTags = vape.Categories.Render:CreateModule({
-		Name = 'NameTags',
-		Function = function(callback)
-			if callback then
-				methodused = DrawingToggle.Enabled and 'Drawing' or 'Normal'
-				if Removed[methodused] then
-					NameTags:Clean(entitylib.Events.EntityRemoved:Connect(Removed[methodused]))
-				end
-				if Added[methodused] then
-					for _, v in entitylib.List do
-						if Reference[v] then Removed[methodused](v) end
-						Added[methodused](v)
-					end
-					NameTags:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
-						if Reference[ent] then Removed[methodused](ent) end
-						Added[methodused](ent)
-					end))
-				end
-				if Updated[methodused] then
-					NameTags:Clean(entitylib.Events.EntityUpdated:Connect(Updated[methodused]))
-					for _, v in entitylib.List do Updated[methodused](v) end
-				end
-				if ColorFunc[methodused] then
-					NameTags:Clean(vape.Categories.Friends.ColorUpdate.Event:Connect(function()
-						ColorFunc[methodused](Color.Hue, Color.Sat, Color.Value)
-					end))
-				end
-				if Loop[methodused] then
-					NameTags:Clean(runService.RenderStepped:Connect(Loop[methodused]))
-				end
-			else
-				if Removed[methodused] then
-					for i in Reference do Removed[methodused](i) end
-				end
-			end
-		end,
-		Tooltip = 'Renders nametags on entities through walls.'
-	})
-
-	Targets = NameTags:CreateTargets({ Players = true, Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end })
-	FontOption = NameTags:CreateFont({ Name = 'Font', Blacklist = 'Arial', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end })
-	Color = NameTags:CreateColorSlider({ Name = 'Player Color', Function = function(hue, sat, val) if NameTags.Enabled and ColorFunc[methodused] then ColorFunc[methodused](hue, sat, val) end end })
-	
-	Scale = NameTags:CreateSlider({ Name = 'Scale', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end, Default = 1, Min = 0.1, Max = 1.5, Decimal = 10 })
-	Background = NameTags:CreateSlider({ Name = 'Transparency', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end, Default = 0.5, Min = 0, Max = 1, Decimal = 10 })
-	
-	Health = NameTags:CreateToggle({ Name = 'Health', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end })
-	Distance = NameTags:CreateToggle({ Name = 'Distance', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end })
-	Equipment = NameTags:CreateToggle({ Name = 'Equipment', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end })
-	KitDisplay = NameTags:CreateToggle({ Name = 'Kit Display', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end })
-	EnchantDisplay = NameTags:CreateToggle({ Name = 'Enchant Display', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end })
-	
-	-- ★ DisplayResourceトグル追加
-	DisplayResource = NameTags:CreateToggle({ 
-		Name = 'Display Resources', 
-		Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end,
-		Tooltip = 'Shows held Iron, Diamond, and Emerald counts (Inventory + Chests).'
-	})
-
-	DisplayName = NameTags:CreateToggle({ Name = 'Use Displayname', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end, Default = true })
-	Teammates = NameTags:CreateToggle({ Name = 'Priority Only', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end, Default = true })
-	DrawingToggle = NameTags:CreateToggle({ Name = 'Drawing', Function = function() if NameTags.Enabled then NameTags:Toggle(); NameTags:Toggle() end end })
-	DistanceCheck = NameTags:CreateToggle({ Name = 'Distance Check', Function = function(callback) DistanceLimit.Object.Visible = callback end })
-	DistanceLimit = NameTags:CreateTwoSlider({ Name = 'Player Distance', Min = 0, Max = 256, DefaultMin = 0, DefaultMax = 64, Darker = true, Visible = false })
+-- ① KitMeta取得（PlayingAsKits優先、なければPlayingAsKit、なければnone）
+local function getKitMeta(player)
+local kit = player:GetAttribute('PlayingAsKits') or player:GetAttribute('PlayingAsKit') or 'none'
+return bedwars.BedwarsKitMeta[kit] or bedwars.BedwarsKitMeta.none, kit
+end
+-- ② エンチャント画像をStatusEffectHudから取得
+local function getEnchantImages(player)
+local images = {}
+local ok, hud = pcall(function()
+return player.PlayerGui:WaitForChild('StatusEffectHudScreen', 0.1)
+:WaitForChild('StatusEffectHud', 0.1)
+end)
+if not ok or not hud then return images end
+for _, child in hud:GetChildren() do
+if child:IsA('ImageLabel') and child.Image ~= '' then
+table.insert(images, child.Image)
+end
+end
+return images
+end
+-- KitDisplay: Normalモード用アイコン生成・更新
+local function createKitIcon(nametag)
+local icon = Instance.new('ImageLabel')
+icon.Name = 'KitDisplayIcon'
+icon.Size = UDim2.fromOffset(24, 24)
+icon.Position = UDim2.new(1, 4, 0, -4)
+icon.BackgroundTransparency = 1
+icon.Image = ''
+icon.Parent = nametag
+return icon
+end
+local function updateKitIcon(ent, nametag)
+if not KitDisplay.Enabled then return end
+if not ent.Player then return end
+local kitMeta, _ = getKitMeta(ent.Player)
+local icon = nametag:FindFirstChild('KitDisplayIcon')
+if not icon then
+icon = createKitIcon(nametag)
+end
+-- BedwarsKitMetaのrenderImageを優先、なければkitImageIdsにフォールバック
+icon.Image = (kitMeta and kitMeta.renderImage) or kitImageIds['none'] or ''
+end
+local function removeKitIcon(nametag)
+local icon = nametag:FindFirstChild('KitDisplayIcon')
+if icon then icon:Destroy() end
+end
+-- KitDisplay: Drawingモード用テキスト生成
+local function getKitText(ent)
+if not KitDisplay.Enabled then return '' end
+if not ent.Player then return '' end
+local _, kit = getKitMeta(ent.Player)
+if not kit or kit == 'none' or kit == '' then return '' end
+local displayKit = kit:gsub('_', ' ')
+return ' <'..displayKit..'>'
+end
+-- EnchantDisplay: Normalモード用アイコン群を生成・更新
+local function updateEnchantIcons(ent, nametag)
+if not EnchantDisplay.Enabled then return end
+if not ent.Player then return end
+-- 既存のEnchantアイコンを一旦全削除
+for _, child in nametag:GetChildren() do
+if child.Name:sub(1, 12) == 'EnchantIcon_' then
+child:Destroy()
+end
+end
+local images = getEnchantImages(ent.Player)
+for i, img in images do
+local icon = Instance.new('ImageLabel')
+icon.Name = 'EnchantIcon_'..i
+icon.Size = UDim2.fromOffset(20, 20)
+-- nametag下部に横並び
+icon.Position = UDim2.fromOffset((i - 1) * 22, nametag.AbsoluteSize.Y + 2)
+icon.BackgroundTransparency = 1
+icon.Image = img
+icon.Parent = nametag
+end
+end
+local function removeEnchantIcons(nametag)
+for _, child in nametag:GetChildren() do
+if child.Name:sub(1, 12) == 'EnchantIcon_' then
+child:Destroy()
+end
+end
+end
+-- EnchantDisplay: Drawingモード用テキスト（エンチャント数だけ表示、画像は無理なので）
+local function getEnchantText(ent)
+if not EnchantDisplay.Enabled then return '' end
+if not ent.Player then return '' end
+local images = getEnchantImages(ent.Player)
+if #images == 0 then return '' end
+return ' [E:'..#images..']'
+end
+-- 装備アイコンをnametagに反映（Normal用）
+local function updateEquipmentIcons(ent, nametag)
+if not Equipment.Enabled then return end
+if not ent.Player then return end
+local _, kit = getKitMeta(ent.Player)
+local inventory = store.inventories[ent.Player]
+if not inventory then return end
+nametag.Hand.Image = bedwars.getIcon(inventory.hand or {itemType = ''}, true)
+nametag.Helmet.Image = bedwars.getIcon(inventory.armor[4] or {itemType = ''}, true)
+nametag.Chestplate.Image = bedwars.getIcon(inventory.armor[5] or {itemType = ''}, true)
+nametag.Boots.Image = bedwars.getIcon(inventory.armor[6] or {itemType = ''}, true)
+nametag.Kit.Image = kit and kit ~= 'none' and bedwars.BedwarsKitMeta[kit] and bedwars.BedwarsKitMeta[kit].renderImage or ''
+end
+-- Drawingモード用の装備テキスト生成
+local function getEquipmentText(ent)
+if not Equipment.Enabled then return '' end
+if not ent.Player then return '' end
+local inventory = store.inventories[ent.Player]
+if not inventory then return '' end
+local _, kit = getKitMeta(ent.Player)
+local parts = {}
+if inventory.hand and inventory.hand.itemType ~= '' then
+table.insert(parts, inventory.hand.itemType)
+end
+if kit and kit ~= 'none' then
+table.insert(parts, kit)
+end
+return #parts > 0 and (' ['..table.concat(parts, '|')..']') or ''
+end
+local Added = {
+Normal = function(ent)
+if not Targets.Players.Enabled and ent.Player then return end
+if not Targets.NPCs.Enabled and ent.NPC then return end
+if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+local nametag = Instance.new('TextLabel')
+Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+if Health.Enabled then
+local healthColor = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
+Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255))..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
+end
+if Distance.Enabled then
+Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
+end
+if Equipment.Enabled and ent.Player then
+for i, v in {'Hand', 'Helmet', 'Chestplate', 'Boots', 'Kit'} do
+local Icon = Instance.new('ImageLabel')
+Icon.Name = v
+Icon.Size = UDim2.fromOffset(30, 30)
+Icon.Position = UDim2.fromOffset(-60 + (i * 30), -30)
+Icon.BackgroundTransparency = 1
+Icon.Image = ''
+Icon.Parent = nametag
+end
+updateEquipmentIcons(ent, nametag)
+end
+Strings[ent] = Strings[ent] .. getResourceTextNormal(ent) -- ★リソース追加
+nametag.TextSize = 14 * Scale.Value
+nametag.FontFace = FontOption.Value
+local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+nametag.Name = ent.Player and ent.Player.Name or ent.Character.Name
+nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
+nametag.AnchorPoint = Vector2.new(0.5, 1)
+nametag.BackgroundColor3 = Color3.new()
+nametag.BackgroundTransparency = Background.Value
+nametag.BorderSizePixel = 0
+nametag.Visible = false
+nametag.Text = Strings[ent]
+nametag.TextColor3 = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+nametag.RichText = true
+nametag.Parent = Folder
+Reference[ent] = nametag
+if KitDisplay.Enabled and ent.Player then
+updateKitIcon(ent, nametag)
+end
+if EnchantDisplay.Enabled and ent.Player then
+updateEnchantIcons(ent, nametag)
+end
+end,
+Drawing = function(ent)
+if not Targets.Players.Enabled and ent.Player then return end
+if not Targets.NPCs.Enabled and ent.NPC then return end
+if Teammates.Enabled and (not ent.Targetable) and (not ent.Friend) then return end
+local nametag = {}
+nametag.BG = Drawing.new('Square')
+nametag.BG.Filled = true
+nametag.BG.Transparency = 1 - Background.Value
+nametag.BG.Color = Color3.new()
+nametag.BG.ZIndex = 1
+nametag.Text = Drawing.new('Text')
+nametag.Text.Size = 15 * Scale.Value
+nametag.Text.Font = 0
+nametag.Text.ZIndex = 2
+Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+if Health.Enabled then
+Strings[ent] = Strings[ent]..' '..math.round(ent.Health)
+end
+if Equipment.Enabled then
+Strings[ent] = Strings[ent]..getEquipmentText(ent)
+end
+if KitDisplay.Enabled then
+Strings[ent] = Strings[ent]..getKitText(ent)
+end
+if EnchantDisplay.Enabled then
+Strings[ent] = Strings[ent]..getEnchantText(ent)
+end
+Strings[ent] = Strings[ent] .. getResourceTextDrawing(ent) -- ★リソース追加
+if Distance.Enabled then
+Strings[ent] = '[%s] '..Strings[ent]
+nametag.Text.Text = entitylib.isAlive and string.format(Strings[ent], math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude)) or string.format(Strings[ent], 0)
+else
+nametag.Text.Text = Strings[ent]
+end
+nametag.Text.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
+Reference[ent] = nametag
+end
+}
+local Removed = {
+Normal = function(ent)
+local v = Reference[ent]
+if v then
+Reference[ent] = nil
+Strings[ent] = nil
+Sizes[ent] = nil
+v:Destroy()
+end
+end,
+Drawing = function(ent)
+local v = Reference[ent]
+if v then
+Reference[ent] = nil
+Strings[ent] = nil
+Sizes[ent] = nil
+for _, obj in v do
+pcall(function()
+obj.Visible = false
+obj:Remove()
+end)
+end
+end
+end
+}
+local Updated = {
+Normal = function(ent)
+local nametag = Reference[ent]
+if nametag then
+Sizes[ent] = nil
+Strings[ent] = ent.Player and whitelist:tag(ent.Player, true, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+if Health.Enabled then
+local healthColor = Color3.fromHSV(math.clamp(ent.Health / ent.MaxHealth, 0, 1) / 2.5, 0.89, 0.75)
+Strings[ent] = Strings[ent]..' <font color="rgb('..tostring(math.floor(healthColor.R * 255))..','..tostring(math.floor(healthColor.G * 255))..','..tostring(math.floor(healthColor.B * 255))..')">'..math.round(ent.Health)..'</font>'
+end
+if Distance.Enabled then
+Strings[ent] = '<font color="rgb(85, 255, 85)">[</font><font color="rgb(255, 255, 255)">%s</font><font color="rgb(85, 255, 85)">]</font> '..Strings[ent]
+end
+if Equipment.Enabled and ent.Player then
+if not nametag:FindFirstChild('Hand') then
+for i, v in EQUIPMENT_SLOTS do
+local Icon = Instance.new('ImageLabel')
+Icon.Name = v
+Icon.Size = UDim2.fromOffset(30, 30)
+Icon.Position = UDim2.fromOffset(-60 + (i * 30), -30)
+Icon.BackgroundTransparency = 1
+Icon.Image = ''
+Icon.Parent = nametag
+end
+end
+updateEquipmentIcons(ent, nametag)
+elseif not Equipment.Enabled and ent.Player then
+for _, slotName in EQUIPMENT_SLOTS do
+local icon = nametag:FindFirstChild(slotName)
+if icon then icon:Destroy() end
+end
+end
+Strings[ent] = Strings[ent] .. getResourceTextNormal(ent) -- ★リソース追加
+if KitDisplay.Enabled and ent.Player then
+updateKitIcon(ent, nametag)
+else
+removeKitIcon(nametag)
+end
+if EnchantDisplay.Enabled and ent.Player then
+updateEnchantIcons(ent, nametag)
+else
+removeEnchantIcons(nametag)
+end
+local size = getfontsize(removeTags(Strings[ent]), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+nametag.Size = UDim2.fromOffset(size.X + 8, size.Y + 7)
+nametag.Text = Strings[ent]
+end
+end,
+Drawing = function(ent)
+local nametag = Reference[ent]
+if nametag then
+if vape.ThreadFix then
+setthreadidentity(8)
+end
+Sizes[ent] = nil
+Strings[ent] = ent.Player and whitelist:tag(ent.Player, true)..(DisplayName.Enabled and ent.Player.DisplayName or ent.Player.Name) or ent.Character.Name
+if Health.Enabled then
+Strings[ent] = Strings[ent]..' '..math.round(ent.Health)
+end
+if Equipment.Enabled then
+Strings[ent] = Strings[ent]..getEquipmentText(ent)
+end
+if KitDisplay.Enabled then
+Strings[ent] = Strings[ent]..getKitText(ent)
+end
+if EnchantDisplay.Enabled then
+Strings[ent] = Strings[ent]..getEnchantText(ent)
+end
+Strings[ent] = Strings[ent] .. getResourceTextDrawing(ent) -- ★リソース追加
+if Distance.Enabled then
+Strings[ent] = '[%s] '..Strings[ent]
+nametag.Text.Text = entitylib.isAlive and string.format(Strings[ent], math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude)) or string.format(Strings[ent], 0)
+else
+nametag.Text.Text = Strings[ent]
+end
+nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
+nametag.Text.Color = entitylib.getEntityColor(ent) or Color3.fromHSV(Color.Hue, Color.Sat, Color.Value)
+end
+end
+}
+local ColorFunc = {
+Normal = function(hue, sat, val)
+local color = Color3.fromHSV(hue, sat, val)
+for i, v in Reference do
+v.TextColor3 = entitylib.getEntityColor(i) or color
+end
+end,
+Drawing = function(hue, sat, val)
+local color = Color3.fromHSV(hue, sat, val)
+for i, v in Reference do
+v.Text.Color = entitylib.getEntityColor(i) or color
+end
+end
+}
+local Loop = {
+Normal = function()
+for ent, nametag in Reference do
+if DistanceCheck.Enabled then
+local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
+if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+nametag.Visible = false
+continue
+end
+end
+-- ★リソースの定期更新 (1秒ごと)
+if DisplayResource.Enabled and ent.Player then
+    local now = tick()
+    if not ent.LastResUpdate or now - ent.LastResUpdate > 1 then
+        ent.LastResUpdate = now
+        local newResText = getResourceTextNormal(ent)
+        if ent.CurrentResText ~= newResText then
+            ent.CurrentResText = newResText
+            entitylib.Events.EntityUpdated:Fire(ent)
+            continue
+        end
+    end
+end
+local headPos, headVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position + Vector3.new(0, ent.HipHeight + 1, 0))
+nametag.Visible = headVis
+if not headVis then
+continue
+end
+if Distance.Enabled then
+local mag = entitylib.isAlive and math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude) or 0
+if Sizes[ent] ~= mag then
+nametag.Text = string.format(Strings[ent], mag)
+local ize = getfontsize(removeTags(nametag.Text), nametag.TextSize, nametag.FontFace, Vector2.new(100000, 100000))
+nametag.Size = UDim2.fromOffset(ize.X + 8, ize.Y + 7)
+Sizes[ent] = mag
+end
+end
+nametag.Position = UDim2.fromOffset(headPos.X, headPos.Y)
+end
+end,
+Drawing = function()
+for ent, nametag in Reference do
+if DistanceCheck.Enabled then
+local distance = entitylib.isAlive and (entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude or math.huge
+if distance < DistanceLimit.ValueMin or distance > DistanceLimit.ValueMax then
+nametag.Text.Visible = false
+nametag.BG.Visible = false
+continue
+end
+end
+-- ★リソースの定期更新 (1秒ごと)
+if DisplayResource.Enabled and ent.Player then
+    local now = tick()
+    if not ent.LastResUpdate or now - ent.LastResUpdate > 1 then
+        ent.LastResUpdate = now
+        local newResText = getResourceTextDrawing(ent)
+        if ent.CurrentResText ~= newResText then
+            ent.CurrentResText = newResText
+            entitylib.Events.EntityUpdated:Fire(ent)
+            continue
+        end
+    end
+end
+local headPos, headVis = gameCamera:WorldToViewportPoint(ent.RootPart.Position + Vector3.new(0, ent.HipHeight + 1, 0))
+nametag.Text.Visible = headVis
+nametag.BG.Visible = headVis
+if not headVis then
+continue
+end
+if Distance.Enabled then
+local mag = entitylib.isAlive and math.floor((entitylib.character.RootPart.Position - ent.RootPart.Position).Magnitude) or 0
+if Sizes[ent] ~= mag then
+nametag.Text.Text = string.format(Strings[ent], mag)
+nametag.BG.Size = Vector2.new(nametag.Text.TextBounds.X + 8, nametag.Text.TextBounds.Y + 7)
+Sizes[ent] = mag
+end
+end
+nametag.BG.Position = Vector2.new(headPos.X - (nametag.BG.Size.X / 2), headPos.Y - nametag.BG.Size.Y)
+nametag.Text.Position = nametag.BG.Position + Vector2.new(4, 3)
+end
+end
+}
+NameTags = vape.Categories.Render:CreateModule({
+Name = 'NameTags',
+Function = function(callback)
+if callback then
+methodused = DrawingToggle.Enabled and 'Drawing' or 'Normal'
+if Removed[methodused] then
+NameTags:Clean(entitylib.Events.EntityRemoved:Connect(Removed[methodused]))
+end
+if Added[methodused] then
+for _, v in entitylib.List do
+if Reference[v] then
+Removed[methodused](v)
+end
+Added[methodused](v)
+end
+NameTags:Clean(entitylib.Events.EntityAdded:Connect(function(ent)
+if Reference[ent] then
+Removed[methodused](ent)
+end
+Added[methodused](ent)
+end))
+end
+if Updated[methodused] then
+NameTags:Clean(entitylib.Events.EntityUpdated:Connect(Updated[methodused]))
+for _, v in entitylib.List do
+Updated[methodused](v)
+end
+end
+if ColorFunc[methodused] then
+NameTags:Clean(vape.Categories.Friends.ColorUpdate.Event:Connect(function()
+ColorFunc[methodused](Color.Hue, Color.Sat, Color.Value)
+end))
+end
+if Loop[methodused] then
+NameTags:Clean(runService.RenderStepped:Connect(Loop[methodused]))
+end
+else
+if Removed[methodused] then
+for i in Reference do
+Removed[methodused](i)
+end
+end
+end
+end,
+Tooltip = 'Renders nametags on entities through walls.'
+})
+Targets = NameTags:CreateTargets({
+Players = true,
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end
+})
+FontOption = NameTags:CreateFont({
+Name = 'Font',
+Blacklist = 'Arial',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end
+})
+Color = NameTags:CreateColorSlider({
+Name = 'Player Color',
+Function = function(hue, sat, val)
+if NameTags.Enabled and ColorFunc[methodused] then
+ColorFunc[methodused](hue, sat, val)
+end
+end
+})
+Scale = NameTags:CreateSlider({
+Name = 'Scale',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end,
+Default = 1,
+Min = 0.1,
+Max = 1.5,
+Decimal = 10
+})
+Background = NameTags:CreateSlider({
+Name = 'Transparency',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end,
+Default = 0.5,
+Min = 0,
+Max = 1,
+Decimal = 10
+})
+Health = NameTags:CreateToggle({
+Name = 'Health',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end
+})
+Distance = NameTags:CreateToggle({
+Name = 'Distance',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end
+})
+Equipment = NameTags:CreateToggle({
+Name = 'Equipment',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end
+})
+KitDisplay = NameTags:CreateToggle({
+Name = 'Kit Display',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end
+})
+EnchantDisplay = NameTags:CreateToggle({
+Name = 'Enchant Display',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end
+})
+-- ★追加: DisplayResource トグル
+DisplayResource = NameTags:CreateToggle({
+Name = 'Display Resource',
+Tooltip = 'Shows Iron, Gold, Diamond, Emerald counts next to player names',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end
+})
+DisplayName = NameTags:CreateToggle({
+Name = 'Use Displayname',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end,
+Default = true
+})
+Teammates = NameTags:CreateToggle({
+Name = 'Priority Only',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end,
+Default = true
+})
+DrawingToggle = NameTags:CreateToggle({
+Name = 'Drawing',
+Function = function()
+if NameTags.Enabled then
+NameTags:Toggle()
+NameTags:Toggle()
+end
+end,
+})
+DistanceCheck = NameTags:CreateToggle({
+Name = 'Distance Check',
+Function = function(callback)
+DistanceLimit.Object.Visible = callback
+end
+})
+DistanceLimit = NameTags:CreateTwoSlider({
+Name = 'Player Distance',
+Min = 0,
+Max = 256,
+DefaultMin = 0,
+DefaultMax = 64,
+Darker = true,
+Visible = false
+})
 end)
 	
 run(function()
