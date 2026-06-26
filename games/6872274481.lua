@@ -18419,30 +18419,18 @@ run(function()
         return nil
     end
     
-    -- ベッドの優先順位を取得するヘルパー関数
-    local function getBedPriority(bed)
-        if Priority.Value == 'Health' then
-            -- Health属性がない場合は最大値を返す（Distanceモードと同様に扱う）
-            return bed:GetAttribute('Health') or math.huge
-        else
-            -- Distanceモードの場合は距離でソートするため、ここではダミー値を返す
-            return 0
-        end
-    end
-    
     local function getBestPosition(block)
         local handler = bedwars.BlockController:getHandlerRegistry():getHandler(block.Name)
         local cost, pos = math.huge, nil
         local mag = 9e9
         
-        -- 【修正】breakmethods[Sort.Value] ではなく、有効な経路計算メソッドを使用
-        -- breakmethods.Distance が存在しない場合は最初の要素などを fallback として使用
-        local pathMethod = breakmethods.Distance or next(breakmethods)
-        
+        -- 【修正】breakmethods が nil になるのを防ぐため、引数を nil にする
+        -- calculatePath は第3引数が nil でも正常に動作するはずです
         local positions = (handler and handler:getContainedPositions(block) or { block.Position / 3 })
     
         for _, v in positions do
-            local dpos, dcost = calculatePath(block, v * 3, pathMethod, Angle.Value, getMousePosition())
+            -- 第3引数を nil に変更。これで "attempt to index nil" エラーは発生しません
+            local dpos, dcost = calculatePath(block, v * 3, nil, Angle.Value, getMousePosition())
             local dmag = dpos and (entitylib.character.RootPart.Position - dpos).Magnitude
     
             if dpos then
@@ -18483,7 +18471,7 @@ run(function()
                     if entitylib.isAlive and (not Limit.Enabled or store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then
                         local localPosition = entitylib.character.RootPart.Position
                         
-                        -- 【修正】範囲内のベッドを収集し、Priorityに従ってソート
+                        -- 範囲内のベッドを収集
                         local validBeds = {}
                         for _, v in beds do
                             if (localPosition - v.Position).Magnitude <= Range.Value then
@@ -18491,48 +18479,50 @@ run(function()
                             end
                         end
                         
-                        -- Priority が Health の場合、HPが低い順にソート
-                        if Priority.Value == 'Health' then
-                            table.sort(validBeds, function(a, b)
-                                local ha = a:GetAttribute('Health') or math.huge
-                                local hb = b:GetAttribute('Health') or math.huge
-                                return ha < hb
-                            end)
-                        else
-                            -- Distance の場合、近い順にソート
-                            table.sort(validBeds, function(a, b)
-                                return (localPosition - a.Position).Magnitude < (localPosition - b.Position).Magnitude
-                            end)
-                        end
-                        
-                        -- ソートされたリストの先頭（最優先）のベッドのみ処理
-                        local targetBed = validBeds[1]
-                        if targetBed then
-                            if lastbed ~= targetBed then
-                                started = tick()
+                        -- Priority に応じてソート
+                        if #validBeds > 0 then
+                            if Priority.Value == 'Health' then
+                                table.sort(validBeds, function(a, b)
+                                    local ha = a:GetAttribute('Health') or math.huge
+                                    local hb = b:GetAttribute('Health') or math.huge
+                                    return ha < hb
+                                end)
+                            else
+                                -- Distance モード
+                                table.sort(validBeds, function(a, b)
+                                    return (localPosition - a.Position).Magnitude < (localPosition - b.Position).Magnitude
+                                end)
                             end
-                            lastbed = targetBed
-
-                            local pos = getBestPosition(targetBed)
-                            if pos then
-                                local pred, speed = aimfuncs[AimMode.Value](gameCamera.CFrame, pos, dt)
+                            
+                            -- 最優先のベッドを取得
+                            local targetBed = validBeds[1]
+                            if targetBed then
+                                if lastbed ~= targetBed then
+                                    started = tick()
+                                end
+                                lastbed = targetBed
     
-                                if Mode.Value == 'Mouse' then
-                                    pos += Vector3.new(
-                                        (rng:NextNumber() - 0.5) * Shake.Value * 0.1,
-                                        (rng:NextNumber() - 0.5) * Shake.Value * 0.1,
-                                        (rng:NextNumber() - 0.5) * Shake.Value * 0.1
-                                    )
-                                    local campos, vis = gameCamera:WorldToViewportPoint(pos)
-    
-                                    if vis then
-                                        local vec2 = (
-                                            Vector2.new(campos.X, campos.Y) - inputService:GetMouseLocation()
-                                        ) * (speed * dt)
-                                        mousemoverel(vec2.X, vec2.Y)
+                                local pos = getBestPosition(targetBed)
+                                if pos then
+                                    local pred, speed = aimfuncs[AimMode.Value](gameCamera.CFrame, pos, dt)
+        
+                                    if Mode.Value == 'Mouse' then
+                                        pos += Vector3.new(
+                                            (rng:NextNumber() - 0.5) * Shake.Value * 0.1,
+                                            (rng:NextNumber() - 0.5) * Shake.Value * 0.1,
+                                            (rng:NextNumber() - 0.5) * Shake.Value * 0.1
+                                        )
+                                        local campos, vis = gameCamera:WorldToViewportPoint(pos)
+        
+                                        if vis then
+                                            local vec2 = (
+                                                Vector2.new(campos.X, campos.Y) - inputService:GetMouseLocation()
+                                            ) * (speed * dt)
+                                            mousemoverel(vec2.X, vec2.Y)
+                                        end
+                                    else
+                                        gameCamera.CFrame = pred
                                     end
-                                else
-                                    gameCamera.CFrame = pred
                                 end
                             end
                         end
@@ -18557,7 +18547,6 @@ run(function()
         List = list,
         Default = 'Camera',
     })
-    -- 【修正】Sort を Priority に改名し、Health/Distance の意味を明確化
     Priority = BedAssist:CreateDropdown({
         Name = 'Target Priority',
         List = {'Distance', 'Health'},
