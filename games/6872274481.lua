@@ -18325,27 +18325,22 @@ end)
 
 run(function()
     local FastCameraChange
-
     local oldMinZoom
     local oldMaxZoom
-
     FastCameraChange = vape.Categories.Utility:CreateModule({
         Name = 'FastCameraChange',
         Function = function(callback)
             local plr = game:GetService("Players").LocalPlayer
-
             if callback then
-                -- 元のズーム距離を保存
                 oldMinZoom = plr.CameraMinZoomDistance
                 oldMaxZoom = plr.CameraMaxZoomDistance
-
-                -- 一人称固定
+                plr.CameraMinZoomDistance = 0
+                plr.CameraMaxZoomDistance = 0
                 plr.CameraMode = Enum.CameraMode.LockFirstPerson
             else
-                -- 三人称へ戻す
                 plr.CameraMode = Enum.CameraMode.Classic
-
-                -- 元のズーム距離を復元
+                -- 先にModeを戻してから距離を復元
+                task.wait()
                 if oldMinZoom then
                     plr.CameraMinZoomDistance = oldMinZoom
                 end
