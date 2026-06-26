@@ -18326,20 +18326,32 @@ end)
 run(function()
     local FastCameraChange
 
+    local oldMinZoom
+    local oldMaxZoom
+
     FastCameraChange = vape.Categories.Utility:CreateModule({
         Name = 'FastCameraChange',
         Function = function(callback)
             local plr = game:GetService("Players").LocalPlayer
-            local cam = workspace.CurrentCamera
-            
+
             if callback then
-                -- callbackがtrue（モジュールON）のとき -> 一人称
+                -- 元のズーム距離を保存
+                oldMinZoom = plr.CameraMinZoomDistance
+                oldMaxZoom = plr.CameraMaxZoomDistance
+
+                -- 一人称固定
                 plr.CameraMode = Enum.CameraMode.LockFirstPerson
             else
-                -- callbackがfalse（モジュールOFF）のとき -> 三人称
+                -- 三人称へ戻す
                 plr.CameraMode = Enum.CameraMode.Classic
-                -- 三人称に戻した際にカメラが一人称の位置に張り付くバグを防ぐための補正
-                cam.Focus = cam.Focus * CFrame.new(0, 0, 5)
+
+                -- 元のズーム距離を復元
+                if oldMinZoom then
+                    plr.CameraMinZoomDistance = oldMinZoom
+                end
+                if oldMaxZoom then
+                    plr.CameraMaxZoomDistance = oldMaxZoom
+                end
             end
         end,
         Tooltip = 'Switch to first person when enabled, third person when disabled'
