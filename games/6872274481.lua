@@ -18370,7 +18370,7 @@ run(function()
     local Range
     local Shake
     local Angle
-    local Priority -- Sort から Priority に変更
+    local Priority
     local Mode
     local Limit
     
@@ -18424,13 +18424,15 @@ run(function()
         local cost, pos = math.huge, nil
         local mag = 9e9
         
-        -- 【修正】breakmethods が nil になるのを防ぐため、引数を nil にする
-        -- calculatePath は第3引数が nil でも正常に動作するはずです
+        -- 【重要】breakmethods は使わず、文字列 "Distance" を直接渡す
+        -- これにより "attempt to index nil" エラーを完全に回避できます
+        local pathMethod = "Distance" 
+        
         local positions = (handler and handler:getContainedPositions(block) or { block.Position / 3 })
     
         for _, v in positions do
-            -- 第3引数を nil に変更。これで "attempt to index nil" エラーは発生しません
-            local dpos, dcost = calculatePath(block, v * 3, nil, Angle.Value, getMousePosition())
+            -- 第3引数に文字列 "Distance" を指定
+            local dpos, dcost = calculatePath(block, v * 3, pathMethod, Angle.Value, getMousePosition())
             local dmag = dpos and (entitylib.character.RootPart.Position - dpos).Magnitude
     
             if dpos then
@@ -18471,7 +18473,6 @@ run(function()
                     if entitylib.isAlive and (not Limit.Enabled or store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then
                         local localPosition = entitylib.character.RootPart.Position
                         
-                        -- 範囲内のベッドを収集
                         local validBeds = {}
                         for _, v in beds do
                             if (localPosition - v.Position).Magnitude <= Range.Value then
@@ -18479,7 +18480,6 @@ run(function()
                             end
                         end
                         
-                        -- Priority に応じてソート
                         if #validBeds > 0 then
                             if Priority.Value == 'Health' then
                                 table.sort(validBeds, function(a, b)
@@ -18488,13 +18488,11 @@ run(function()
                                     return ha < hb
                                 end)
                             else
-                                -- Distance モード
                                 table.sort(validBeds, function(a, b)
                                     return (localPosition - a.Position).Magnitude < (localPosition - b.Position).Magnitude
                                 end)
                             end
                             
-                            -- 最優先のベッドを取得
                             local targetBed = validBeds[1]
                             if targetBed then
                                 if lastbed ~= targetBed then
