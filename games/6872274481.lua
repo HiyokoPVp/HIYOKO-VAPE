@@ -18224,7 +18224,7 @@ run(function()
     local Folder = Instance.new("Folder")
     Folder.Parent = vape.gui
     
-    -- チームカラー定義 (Bedwars標準)
+    -- チームカラー定義
     local teamColors = {
         [1] = Color3.fromRGB(85, 150, 255),   -- Blue
         [2] = Color3.fromRGB(255, 150, 50),   -- Orange
@@ -18237,7 +18237,7 @@ run(function()
     -- リソース名の判定用テーブル
     local resourceTypes = {
         ["iron"] = "Iron",
-        ["gold"] = "Gold",      -- Goldもカウントしたい場合は有効化
+        ["gold"] = "Gold",
         ["diamond"] = "Diamond",
         ["emerald"] = "Emerald"
     }
@@ -18250,7 +18250,7 @@ run(function()
             local name = item.Name:lower()
             local amount = 1
             
-            -- Amount属性があればそれを使う（チェストやインベントリ共通）
+            -- Amount属性があればそれを使う
             if item:GetAttribute("Amount") then
                 amount = item:GetAttribute("Amount")
             end
@@ -18281,14 +18281,13 @@ run(function()
                         if not counts[teamId] then
                             counts[teamId] = { Iron = 0, Diamond = 0, Emerald = 0 }
                         end
-                        -- プレイヤーの全子要素（hand, armor, inventoryなど）を確認
                         countResourcesInFolder(playerFolder, counts[teamId])
                     end
                 end
             end
         end
         
-        -- 2. チェストの中身から集計
+        -- 2. チェストの中身から集計 (StorageESPと同じ仕組み)
         for _, chestObj in pairs(collectionService:GetTagged('chest')) do
             local chestFolder = chestObj:FindFirstChild("ChestFolderValue")
             if chestFolder and chestFolder.Value and chestFolder.Value:IsA("Folder") then
@@ -18406,5 +18405,23 @@ run(function()
             end
         end,
         Tooltip = 'Shows total resources held by each team (Inventory + Chests).'
+    })
+
+    -- オプション: UIの大きさ調整
+    local UIScale = ShowThemResource:CreateSlider({
+        Name = 'UI Scale',
+        Min = 0.5,
+        Max = 2.0,
+        Default = 1.0,
+        Decimal = 10,
+        Function = function(val)
+            for _, data in pairs(Reference) do
+                if data.UI then
+                    data.UI.Size = UDim2.fromOffset(140 * val, 60 * val)
+                    data.UI:FindFirstChild('Title').TextSize = 14 * val
+                    data.UI:FindFirstChild('Content').TextSize = 12 * val
+                end
+            end
+        end
     })
 end)
