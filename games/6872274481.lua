@@ -18324,31 +18324,56 @@ run(function()
 end)
 
 run(function()
-    local FastCameraChange
-    local oldMinZoom
-    local oldMaxZoom
-    FastCameraChange = vape.Categories.Utility:CreateModule({
-        Name = 'FastCameraChange',
+    local FakeScroll
+    local Direction
+    local Speed
+
+    -- Exploitのマウスホイールシミュレート関数を安全に呼び出すラッパー
+    local function simulateScroll(dir)
+        -- 各Exploit環境の関数に対応
+        if typeof(mousescroll) == "function" then
+            mousescroll(dir)
+        elseif typeof(mousewheel) == "function" then
+            mousewheel(dir)
+        elseif typeof(mouse1scroll) == "function" then
+            mouse1scroll(dir)
+        end
+    end
+
+    FakeScroll = vape.Categories.Utility:CreateModule({
+        Name = 'FakeScroll',
         Function = function(callback)
-            local plr = game:GetService("Players").LocalPlayer
             if callback then
-                oldMinZoom = plr.CameraMinZoomDistance
-                oldMaxZoom = plr.CameraMaxZoomDistance
-                plr.CameraMinZoomDistance = 0
-                plr.CameraMaxZoomDistance = 0
-                plr.CameraMode = Enum.CameraMode.LockFirstPerson
-            else
-                plr.CameraMode = Enum.CameraMode.Classic
-                -- 先にModeを戻してから距離を復元
-                task.wait()
-                if oldMinZoom then
-                    plr.CameraMinZoomDistance = oldMinZoom
-                end
-                if oldMaxZoom then
-                    plr.CameraMaxZoomDistance = oldMaxZoom
-                end
+                local lastScroll = tick()
+                FakeScroll:Clean(runService.RenderStepped:Connect(function()
+                    if not FakeScroll.Enabled then return end
+                    
+                    -- スピード設定に基づいてスクロールをエミュレート
+                    if tick() - lastScroll >= (1 / Speed.Value) then
+                        -- Up: 1, Down: -1 (環境によって逆の場合もあるため、必要に応じて変更)
+                        local scrollDir = Direction.Value == 'Up' and 1 or -1
+                        simulateScroll(scrollDir)
+                        lastScroll = tick()
+                    end
+                end))
             end
         end,
-        Tooltip = 'Switch to first person when enabled, third person when disabled'
+        Tooltip = 'Simulates mouse wheel scrolling using exploit functions'
+    })
+
+    -- スクロール方向のオプション
+    Direction = FakeScroll:CreateDropdown({
+        Name = 'Direction',
+        List = {'Up', 'Down'},
+        Default = 'Up'
+    })
+
+    -- スクロール速度（1秒間に何回スクロールするか）のオプション
+    Speed = FakeScroll:CreateSlider({
+        Name = 'Speed',
+        Min = 1,
+        Max = 60,
+        Default = 10,
+        Suffix = 'hz'
     })
 end)
