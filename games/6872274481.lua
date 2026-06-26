@@ -18342,15 +18342,16 @@ run(function()
             local plr = game:GetService("Players").LocalPlayer
             local cam = workspace.CurrentCamera
             
-            if isFirstPerson() then
-                -- 一人称なら三人称（Classic）にする
-                plr.CameraMode = Enum.CameraMode.Classic
-                -- 三人称にした際、カメラが一人称の位置に張り付くのを防ぐための補正
-                cam.Focus = cam.Focus * CFrame.new(0, 0, 5) 
-            else
-                -- 三人称なら一人称（LockFirstPerson）にする
-                plr.CameraMode = Enum.CameraMode.LockFirstPerson
-            end
+if isFirstPerson() then
+    LocalPlayer.CameraMode = Enum.CameraMode.Classic
+
+    LocalPlayer.CameraMinZoomDistance = 0.5
+    LocalPlayer.CameraMaxZoomDistance = 12
+
+    workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+else
+    LocalPlayer.CameraMode = Enum.CameraMode.LockFirstPerson
+end
         end,
         Tooltip = 'Toggle between first person and third person view using the module hotkey'
     })
