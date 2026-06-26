@@ -18324,56 +18324,41 @@ run(function()
 end)
 
 run(function()
-    local FakeScroll
-    local Direction
-    local Speed
+    local FastCameraChange
 
-    -- Exploitのマウスホイールシミュレート関数を安全に呼び出すラッパー
+    -- Exploitのマウスホイールスクロール関数を安全に呼び出すラッパー
     local function simulateScroll(dir)
-        -- 各Exploit環境の関数に対応
-        if typeof(mousescroll) == "function" then
-            mousescroll(dir)
-        elseif typeof(mousewheel) == "function" then
-            mousewheel(dir)
-        elseif typeof(mouse1scroll) == "function" then
-            mouse1scroll(dir)
-        end
+        pcall(function()
+            if typeof(mousescroll) == "function" then
+                mousescroll(dir)
+            elseif typeof(mousewheel) == "function" then
+                mousewheel(dir)
+            elseif typeof(mouse1scroll) == "function" then
+                mouse1scroll(dir)
+            end
+        end)
     end
 
-    FakeScroll = vape.Categories.Utility:CreateModule({
-        Name = 'FakeScroll',
+    FastCameraChange = vape.Categories.Utility:CreateModule({
+        Name = 'FastCameraChange',
         Function = function(callback)
-            if callback then
-                local lastScroll = tick()
-                FakeScroll:Clean(runService.RenderStepped:Connect(function()
-                    if not FakeScroll.Enabled then return end
-                    
-                    -- スピード設定に基づいてスクロールをエミュレート
-                    if tick() - lastScroll >= (1 / Speed.Value) then
-                        -- Up: 1, Down: -1 (環境によって逆の場合もあるため、必要に応じて変更)
-                        local scrollDir = Direction.Value == 'Up' and 1 or -1
-                        simulateScroll(scrollDir)
-                        lastScroll = tick()
+            -- task.spawnを使って、スクロール処理が他の処理をブロックしないようにする
+            task.spawn(function()
+                if callback then
+                    -- callbackがtrue（モジュールON）のとき -> 1人称にするためにホイールを上にスクロール
+                    for i = 1, 40 do
+                        simulateScroll(1) -- 1: ホイール上（ズームイン）
+                        task.wait()
                     end
-                end))
-            end
+                else
+                    -- callbackがfalse（モジュールOFF）のとき -> 3人称にするためにホイールを下にスクロール
+                    for i = 1, 40 do
+                        simulateScroll(-1) -- -1: ホイール下（ズームアウト）
+                        task.wait()
+                    end
+                end
+            end)
         end,
-        Tooltip = 'Simulates mouse wheel scrolling using exploit functions'
-    })
-
-    -- スクロール方向のオプション
-    Direction = FakeScroll:CreateDropdown({
-        Name = 'Direction',
-        List = {'Up', 'Down'},
-        Default = 'Up'
-    })
-
-    -- スクロール速度（1秒間に何回スクロールするか）のオプション
-    Speed = FakeScroll:CreateSlider({
-        Name = 'Speed',
-        Min = 1,
-        Max = 60,
-        Default = 10,
-        Suffix = 'hz'
+        Tooltip = 'Simulates mouse wheel to toggle between 1st and 3rd person'
     })
 end)
