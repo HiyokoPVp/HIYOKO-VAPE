@@ -18322,3 +18322,36 @@ run(function()
         end
     })
 end)
+
+run(function()
+    local FastCameraChange
+
+    -- 一人称かどうかを判定する関数
+    local function isFirstPerson()
+        local cam = workspace.CurrentCamera
+        return (cam.Focus.p - cam.CFrame.p).Magnitude < 0.6
+    end
+
+    -- モジュールの作成（オプションのキーバインドは作成せず、モジュール標準のホットキーを使用）
+    FastCameraChange = vape.Categories.Utility:CreateModule({
+        Name = 'FastCameraChange',
+        Function = function(callback)
+            -- モジュールが有効（Enabled）な状態のときのみ処理を実行
+            if not FastCameraChange.Enabled then return end
+            
+            local plr = game:GetService("Players").LocalPlayer
+            local cam = workspace.CurrentCamera
+            
+            if isFirstPerson() then
+                -- 一人称なら三人称（Classic）にする
+                plr.CameraMode = Enum.CameraMode.Classic
+                -- 三人称にした際、カメラが一人称の位置に張り付くのを防ぐための補正
+                cam.Focus = cam.Focus * CFrame.new(0, 0, 5) 
+            else
+                -- 三人称なら一人称（LockFirstPerson）にする
+                plr.CameraMode = Enum.CameraMode.LockFirstPerson
+            end
+        end,
+        Tooltip = 'Toggle between first person and third person view using the module hotkey'
+    })
+end)
