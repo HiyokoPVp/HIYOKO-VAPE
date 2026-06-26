@@ -18363,214 +18363,234 @@ run(function()
     })
 end)
 
-run(function()
-    -- モジュール定義
-    local BedAssist = vape.Categories.World:CreateModule({
-        Name = 'Bed Assist',
-        Tooltip = 'Automatically aims at the nearest or weakest bed within range'
-    })
+local sortmethods, breakmethods = {
+	Damage = function(a, b)
+		return a.Entity.Character:GetAttribute('LastDamageTakenTime') < b.Entity.Character:GetAttribute('LastDamageTakenTime')
+	end,
+	Threat = function(a, b)
+		return getStrength(a.Entity) > getStrength(b.Entity)
+	end,
+	Kit = function(a, b)
+		return (a.Entity.Player and kitorder[a.Entity.Player:GetAttribute('PlayingAsKit')] or 0) > (b.Entity.Player and kitorder[b.Entity.Player:GetAttribute('PlayingAsKit')] or 0)
+	end,
+	Health = function(a, b)
+		return a.Entity.Health < b.Entity.Health
+	end,
+	Angle = function(a, b)
+		local selfrootpos = entitylib.character.RootPart.Position
+		local localfacing = entitylib.character.RootPart.CFrame.LookVector * Vector3.new(1, 0, 1)
+		local angle = math.acos(localfacing:Dot(((a.Entity.RootPart.Position - selfrootpos) * Vector3.new(1, 0, 1)).Unit))
+		local angle2 = math.acos(localfacing:Dot(((b.Entity.RootPart.Position - selfrootpos) * Vector3.new(1, 0, 1)).Unit))
+		return angle < angle2
+	end,
+	Mouse = function(a, b)
+		local mouse = lplr:GetMouse()
+		local origin = Vector2.new(mouse.X, mouse.Y)
 
-    -- 設定UI
-    local AimMode = BedAssist:CreateDropdown({
-        Name = 'Aim Algorithm',
-        List = {'Simple', 'Adaptive'},
-        Default = 'Simple'
+		local posa, visa = gameCamera:WorldToScreenPoint(a.Entity.RootPart.Position)
+		local posb, visb = gameCamera:WorldToScreenPoint(b.Entity.RootPart.Position)
+		local dista = visa and (Vector2.new(posa.X, posa.Y) - origin).Magnitude or math.huge
+        local distb = visb and (Vector2.new(posb.X, posb.Y) - origin).Magnitude or math.huge
+        return (dista == dista and dista or math.huge) < (distb == distb and distb or math.huge)
+	end
+}, {
+	Health = function(...)
+		return getBlockHits(...)
+	end,
+	Distance = function(a)
+		local pos = (entitylib.isAlive and (entitylib.character.RootPart.Position - Vector3.new(0, 1, 0)) or Vector3.zero)
+		return (pos - Vector3.new(a.Position.X, pos.Y, a.Position.Z)).Magnitude
+	end
+}
+
+run(function()
+    local BedAssist
+    local AimMode
+    local Speed
+    local Range
+    local Shake
+    local Angle
+    local Sort
+    local Mode
+    local Limit
+    
+    local function ease(t)
+        return t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
+    end
+    
+    local started = 0
+    local aimfuncs = {
+        Simple = function(localcframe, pos, fps)
+            local rng = Random.new()
+            return localcframe:Lerp(
+                CFrame.lookAt(
+                    localcframe.p,
+                    pos
+                        + Vector3.new(
+                            (rng:NextNumber() - 0.5) * Shake.Value * fps,
+                            (rng:NextNumber() - 0.5) * Shake.Value * fps,
+                            (rng:NextNumber() - 0.5) * Shake.Value * fps
+                        )
+                ),
+                Speed.Value * fps
+            ),
+                Speed.Value
+        end,
+        Adaptive = function(localcframe, pos, fps)
+            local prog, rng = ease(math.min((tick() - started) / (1 / (Speed.Value * 0.5)), 1)), Random.new()
+            local speed = Speed.Value * prog
+            return localcframe:Lerp(CFrame.lookAt(localcframe.p, pos + Vector3.new((rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps, (rng:NextNumber() - 0.5) * Shake.Value * fps)), speed * fps), speed
+        end
+    }
+    
+    local function getMousePosition()
+        local suc, mouseinfo = pcall(function()
+            return bedwars.BlockBreaker.clientManager:getBlockSelector():getMouseInfo(0)
+        end)
+    
+        if suc and mouseinfo then
+            if mouseinfo.target and mouseinfo.target.blockRef then
+                return mouseinfo.target.blockRef.blockPosition * 3
+            end
+            if mouseinfo.placementPosition then
+                return mouseinfo.placementPosition * 3
+            end
+        end
+        return nil
+    end
+    
+    local function getBestPosition(block)
+        local handler = bedwars.BlockController:getHandlerRegistry():getHandler(block.Name)
+        local cost, pos = math.huge, nil
+        local mag = 9e9
+    
+        local positions = (handler and handler:getContainedPositions(block) or { block.Position / 3 })
+    
+        for _, v in positions do
+            local dpos, dcost = calculatePath(block, v * 3, breakmethods[Sort.Value], Angle.Value, getMousePosition())
+            local dmag = dpos and (entitylib.character.RootPart.Position - dpos).Magnitude
+    
+            if dpos then
+                if dcost < cost or (dcost == cost and dmag < mag) then
+                    cost, pos, mag = dcost, dpos, dmag
+                end
+            end
+        end
+    
+        if pos and (entitylib.character.RootPart.Position - pos).Magnitude <= Range.Value then
+            return pos
+        end
+        return nil
+    end
+    
+    BedAssist = vape.Categories.World:CreateModule({
+        Name = 'Bed Assist',
+        Function = function(call)
+            if call then
+                repeat
+                    task.wait()
+                until store.matchState ~= 0 or not BedAssist.Enabled
+                if not BedAssist.Enabled then
+                    return
+                end
+    
+                local beds = collection('bed', BedAssist, function(tab, obj)
+                    task.delay(0, function()
+                        if not obj:GetAttribute('Team' .. (lplr:GetAttribute('Team') or -1) .. 'NoBreak') then
+                            table.insert(tab, obj)
+                        end
+                    end)
+                end)
+                local rng = Random.new()
+                local lastbed = nil
+    
+                BedAssist:Clean(runService.PostSimulation:Connect(function(dt)
+                    if entitylib.isAlive and (not Limit.Enabled or store.hand.tool and bedwars.ItemMeta[store.hand.tool.Name].breakBlock) then
+                        local localPosition = entitylib.character.RootPart.Position
+                        for _, v in beds do
+                            if (localPosition - v.Position).Magnitude <= Range.Value then
+                                if lastbed ~= v then
+                                    started = tick()
+                                end
+                                lastbed = v
+    
+                                local pos = getBestPosition(v)
+                                if pos then
+                                    local pred, speed = aimfuncs[AimMode.Value](gameCamera.CFrame, pos, dt)
+    
+                                    if Mode.Value == 'Mouse' then
+                                        pos += Vector3.new(
+                                            (rng:NextNumber() - 0.5) * Shake.Value * 0.1,
+                                            (rng:NextNumber() - 0.5) * Shake.Value * 0.1,
+                                            (rng:NextNumber() - 0.5) * Shake.Value * 0.1
+                                        )
+                                        local campos, vis = gameCamera:WorldToViewportPoint(pos)
+    
+                                        if vis then
+                                            local vec2 = (
+                                                Vector2.new(campos.X, campos.Y) - inputService:GetMouseLocation()
+                                            ) * (speed * dt)
+                                            mousemoverel(vec2.X, vec2.Y)
+                                        end
+                                    else
+                                        gameCamera.CFrame = pred
+                                    end
+                                end
+                                break
+                            end
+                        end
+                    end
+                end))
+            end
+        end,
+        Tooltip = 'Smoothly aims towards a bed close to your mouse'
     })
     
-    local TargetPriority = BedAssist:CreateDropdown({
-        Name = 'Target Priority',
+    local list = {'Camera'}
+    if inputService.MouseEnabled and mousemoverel then
+        table.insert(list, 'Mouse')
+    end
+    AimMode = BedAssist:CreateDropdown({
+        Name = 'Mode',
+        List = {'Simple', 'Adaptive'},
+        Default = 'Simple',
+    })
+    Mode = BedAssist:CreateDropdown({
+        Name = 'Aim Mode',
+        List = list,
+        Default = 'Camera',
+    })
+    Sort = BedAssist:CreateDropdown({
+        Name = 'Target Mode',
         List = {'Distance', 'Health'},
-        Default = 'Distance'
+        Default = 'Distance',
     })
-
-    local Mode = BedAssist:CreateDropdown({
-        Name = 'Control Mode',
-        List = {'Camera', 'Mouse'},
-        Default = 'Camera'
-    })
-
-    local Speed = BedAssist:CreateSlider({
+    Speed = BedAssist:CreateSlider({
         Name = 'Aim Speed',
-        Min = 1, Max = 20, Default = 8
+        Min = 1,
+        Max = 20,
+        Default = 7,
     })
-
-    local Range = BedAssist:CreateSlider({
-        Name = 'Range',
-        Min = 5, Max = 50, Default = 30,
-        Suffix = function(v) return v .. ' studs' end
+    Range = BedAssist:CreateSlider({
+        Name = 'Assist Range',
+        Min = 1,
+        Max = 30,
+        Default = 20,
+        Suffix = function(val)
+            return val <= 1 and 'stud' or 'studs'
+        end,
     })
-
-    local Shake = BedAssist:CreateSlider({
-        Name = 'Humanization (Shake)',
-        Min = 0, Max = 5, Default = 1.5
+    Shake = BedAssist:CreateSlider({
+        Name = 'Shake',
+        Min = 1,
+        Max = 100,
+        Default = 3,
     })
-
-    local FOV = BedAssist:CreateSlider({
-        Name = 'Max FOV',
-        Min = 10, Max = 360, Default = 180
+    Angle = BedAssist:CreateSlider({
+        Name = 'Max angle',
+        Min = 1,
+        Max = 360,
+        Default = 200,
     })
-
-    local LimitToPickaxe = BedAssist:CreateToggle({
-        Name = 'Only when holding Pickaxe',
-        Default = true
-    })
-
-    -- 内部変数
-    local startedTick = 0
-    local RNG = Random.new()
-
-    -- イージング関数（Adaptive用）
-    local function easeOutCubic(t)
-        return 1 - math.pow(1 - t, 3)
-    end
-
-    -- ベッド収集ロジック
-    local function getBeds()
-        local beds = {}
-        -- workspace内から 'bed' タグまたは名前に 'bed' を含むパーツを検索
-        -- 環境によっては collectionservice や特定のフォルダを参照する必要がありますが、
-        -- ここでは汎用的に workspace 全体から探します
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") then
-                local name = obj.Name:lower()
-                -- ベッドらしきオブジェクトの判定（環境に合わせて調整が必要かもしれません）
-                if name:find("bed") and not name:find("broken") then
-                    -- 自分のチームのベッド除外ロジック（属性がある場合）
-                    local teamAttr = lplr:GetAttribute('Team')
-                    if teamAttr and obj:GetAttribute('Team' .. teamAttr .. 'NoBreak') then
-                        continue
-                    end
-                    table.insert(beds, obj)
-                end
-            end
-        end
-        return beds
-    end
-
-    -- 視線ベクトル計算（Camera CFrameを使わない純粋な数学計算）
-    local function getLookVector(targetPos)
-        local char = entitylib.character
-        if not char or not char:FindFirstChild("Head") then return nil end
-        
-        local headPos = char.Head.Position
-        local direction = (targetPos - headPos).Unit
-        
-        -- Raycastで視界を遮る壁がないか確認（簡易版）
-        local rayParams = RaycastParams.new()
-        rayParams.FilterDescendantsInstances = {char}
-        rayParams.FilterType = Enum.RaycastFilterType.Exclude
-        
-        local result = workspace:Raycast(headPos, direction * Range.Value, rayParams)
-        
-        -- 壁に当たったかつ、その距離がターゲットより近い場合は視線を遮られているとみなす
-        if result and result.Instance ~= targetPos.Parent then
-             if (result.Position - headPos).Magnitude < (targetPos - headPos).Magnitude - 2 then
-                 return nil 
-             end
-        end
-        
-        return direction
-    end
-
-    -- メインループ
-    BedAssist:Clean(runService.RenderStepped:Connect(function(dt)
-        if not BedAssist.Enabled then return end
-        if not entitylib.isAlive then return end
-        
-        -- ピッケル制限チェック
-        if LimitToPickaxe.Enabled then
-            local tool = store.hand.tool
-            if not tool or not (tool.Name:lower():find("pick") or tool.Name:lower():find("axe")) then
-                return
-            end
-        end
-
-        local char = entitylib.character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-
-        local myPos = root.Position
-        local beds = getBeds()
-        
-        -- 範囲内のベッドをフィルタリング
-        local inRangeBeds = {}
-        for _, bed in ipairs(beds) do
-            local dist = (myPos - bed.Position).Magnitude
-            if dist <= Range.Value then
-                table.insert(inRangeBeds, {part = bed, dist = dist})
-            end
-        end
-
-        if #inRangeBeds == 0 then return end
-
-        -- ソート（Priority設定に基づく）
-        table.sort(inRangeBeds, function(a, b)
-            if TargetPriority.Value == 'Health' then
-                local ha = a.part:GetAttribute('Health') or 9999
-                local hb = b.part:GetAttribute('Health') or 9999
-                return ha < hb
-            else
-                return a.dist < b.dist
-            end
-        end)
-
-        local target = inRangeBeds[1].part
-        local targetPos = target.Position
-
-        -- FOVチェック（カメラ方向との角度差）
-        local camDir = gameCamera.CFrame.LookVector
-        local toTarget = (targetPos - gameCamera.CFrame.Position).Unit
-        local angle = math.deg(math.acos(math.clamp(camDir:Dot(toTarget), -1, 1)))
-        
-        if angle > FOV.Value * 0.5 then return end
-
-        -- 目標方向の取得
-        local lookDir = getLookVector(targetPos)
-        if not lookDir then return end
-
-        -- シャケ（人間味）の追加
-        local shakeOffset = Vector3.new(
-            (RNG:NextNumber() - 0.5) * Shake.Value,
-            (RNG:NextNumber() - 0.5) * Shake.Value,
-            (RNG:NextNumber() - 0.5) * Shake.Value
-        )
-        local finalLookDir = (lookDir + shakeOffset).Unit
-
-        --  aim 処理
-        local currentCFrame = gameCamera.CFrame
-        local targetCFrame = CFrame.lookAt(currentCFrame.Position, currentCFrame.Position + finalLookDir)
-        
-        -- Speed計算（Adaptiveモードの場合時間経過で加速）
-        local currentSpeed = Speed.Value
-        if AimMode.Value == 'Adaptive' then
-            local elapsed = tick() - startedTick
-            -- 0.5秒かけて最大速度へ
-            local progress = math.min(elapsed / 0.5, 1)
-            currentSpeed = Speed.Value * easeOutCubic(progress)
-        else
-            startedTick = tick()
-        end
-
-        -- 補間（Lerp）
-        local alpha = math.clamp(currentSpeed * dt, 0, 1)
-        local newCFrame = currentCFrame:Lerp(targetCFrame, alpha)
-
-        if Mode.Value == 'Camera' then
-            gameCamera.CFrame = newCFrame
-        elseif Mode.Value == 'Mouse' then
-            -- マウス操作モードの場合、画面座標に変換して mousemoverel を使用
-            local screenPos, onScreen = gameCamera:WorldToViewportPoint(currentCFrame.Position + finalLookDir * 10)
-            if onScreen then
-                local mousePos = inputService:GetMouseLocation()
-                local delta = Vector2.new(screenPos.X, screenPos.Y) - mousePos
-                
-                -- マウス移動量にスピード係数を適用
-                local moveAmount = delta * (currentSpeed * 0.15) 
-                
-                if mousemoverel then
-                    mousemoverel(moveAmount.X, moveAmount.Y)
-                end
-            end
-        end
-    end))
+    Limit = BedAssist:CreateToggle({Name = 'Limit to item', Default = true})
 end)
