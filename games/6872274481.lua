@@ -18347,13 +18347,13 @@ run(function()
                 if callback then
                     -- callbackがtrue（モジュールON）のとき -> 1人称にするためにホイールを上にスクロール
                     for i = 1, 40 do
-                        simulateScroll(1) -- 1: ホイール上（ズームイン）
+                        simulateScroll(999999) -- 1: ホイール上（ズームイン）
                         task.wait()
                     end
                 else
                     -- callbackがfalse（モジュールOFF）のとき -> 3人称にするためにホイールを下にスクロール
                     for i = 1, 40 do
-                        simulateScroll(-1) -- -1: ホイール下（ズームアウト）
+                        simulateScroll(-9999999) -- -1: ホイール下（ズームアウト）
                         task.wait()
                     end
                 end
