@@ -19172,8 +19172,55 @@ run(function()
 	end)
 end)
 
-vape:CreateCategory({
+run(function()
+	vape:CreateCategory({
     Name = 'Kits',
     Icon = getcustomasset('newvape/assets/new/utilityicon.png'), -- 適当なアイコンを指定（ここではUtilityと同じものを例としています）
     Size = UDim2.fromOffset(15, 14)
 })
+end)
+
+run(function()
+    local AutoDavey
+    local Switch
+    local Break
+    local Jump
+
+    local old
+
+    AutoDavey = vape.Categories.Kits:CreateModule({
+    	Name = 'Auto Davey',
+    	Function = function(call)
+    		if call then
+    			old = bedwars.CannonHandController.launchSelf
+    			bedwars.CannonHandController.launchSelf = function(...)
+    				local res = { old(...) }
+    				local block = select(2, ...)
+
+    				if Break.Enabled then
+    					if (block.Position - entitylib.character.RootPart.Position).Magnitude <= 30 then
+    						task.delay(0.05, function()
+    							for i = 1, 2 do
+    								task.spawn(bedwars.breakBlock, block, false, nil, true, nil, Switch.Enabled)
+    							end
+    						end)
+    					end
+    				end
+
+    				if Jump.Enabled then
+    					lplr.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    				end
+
+    				return unpack(res)
+    			end
+    		else
+    			bedwars.CannonHandController.launchSelf = old
+    		end
+    	end,
+    	Tooltip = 'Automatically breaks cannon/jump on launch'
+    })
+
+    Jump = AutoDavey:CreateToggle({Name = 'Jump on impact'})
+    Break = AutoDavey:CreateToggle({Name = 'Break on impact'})
+    Switch = AutoDavey:CreateToggle({Name = 'Legit switch'})
+end)
