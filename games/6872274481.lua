@@ -19172,3 +19172,8 @@ run(function()
 	end)
 end)
 
+vape:CreateCategory({
+    Name = 'Kits',
+    Icon = getcustomasset('newvape/assets/new/utilityicon.png'), -- 適当なアイコンを指定（ここではUtilityと同じものを例としています）
+    Size = UDim2.fromOffset(15, 14)
+})
