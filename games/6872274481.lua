@@ -19181,48 +19181,6 @@ run(function()
 end)
 
 run(function()
-    local AutoAdetunde
-
-    AutoAdetunde = vape.Categories.Kits:CreateModule({
-    	Name = 'Auto Adetunde',
-    	Function = function(callback)
-    		if callback then
-    			repeat
-    				local crystal = getItem('frost_crystal')
-    				if crystal then
-    					for i, v in bedwars.AdetundeUtil.getUpgradesFromHammer(lplr) do
-    						local new = getItem('frost_crystal')
-    						if not new then
-    							break
-    						end
-
-    						crystal = new
-
-    						local nextUpgrade = AutoAdetunde.Options['Buy ' .. i].Enabled and bedwars.AdetundeUpgradeMeta[i].tiers[v + 1] or nil
-    						if nextUpgrade then
-    							if crystal.amount >= nextUpgrade.price then
-    								bedwars.Client:Get('UpgradeFrostyHammer'):CallServer(i)
-    								task.wait(0.1)
-    							end
-    						end
-    					end
-    				end
-    				task.wait(0.5)
-    			until not AutoAdetunde.Enabled
-    		end
-    	end,
-    	Tooltip = 'Automatically upgrades ur frosty hammer'
-    })
-
-    for i in bedwars.AdetundeUpgradeMeta do
-    	AutoAdetunde:CreateToggle({
-    		Name = 'Buy ' .. i,
-    		Default = true,
-    	})
-    end
-end)
-
-run(function()
     local AutoBee
     local Collect
     local CollectRange
