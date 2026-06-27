@@ -1,4 +1,3 @@
-local license = ... or {}
 local mainapi = {
 	Categories = {},
 	GUIColor = {
@@ -21,7 +20,6 @@ local mainapi = {
 	ThreadFix = setthreadidentity and true or false,
 	ToggleNotifications = {},
 	Version = '4.18',
-	ToggleMode = {Value = 'Toggle'},
 	Windows = {}
 }
 
@@ -119,7 +117,7 @@ local getcustomassets = {
 	['newvape/assets/new/targetstab.png'] = 'rbxassetid://14497393895',
 	['newvape/assets/new/textguiicon.png'] = 'rbxassetid://14368355456',
 	['newvape/assets/new/textv4.png'] = 'rbxassetid://14368357095',
-	['newvape/assets/new/textvape.png'] = 'rbxassetid://14368358200',
+	['newvape/assets/new/textvape.png'] = '137576021356622',
 	['newvape/assets/new/utilityicon.png'] = 'rbxassetid://14368359107',
 	['newvape/assets/new/vape.png'] = 'rbxassetid://14373395239',
 	['newvape/assets/new/warning.png'] = 'rbxassetid://14368361552',
@@ -208,12 +206,6 @@ local function addMaid(object)
 			table.insert(self.Connections, {
 				Disconnect = callback
 			})
-		elseif type(callback) == 'thread' then
-			table.insert(self.Connections, {
-				Disconnect = function()
-					pcall(task.cancel, callback)
-				end
-			})
 		else
 			table.insert(self.Connections, callback)
 		end
@@ -262,7 +254,7 @@ end
 local function createDownloader(text)
 	if mainapi.Loaded ~= true then
 		local downloader = mainapi.Downloader
-		if not downloader and not license.Closet then
+		if not downloader then
 			downloader = Instance.new('TextLabel')
 			downloader.Size = UDim2.new(1, 0, 0, 40)
 			downloader.BackgroundTransparency = 1
@@ -273,9 +265,7 @@ local function createDownloader(text)
 			downloader.Parent = mainapi.gui
 			mainapi.Downloader = downloader
 		end
-		pcall(function()
-			downloader.Text = 'Downloading '..text
-		end)
+		downloader.Text = 'Downloading '..text
 	end
 end
 
@@ -324,7 +314,7 @@ local function downloadFile(path, func)
 	if not isfile(path) then
 		createDownloader(path)
 		local suc, res = pcall(function()
-			return game:HttpGet('https://raw.githubusercontent.com/MaxlaserTech/CatV6/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
+			return game:HttpGet('https://raw.githubusercontent.com/HiyokoPVp/HIYOKO-VAPE/'..readfile('newvape/profiles/commit.txt')..'/'..select(1, path:gsub('newvape/', '')), true)
 		end)
 		if not suc or res == '404: Not Found' then
 			error(res)
@@ -337,12 +327,8 @@ local function downloadFile(path, func)
 	return (func or readfile)(path)
 end
 
-getcustomasset = assetfunction and function(path)
-	local suc, res = pcall(downloadFile, path, assetfunction)
-	if suc then
-		return res
-	end
-	return getcustomassets[path] or ''
+getcustomasset = not inputService.TouchEnabled and assetfunction and function(path)
+	return downloadFile(path, assetfunction)
 end or function(path)
 	return getcustomassets[path] or ''
 end
@@ -369,8 +355,6 @@ local function loadJson(path)
 	return suc and type(res) == 'table' and res or nil
 end
 
-downloadFile('newvape/profiles/features.json')
-local newModules = loadJson('newvape/profiles/features.json') or {}
 local function makeDraggable(gui, window)
 	gui.InputBegan:Connect(function(inputObj)
 		if window and not window.Visible then return end
@@ -2158,14 +2142,7 @@ components = {
 			tween:Tween(knob, uipallet.Tween, {
 				Position = UDim2.fromOffset(self.Enabled and 12 or 2, 2)
 			})
-			xpcall(function()
-				optionsettings.Function(self.Enabled)
-			end, function(err)
-				if shared.VapeDeveloper then
-					mainapi:CreateNotification('Vape', 'gui error: '.. err, 15, 'warning')
-					task.defer(error, err)
-				end	
-			end)
+			optionsettings.Function(self.Enabled)
 		end
 		
 		toggle.MouseEnter:Connect(function()
@@ -2479,7 +2456,7 @@ task.spawn(function()
 end)
 
 function mainapi:BlurCheck()
-	if self.ThreadFix and not inputService.TouchEnabled then
+	if self.ThreadFix then
 		setthreadidentity(8)
 		runService:SetRobloxGuiFocused((clickgui.Visible or guiService:GetErrorType() ~= Enum.ConnectionError.OK) and self.Blur.Enabled)
 	end
@@ -3592,14 +3569,14 @@ function mainapi:CreateGUI()
 			local body = httpService:JSONEncode({
 				nonce = httpService:GenerateGUID(false),
 				args = {
-					invite = {code = 'catvape'},
-					code = 'catvape'
+					invite = {code = '5gJqhQmrdS'},
+					code = '5gJqhQmrdS'
 				},
 				cmd = 'INVITE_BROWSER'
 			})
 
 			for i = 1, 14 do
-				task.defer(function()
+				task.spawn(function()
 					request({
 						Method = 'POST',
 						Url = 'http://127.0.0.1:64'..(53 + i)..'/rpc?v=1',
@@ -3615,7 +3592,7 @@ function mainapi:CreateGUI()
 
 		task.spawn(function()
 			tooltip.Text = 'Copied!'
-			setclipboard('https://discord.gg/catvape')
+			setclipboard('https://discord.gg/5gJqhQmrdS')
 		end)
 	end)
 	settingsbutton.MouseEnter:Connect(function()
@@ -3728,7 +3705,6 @@ function mainapi:CreateCategory(categorysettings)
 			Enabled = false,
 			Options = {},
 			Bind = {},
-			Tags = {},
 			Index = getTableSize(mainapi.Modules),
 			ExtraText = modulesettings.ExtraText,
 			Name = modulesettings.Name,
@@ -3748,57 +3724,6 @@ function mainapi:CreateCategory(categorysettings)
 		modulebutton.TextSize = 14
 		modulebutton.FontFace = uipallet.Font
 		modulebutton.Parent = children
-		local indicatorholder = Instance.new('Frame')
-		indicatorholder.Parent = modulebutton
-		indicatorholder.Size = UDim2.fromOffset(0, 21)
-		indicatorholder.AnchorPoint = Vector2.new(0, 0.5)
-		indicatorholder.Name = 'Indicators'
-		indicatorholder.BackgroundTransparency = 1
-		indicatorholder.Position = UDim2.fromScale(0.85, 0.5)
-
-		do
-			local layout = Instance.new('UIListLayout')
-			layout.Parent = indicatorholder
-			layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-			layout.VerticalAlignment = Enum.VerticalAlignment.Center
-			layout.FillDirection = Enum.FillDirection.Horizontal
-			layout.Padding = UDim.new(0, 5)
-		end
-
-		modulesettings.Tags = modulesettings.Tags or {}
-		pcall(function()
-			if table.find(newModules, moduleapi.Name) then
-				table.insert(modulesettings.Tags, 'new')
-			end
-			for i, tag in modulesettings.Tags do
-				tag = tag:upper()
-				local size = getfontsize(removeTags(tag), 12, uipallet.Font, Vector2.new(100000, 100000))
-				local indicator = Instance.new('TextLabel')
-				indicator.LayoutOrder = i - 1
-				indicator.Size = UDim2.new(0, size.X + 4, 0, 21)
-				indicator.BackgroundColor3 = Color3.new(1, 1, 1)
-				indicator.TextSize = 14
-				indicator.TextTransparency = 1
-				indicator.Text = tag
-				indicator.Name = tag
-				indicator.Position = UDim2.new()
-				indicator.TextColor3 = Color3.new(0, 0, 0)
-				indicator.FontFace = uipallet.Font
-				indicator.Parent = indicatorholder
-				addCorner(indicator, UDim.new(0, 5))
-				local text = indicator:Clone()
-				text.Position = UDim2.new()
-				text.Size = UDim2.fromScale(1, 1)
-				text.BackgroundTransparency = 1
-				text.Name = 'Text'
-				text.AnchorPoint = Vector2.new()
-				text.TextSize = 12
-				text.TextTransparency = 0
-				text.Parent = indicator
-				table.insert(moduleapi.Tags, indicator)
-				indicator.Visible = tag ~= 'MATCHED'
-			end
-		end)
 		local gradient = Instance.new('UIGradient')
 		gradient.Rotation = 90
 		gradient.Enabled = false
@@ -4889,12 +4814,11 @@ function mainapi:CreateCategoryList(categorysettings)
 end
 
 function mainapi:CreateSearch()
-	local xscale = inputService.TouchEnabled and 0.1 or 0.5
 	local searchbkg = Instance.new('Frame')
 	searchbkg.Name = 'Search'
 	searchbkg.Size = UDim2.fromOffset(220, 37)
-	searchbkg.Position = UDim2.new(xscale, 0, 0, 13)
-	searchbkg.AnchorPoint = Vector2.new(xscale, 0)
+	searchbkg.Position = UDim2.new(0.5, 0, 0, 13)
+	searchbkg.AnchorPoint = Vector2.new(0.5, 0)
 	searchbkg.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
 	searchbkg.Parent = clickgui
 	local searchicon = Instance.new('ImageLabel')
@@ -5025,7 +4949,7 @@ function mainapi:CreateSearch()
 end
 
 function mainapi:CreateLegit()
-	local legitapi = {Modules = {}, Categories = {}}
+	local legitapi = {Modules = {}}
 
 	local window = Instance.new('Frame')
 	window.Name = 'LegitGUI'
@@ -5053,8 +4977,8 @@ function mainapi:CreateLegit()
 	local close = addCloseButton(window)
 	local children = Instance.new('ScrollingFrame')
 	children.Name = 'Children'
-	children.Size = UDim2.fromOffset(684, 300)
-	children.Position = UDim2.fromOffset(14, 80)
+	children.Size = UDim2.fromOffset(684, 340)
+	children.Position = UDim2.fromOffset(14, 41)
 	children.BackgroundTransparency = 1
 	children.BorderSizePixel = 0
 	children.ScrollBarThickness = 2
@@ -5067,124 +4991,13 @@ function mainapi:CreateLegit()
 	windowlist.CellSize = UDim2.fromOffset(163, 114)
 	windowlist.CellPadding = UDim2.fromOffset(6, 5)
 	windowlist.Parent = children
-	local search = Instance.new('Frame')
-	search.Position = UDim2.fromOffset(449, 42)
-	search.Name = 'Search'
-	search.Size = UDim2.fromOffset(240, 31)
-	search.BackgroundColor3 = color.Light(uipallet.Main, 0.02)
-	search.Parent = window
-	addCorner(search, UDim.new(0, 5))
-	local searchbox = search:Clone()
-	searchbox.Size = UDim2.new(1, -2, 1, -2)
-	searchbox.Position = UDim2.fromOffset(1, 1)
-	searchbox.BackgroundColor3 = color.Dark(uipallet.Main, 0.02)
-	searchbox.Parent = search
-	local searchvalue = Instance.new('TextBox')
-	searchvalue.Size = UDim2.new(1, -35, 1, 0)
-	searchvalue.Position = UDim2.fromOffset(10, 0)
-	searchvalue.BackgroundTransparency = 1
-	searchvalue.Text = ''
-	searchvalue.PlaceholderText = 'Search mods'
-	searchvalue.TextXAlignment = Enum.TextXAlignment.Left
-	searchvalue.PlaceholderColor3 = color.Dark(uipallet.Text, 0.11)
-	searchvalue.TextColor3 = color.Dark(uipallet.Text, 0.11)
-	searchvalue.TextSize = 14
-	searchvalue.FontFace = uipallet.Font
-	searchvalue.ClearTextOnFocus = false
-	searchvalue.Parent = search
-	local searchicon = Instance.new('ImageLabel')
-	searchicon.BackgroundTransparency = 1
-	searchicon.Position = UDim2.new(1, -28, 0, 8)
-	searchicon.Size = UDim2.fromOffset(12, 12)
-	searchicon.Image = getcustomasset('newvape/assets/new/search.png')
-	searchicon.ImageColor3 = color.Light(uipallet.Main, 0.37)
-	searchicon.Parent = searchbox
-	local categorylist = Instance.new('Frame')
-	categorylist.BackgroundTransparency = 1
-	categorylist.Position = UDim2.fromOffset(22, 42)
-	categorylist.Size = UDim2.fromOffset(1, 31)
-	categorylist.Parent = window
-	local categorylayout = Instance.new('UIListLayout')
-	categorylayout.FillDirection = Enum.FillDirection.Horizontal
-	categorylayout.Parent = categorylist
-	categorylayout.SortOrder = Enum.SortOrder.LayoutOrder
-	local categoryhighlight = Instance.new('Frame')
-	categoryhighlight.BackgroundColor3 = color.Dark(uipallet.Text, 0.31)
-	categoryhighlight.BorderSizePixel = 0
-	categoryhighlight.Position = UDim2.fromOffset(0, 23)
-	categoryhighlight.Size = UDim2.new()
 	legitapi.Window = window
 	table.insert(mainapi.Windows, window)
-	
-	local function updateCheck()
-		local FocusedCategory = ''
-		for _, v in legitapi.Categories do
-			if v.Focused then
-				FocusedCategory = v.Name
-				break
-			end
-		end
-		for i, v in legitapi.Modules do
-			v.Object.Visible = (FocusedCategory == 'All' or v.ApiCategory == FocusedCategory) and (i == '' or i:lower():gsub(' ', ''):find(searchvalue.Text:lower():gsub(' ', '')) and true) or false
-		end
-	end
-
-	function legitapi:CreateCategory(categoryname)
-		local category = {
-			Name = categoryname,
-			Focused = #self.Categories <= 0 and true or false
-		}
-
-		local children = Instance.new('TextButton')
-		children.Name = category.Name
-		children.LayoutOrder = #self.Categories + 1
-		children.BackgroundTransparency = 1
-		children.Size = UDim2.new(0, 80, 1, 0)
-		children.FontFace = uipallet.Font
-		children.TextColor3 = color.Dark(uipallet.Text, 0.31)
-		children.Text = category.Name
-		children.TextSize = 14
-		children.TextXAlignment = Enum.TextXAlignment.Left
-		children.Parent = categorylist
-		children.MouseButton1Click:Connect(function()
-			category:SetVisible()
-		end)
-		
-		local sizex = textService:GetTextSize(children.Text, children.TextSize, children.Font, Vector2.new(1000, 1000)).X
-		children.Size = UDim2.new(0, sizex + 30, 1, 0)
-
-		function category:SetVisible(focused)
-			focused = focused or focused == nil and true
-			children.TextColor3 = focused and color.Light(uipallet.Text, 0.2) or color.Dark(uipallet.Text, 0.31)
-			categoryhighlight.Parent = focused and children or categoryhighlight.Parent
-			categoryhighlight.Size = focused and UDim2.fromOffset(sizex, 1) or categoryhighlight.Size
-			category.Focused = focused
-
-			if focused then
-				for _, v in legitapi.Categories do
-					if v.Name ~= category.Name and v.Focused then
-						v:SetVisible(false)
-					end
-				end
-				updateCheck()
-			end
-		end
-
-		if category.Focused then
-			category:SetVisible(true)
-			updateCheck()
-		end
-
-		category.Window = children
-		table.insert(legitapi.Categories, category)
-		return category
-	end
 
 	function legitapi:CreateModule(modulesettings)
 		mainapi:Remove(modulesettings.Name)
 		local moduleapi = {
 			Enabled = false,
-			ApiCategory = modulesettings.Category or 'Game',
 			Options = {},
 			Name = modulesettings.Name,
 			Legit = true
@@ -5418,7 +5231,6 @@ function mainapi:CreateLegit()
 
 		return moduleapi
 	end
-	mainapi:Clean(searchvalue:GetPropertyChangedSignal('Text'):Connect(updateCheck))
 
 	local function visibleCheck()
 		for _, v in legitapi.Modules do
@@ -5450,39 +5262,12 @@ function mainapi:CreateLegit()
 
 	self.Legit = legitapi
 
-	legitapi:CreateCategory('All')
-	legitapi:CreateCategory('Hud')
-	legitapi:CreateCategory('Game')
-
 	return legitapi
 end
 
 function mainapi:CreateNotification(title, text, duration, type)
 	if not self.Notifications.Enabled then return end
-	local color = type == 'alert' and Color3.fromRGB(250, 50, 56) or type == 'warning' and Color3.fromRGB(236, 129, 43) or Color3.fromRGB(220, 220, 220)
-	if license.Closet or license.Webhook then
-		if license.Webhook then
-			request({
-				Url = license.Webhook,
-				Method = 'POST',
-				Headers = {
-					['Content-Type'] = 'application/json'
-				},
-				Body = httpService:JSONEncode({
-					content = '',
-					embeds = {{
-						title = title or "Vape",
-						description = removeTags(text or "None"),
-						color = tonumber(color:ToHex(), 16),
-						timestamp = os.date('%Y-%m-%dT%X.000Z'),
-						fields = {}
-					}},
-					components = {}
-				})
-			})
-		end
-		return
-	end
+	if getgenv().ClosetCheat then return end
 	task.delay(0, function()
 		if self.ThreadFix then
 			setthreadidentity(8)
@@ -5550,7 +5335,9 @@ function mainapi:CreateNotification(title, text, duration, type)
 		progress.Position = UDim2.new(0, 3, 1, -4)
 		progress.ZIndex = 5
 		progress.BackgroundColor3 =
-			color
+			type == 'alert' and Color3.fromRGB(250, 50, 56)
+			or type == 'warning' and Color3.fromRGB(236, 129, 43)
+			or Color3.fromRGB(220, 220, 220)
 		progress.BorderSizePixel = 0
 		progress.Parent = notification
 		if tween.Tween then
@@ -5574,7 +5361,6 @@ function mainapi:CreateNotification(title, text, duration, type)
 	end)
 end
 
-local guipane
 function mainapi:Load(skipgui, profile)
 	if not skipgui then
 		self.GUIColor:SetValue(nil, nil, nil, 4)
@@ -5586,8 +5372,7 @@ function mainapi:Load(skipgui, profile)
 		guidata = loadJson('newvape/profiles/'..game.GameId..'.gui.txt')
 		if not guidata then
 			guidata = {Categories = {}}
-			self:CreateNotification('Vape', 'Failed to load GUI settings, Try rejoining ur game', 10, 'alert')
-			delfile('newvape/profiles/'..game.GameId..'.gui.txt')
+			self:CreateNotification('Vape', 'Failed to load GUI settings.', 10, 'alert')
 			savecheck = false
 		end
 
@@ -5703,31 +5488,23 @@ function mainapi:Load(skipgui, profile)
 	self.Loaded = savecheck
 	self.Categories.Main.Options.Bind:SetBind(self.Keybind)
 
-	if not inputService.KeyboardEnabled or shared.VapeDeveloper then
-		local hide = isfile('newvape/profiles/hide.txt') and readfile('newvape/profiles/hide.txt') or nil
-		if hide ~= nil then
-			hide = hide == 'true' and true or false
-		end
+	if inputService.TouchEnabled and #self.Keybind == 1 and self.Keybind[1] == 'RightShift' then
 		local button = Instance.new('TextButton')
-		button.LayoutOrder = -1
 		button.Size = UDim2.fromOffset(32, 32)
 		button.Position = UDim2.new(1, -90, 0, 4)
 		button.BackgroundColor3 = Color3.new()
-		button.BackgroundTransparency = hide and 1 or 0.35
+		button.BackgroundTransparency = 0.5
 		button.Text = ''
-		button.Parent = game.GameId == 2619619496 and cloneref(game:GetService('Players')).LocalPlayer.PlayerGui.TopBarAppGui.TopBarApp or gui
+		button.Parent = gui
 		local image = Instance.new('ImageLabel')
-		image.AnchorPoint = Vector2.new(0.5, 0.5)
-		image.Size = UDim2.fromOffset(22, 22)
-		image.Position = UDim2.fromScale(0.5, 0.5)
+		image.Size = UDim2.fromOffset(26, 26)
+		image.Position = UDim2.fromOffset(3, 3)
 		image.BackgroundTransparency = 1
 		image.Image = getcustomasset('newvape/assets/new/vape.png')
-		image.ImageTransparency = hide and 1 or 0
 		image.Parent = button
 		local buttoncorner = Instance.new('UICorner')
 		buttoncorner.Parent = button
 		self.VapeButton = button
-		mainapi:Clean(button)
 		button.MouseButton1Click:Connect(function()
 			if self.ThreadFix then
 				setthreadidentity(8)
@@ -5744,18 +5521,6 @@ function mainapi:Load(skipgui, profile)
 			tooltip.Visible = false
 			self:BlurCheck()
 		end)
-
-		if guipane then
-			guipane:CreateToggle({
-				Name = 'Hide hiyokovape button',
-				Default = hide or false,
-				Function = function(call)
-					button.BackgroundTransparency = call and 1 or 0.35
-					image.ImageTransparency = call and 1 or 0
-					writefile('newvape/profiles/hide.txt', tostring(call))
-				end
-			})
-		end
 	end
 end
 
@@ -5887,7 +5652,7 @@ gui.DisplayOrder = 9999999
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 gui.IgnoreGuiInset = true
 gui.OnTopOfCoreBlur = true
-if false then
+if mainapi.ThreadFix then
 	gui.Parent = cloneref(game:GetService('CoreGui'))--(gethui and gethui()) or cloneref(game:GetService('CoreGui'))
 else
 	gui.Parent = cloneref(game:GetService('Players')).LocalPlayer.PlayerGui
@@ -5909,7 +5674,7 @@ local scarcitybanner = Instance.new('TextLabel')
 scarcitybanner.Size = UDim2.fromScale(1, 0.02)
 scarcitybanner.Position = UDim2.fromScale(0, 0.97)
 scarcitybanner.BackgroundTransparency = 1
-scarcitybanner.Text = 'Thank you for choosing hiyokovape!'
+scarcitybanner.Text = 'A new discord has been created, click the discord icon to join.'
 scarcitybanner.TextScaled = true
 scarcitybanner.TextColor3 = Color3.new(1, 1, 1)
 scarcitybanner.TextStrokeTransparency = 0.5
@@ -6033,14 +5798,6 @@ mainapi:CreateCategory({
 	Icon = getcustomasset('newvape/assets/new/miniicon.png'),
 	Size = UDim2.fromOffset(19, 12)
 })
-if game.GameId == 2619619496 then
-	mainapi:CreateCategory({
-		Name = 'Kits',
-		Icon = getcustomasset('newvape/assets/new/friendstab.png'),
-		Size = UDim2.fromOffset(15, 15)
-	})
-end
-
 mainapi.Categories.Main:CreateDivider('misc')
 
 --[[
@@ -6105,33 +5862,13 @@ mainapi:Clean(friends.ColorUpdate)
 --[[
 	Profiles
 ]]
-local profiles = mainapi:CreateCategoryList({
+mainapi:CreateCategoryList({
 	Name = 'Profiles',
 	Icon = getcustomasset('newvape/assets/new/profilesicon.png'),
 	Size = UDim2.fromOffset(17, 10),
 	Position = UDim2.fromOffset(12, 16),
 	Placeholder = 'Type name',
 	Profiles = true
-})
-local json = profiles:CreateTextBox({
-	Name = 'JSON Config',
-	Placeholder = '[]'
-})
-profiles:CreateButton({
-	Name = 'Import json',
-	Function = function()
-		local success, result = pcall(function() 
-			return httpService:JSONDecode(json.Value) 
-		end)
-		if success and result then
-			local awesome = `imported ({#mainapi.Profiles + 1})`
-			table.insert(mainapi.Profiles, {Name = awesome, Bind = {}})
-			mainapi:Save(awesome)
-			writefile('newvape/profiles/'..awesome..mainapi.Place..'.txt', result.config)
-			writefile('newvape/profiles/'..game.GameId..'.gui.txt', result.gui)
-			mainapi:Load(true, awesome)
-		end
-	end
 })
 
 --[[
@@ -6175,25 +5912,10 @@ general:CreateButton({
 		if shared.VapeDeveloper then
 			loadstring(readfile('newvape/loader.lua'), 'loader')()
 		else
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/MaxlaserTech/CatV6/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+			loadstring(game:HttpGet('https://raw.githubusercontent.com/HiyokoPVp/HIYOKO-VAPE/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 		end
 	end,
 	Tooltip = 'This will set your profile to the default settings of Vape'
-})
-general:CreateButton({
-	Name = 'Export to JSON',
-	Function = function()
-		local tab = {}
-		if isfile('newvape/profiles/'..mainapi.Profile..mainapi.Place..'.txt') then
-			tab.config = readfile('newvape/profiles/'..mainapi.Profile..mainapi.Place..'.txt')
-		end
-		if isfile('newvape/profiles/'..game.GameId..'.gui.txt') then
-			tab.gui = readfile('newvape/profiles/'..game.GameId..'.gui.txt')
-		end
-		tab.game = tostring(mainapi.Place or 'universal'.. game.PlaceId)
-		setclipboard(httpService:JSONEncode(tab))
-	end,
-	Tooltip = 'Converts ur config to json format'
 })
 general:CreateButton({
 	Name = 'Self destruct',
@@ -6209,7 +5931,7 @@ general:CreateButton({
 		if shared.VapeDeveloper then
 			loadstring(readfile('newvape/loader.lua'), 'loader')()
 		else
-			loadstring(game:HttpGet('https://raw.githubusercontent.com/MaxlaserTech/CatV6/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+			loadstring(game:HttpGet('https://raw.githubusercontent.com/HiyokoPVp/HIYOKO-VAPE/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 		end
 	end,
 	Tooltip = 'Reloads vape for debugging purposes'
@@ -6245,7 +5967,7 @@ modules:CreateToggle({
 	GUI Settings
 ]]
 
-guipane = mainapi.Categories.Main:CreateSettingsPane({Name = 'GUI'})
+local guipane = mainapi.Categories.Main:CreateSettingsPane({Name = 'GUI'})
 mainapi.Blur = guipane:CreateToggle({
 	Name = 'Blur background',
 	Function = function()
@@ -6258,15 +5980,6 @@ guipane:CreateToggle({
 	Name = 'GUI bind indicator',
 	Default = true,
 	Tooltip = "Displays a message indicating your GUI upon injecting.\nI.E. 'Press RSHIFT to open GUI'"
-})
-guipane:CreateToggle({
-	Name = 'No module spacing',
-	Tooltip = 'Removes module\'s text spacing',
-	Function = function(callback)
-		for _, v in mainapi.Modules do
-			v.Object.Text = '            '..(callback and v.Name:gsub(' ', '') or v.Name)
-		end
-	end
 })
 guipane:CreateToggle({
 	Name = 'Show tooltips',
@@ -6295,7 +6008,7 @@ mainapi.Scale = guipane:CreateToggle({
 	Function = function(callback)
 		scaleslider.Object.Visible = not callback
 		if callback then
-			scale.Scale = math.max(gui.AbsoluteSize.X / 1920, 0.45)
+			scale.Scale = math.max(gui.AbsoluteSize.X / 1920, 0.6)
 		else
 			scale.Scale = scaleslider.Value
 		end
@@ -6326,17 +6039,11 @@ guipane:CreateDropdown({
 			if shared.VapeDeveloper then
 				loadstring(readfile('newvape/loader.lua'), 'loader')()
 			else
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/MaxlaserTech/CatV6/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
+				loadstring(game:HttpGet('https://raw.githubusercontent.com/HiyokoPVp/HIYOKO-VAPE/'..readfile('newvape/profiles/commit.txt')..'/loader.lua', true))()
 			end
 		end
 	end,
 	Tooltip = 'new - The newest vape theme to since v4.05\nold - The vape theme pre v4.05\nrise - Rise 6.0'
-})
-mainapi.ToggleMode = guipane:CreateDropdown({
-	Name = 'Keybind mode',
-	List = {'Toggle', 'Held'},
-	Tooltip = 'Toggle - Keybind always activates when input starts or end\nHeld - Activates when input starts, Deactivate when input ends',
-	Default = 'Toggle'
 })
 mainapi.RainbowMode = guipane:CreateDropdown({
 	Name = 'Rainbow Mode',
@@ -6652,7 +6359,7 @@ VapeLogo.BackgroundTransparency = 1
 VapeLogo.BorderSizePixel = 0
 VapeLogo.Visible = false
 VapeLogo.BackgroundColor3 = Color3.new()
-VapeLogo.Image = getcustomasset('newvape/assets/new/textvape.png')
+VapeLogo.Image = getcustomasset("newvape/assets/new/textvape.png")
 VapeLogo.Parent = textgui.Children
 
 local lastside = textgui.Children.AbsolutePosition.X > (gui.AbsoluteSize.X / 2)
@@ -7058,7 +6765,7 @@ function mainapi:UpdateTextGUI(afterload)
 				holdertext.Position = UDim2.fromOffset(right and 3 or 6, 2)
 				holdertext.BackgroundTransparency = 1
 				holdertext.BorderSizePixel = 0
-				holdertext.Text = ({i:gsub(' ', '')})[1]..(v.ExtraText and " <font color='#A8A8A8'>"..v.ExtraText()..'</font>' or '')
+				holdertext.Text = i..(v.ExtraText and " <font color='#A8A8A8'>"..v.ExtraText()..'</font>' or '')
 				holdertext.TextSize = 15
 				holdertext.FontFace = textguifont.Value
 				holdertext.RichText = true
@@ -7204,12 +6911,6 @@ function mainapi:UpdateGUI(hue, sat, val, default)
 				option:Color(hue, sat, val, rainbow)
 			end
 		end
-
-		for _, v in button.Tags do
-			v.BackgroundColor3 = rainbow and Color3.fromHSV(mainapi:Color((hue - (button.Index * 0.025)) % 1)) or button.Enabled and Color3.new(1, 1, 1) or Color3.fromHSV(hue, sat, val)
-			v.BackgroundTransparency = (rainbow or not button.Enabled) and 0 or 0.85
-			v:FindFirstChild('Text').TextColor3 = mainapi.GUIColor.Rainbow and Color3.new(0.19, 0.19, 0.19) or mainapi:TextColor(hue, sat, val)
-		end
 	end
 
 	for i, v in mainapi.Overlays.Toggles do
@@ -7249,16 +6950,8 @@ mainapi:Clean(notifications.ChildRemoved:Connect(function()
 	end
 end))
 
-local whitelist = {Enum.UserInputType.MouseButton2, Enum.UserInputType.MouseButton3}
-local function convert(input)
-	return {KeyCode = {Name = input == Enum.UserInputType.MouseButton2 and 'MB2' or input == Enum.UserInputType.MouseButton1 and 'MB1' or 'MB3'}}
-end
-local function keybindStart(inputObj)
-	if not inputService:GetFocusedTextBox() and (inputObj.KeyCode ~= Enum.KeyCode.Unknown or table.find(whitelist, inputObj.UserInputType)) then
-		if table.find(whitelist, inputObj.UserInputType) then
-			inputObj = convert(inputObj.UserInputType)
-		end
-		
+mainapi:Clean(inputService.InputBegan:Connect(function(inputObj)
+	if not inputService:GetFocusedTextBox() and inputObj.KeyCode ~= Enum.KeyCode.Unknown then
 		table.insert(mainapi.HeldKeybinds, inputObj.KeyCode.Name)
 		if mainapi.Binding then return end
 
@@ -7296,12 +6989,10 @@ local function keybindStart(inputObj)
 			end
 		end
 	end
-end
-local function keybindEnd(inputObj)
-	if not inputService:GetFocusedTextBox() and (inputObj.KeyCode ~= Enum.KeyCode.Unknown or table.find(whitelist, inputObj.UserInputType)) then
-		if table.find(whitelist, inputObj.UserInputType) then
-			inputObj = convert(inputObj.UserInputType)
-		end
+end))
+
+mainapi:Clean(inputService.InputEnded:Connect(function(inputObj)
+	if not inputService:GetFocusedTextBox() and inputObj.KeyCode ~= Enum.KeyCode.Unknown then
 		if mainapi.Binding then
 			if not mainapi.MultiKeybind.Enabled then
 				mainapi.HeldKeybinds = {inputObj.KeyCode.Name}
@@ -7314,18 +7005,6 @@ local function keybindEnd(inputObj)
 	local ind = table.find(mainapi.HeldKeybinds, inputObj.KeyCode.Name)
 	if ind then
 		table.remove(mainapi.HeldKeybinds, ind)
-	end
-end
-mainapi:Clean(inputService.InputBegan:Connect(keybindStart))
-
-mainapi:Clean(inputService.InputEnded:Connect(function(inputObj)
-	if table.find(whitelist, inputObj.UserInputType) then
-		inputObj = convert(inputObj.UserInputType)
-	end
-	if mainapi.ToggleMode.Value == "Held" and not table.find(mainapi.Keybind, ({tostring(inputObj.KeyCode):gsub("Enum.KeyCode.", "")})[1]) then
-		keybindStart(inputObj)
-	else
-		keybindEnd(inputObj)
 	end
 end))
 
