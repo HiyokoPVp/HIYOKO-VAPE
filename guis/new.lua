@@ -5747,7 +5747,7 @@ function mainapi:Load(skipgui, profile)
 
 		if guipane then
 			guipane:CreateToggle({
-				Name = 'Hide catvape button',
+				Name = 'Hide hiyokovape button',
 				Default = hide or false,
 				Function = function(call)
 					button.BackgroundTransparency = call and 1 or 0.35
@@ -5909,7 +5909,7 @@ local scarcitybanner = Instance.new('TextLabel')
 scarcitybanner.Size = UDim2.fromScale(1, 0.02)
 scarcitybanner.Position = UDim2.fromScale(0, 0.97)
 scarcitybanner.BackgroundTransparency = 1
-scarcitybanner.Text = 'Thank you for choosing catvape! join discord.gg/catvape or click the discord button to join.'
+scarcitybanner.Text = 'Thank you for choosing hiyokovape!'
 scarcitybanner.TextScaled = true
 scarcitybanner.TextColor3 = Color3.new(1, 1, 1)
 scarcitybanner.TextStrokeTransparency = 0.5
