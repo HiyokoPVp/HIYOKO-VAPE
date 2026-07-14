@@ -15665,6 +15665,8 @@ run(function()
 	local Attackcolor
 	-- 追加: KillauraTargetを優先するかどうかのトグル
 	local UseKillauraTarget 
+	-- 追加: NoHit オプション
+	local NoHit
 
 	local function getAttackData()
 		if not entitylib.isAlive then
@@ -15830,25 +15832,29 @@ run(function()
 							if delta.Magnitude > bedwars.CombatConstant.RAYCAST_SWORD_CHARACTER_DISTANCE then
 								continue
 							end
-							lastattacked = tick()
-							local dir = CFrame.lookAt(localPosition, ent.RootPart.Position).LookVector
-							local pos = localPosition + dir * math.max(delta.Magnitude - 14.4, 0)
-							bedwars.SwordController.lastAttack = workspace:GetServerTimeNow()
-							bedwars.Client:Get(remotes.AttackEntity):SendToServer({
-								weapon = sword.tool,
-								chargedAttack = {chargeRatio = 0},
-								entityInstance = ent.Character,
-								validate = {
-									raycast = {
-										cameraPosition = {value = pos},
-										cursorDirection = {value = dir},
+							
+							-- NoHit が有効でない場合のみ攻撃パケットを送信
+							if not NoHit.Enabled then
+								lastattacked = tick()
+								local dir = CFrame.lookAt(localPosition, ent.RootPart.Position).LookVector
+								local pos = localPosition + dir * math.max(delta.Magnitude - 14.4, 0)
+								bedwars.SwordController.lastAttack = workspace:GetServerTimeNow()
+								bedwars.Client:Get(remotes.AttackEntity):SendToServer({
+									weapon = sword.tool,
+									chargedAttack = {chargeRatio = 0},
+									entityInstance = ent.Character,
+									validate = {
+										raycast = {
+											cameraPosition = {value = pos},
+											cursorDirection = {value = dir},
+										},
+										targetPosition = {
+											value = ent.RootPart.Position,
+										},
+										selfPosition = {value = pos},
 									},
-									targetPosition = {
-										value = ent.RootPart.Position,
-									},
-									selfPosition = {value = pos},
-								},
-							})
+								})
+							end
 						else
 							lastfound = 0
 							frames = 0
@@ -15971,6 +15977,13 @@ run(function()
 	UseKillauraTarget = SilentAura:CreateToggle({
 		Name = 'Use Killaura Target',
 		Tooltip = 'Prioritizes the target currently selected by Killaura module',
+		Default = false
+	})
+	
+	-- 追加: NoHit トグル
+	NoHit = SilentAura:CreateToggle({
+		Name = 'No Hit',
+		Tooltip = 'Disables sending attack packets to server (aim only)',
 		Default = false
 	})
 end)
