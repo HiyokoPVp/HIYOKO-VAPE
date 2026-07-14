@@ -19349,3 +19349,23 @@ run(function()
     })
 end)
 
+run(function()
+	local DisableMatchDraft
+	DisableMatchDraft = vape.Categories.Render:CreateModule({
+		Name = 'Disable Match Draft',
+		Function = function(callback)
+			-- pcallを使用して、PlayerGuiやMatchDraftAppが見つからない場合のエラーを防ぐ
+			pcall(function()
+				local playerGui = lplr:FindFirstChild('PlayerGui')
+				if playerGui then
+					local draftApp = playerGui:FindFirstChild('MatchDraftApp')
+					if draftApp then
+						-- callbackがtrueなら非表示(false)、falseなら表示(true)に設定
+						draftApp.Enabled = not callback
+					end
+				end
+			end)
+		end,
+		Tooltip = 'Hides the Match Draft UI (Kit selection screen)'
+	})
+end)
