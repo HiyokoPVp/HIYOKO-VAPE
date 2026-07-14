@@ -15700,7 +15700,7 @@ run(function()
 		-- 変更点: UseKillauraTargetが有効で、かつターゲットがプレイヤーの場合のみ優先して返す
 		if UseKillauraTarget and UseKillauraTarget.Enabled and store.KillauraTarget then
 			local kTarget = store.KillauraTarget
-			-- ターゲットが有効か確認 AND プレイヤーかどうか確認
+			-- ターゲットが有効か確認 AND プレイヤーかどうか確認 (.Playerが存在し、NPCではない)
 			if kTarget and kTarget.Player and kTarget.RootPart and kTarget.Humanoid and kTarget.Humanoid.Health > 0 then
 				return sword, meta, kTarget
 			end
