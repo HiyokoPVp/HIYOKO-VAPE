@@ -19348,3 +19348,23 @@ run(function()
         Darker = true
     })
 end)
+
+run(function()
+    local old
+
+    vape.Categories.Render:CreateModule({
+        Name = 'Stream Remover',
+        Function = function(call)
+            if call then
+                old = bedwars.GamePlayer.canSeeThroughDisguise
+                bedwars.GamePlayer.canSeeThroughDisguise = function()
+                    return true
+                end
+            else
+                bedwars.GamePlayer.canSeeThroughDisguise = old
+                old = nil
+            end
+        end,
+        Tooltip = 'Disables player\'s streamer mode clientsidedly.'
+    })
+end)
