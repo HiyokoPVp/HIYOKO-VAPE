@@ -15665,6 +15665,8 @@ run(function()
 	local Attackcolor
 	-- 追加: KillauraTargetを優先するかどうかのトグル
 	local UseKillauraTarget 
+	-- 追加: 攻撃を行わない（NoHit）トグル
+	local NoHit
 
 	local function getAttackData()
 		if not entitylib.isAlive then
@@ -15695,11 +15697,11 @@ run(function()
 			end
 		end
 
-		-- 変更点: UseKillauraTargetが有効で、Killauraのターゲットが存在すればそれを優先して返す
+		-- 変更点: UseKillauraTargetが有効で、かつターゲットがプレイヤーの場合のみ優先して返す
 		if UseKillauraTarget and UseKillauraTarget.Enabled and store.KillauraTarget then
 			local kTarget = store.KillauraTarget
-			-- ターゲットが有効か確認
-			if kTarget and kTarget.RootPart and kTarget.Humanoid and kTarget.Humanoid.Health > 0 then
+			-- ターゲットが有効か確認 AND プレイヤーかどうか確認
+			if kTarget and kTarget.Player and kTarget.RootPart and kTarget.Humanoid and kTarget.Humanoid.Health > 0 then
 				return sword, meta, kTarget
 			end
 		end
@@ -15830,25 +15832,29 @@ run(function()
 							if delta.Magnitude > bedwars.CombatConstant.RAYCAST_SWORD_CHARACTER_DISTANCE then
 								continue
 							end
-							lastattacked = tick()
-							local dir = CFrame.lookAt(localPosition, ent.RootPart.Position).LookVector
-							local pos = localPosition + dir * math.max(delta.Magnitude - 14.4, 0)
-							bedwars.SwordController.lastAttack = workspace:GetServerTimeNow()
-							bedwars.Client:Get(remotes.AttackEntity):SendToServer({
-								weapon = sword.tool,
-								chargedAttack = {chargeRatio = 0},
-								entityInstance = ent.Character,
-								validate = {
-									raycast = {
-										cameraPosition = {value = pos},
-										cursorDirection = {value = dir},
+							
+							-- 変更点: NoHitが有効でない場合のみ攻撃パケットを送信する
+							if not NoHit.Enabled then
+								lastattacked = tick()
+								local dir = CFrame.lookAt(localPosition, ent.RootPart.Position).LookVector
+								local pos = localPosition + dir * math.max(delta.Magnitude - 14.4, 0)
+								bedwars.SwordController.lastAttack = workspace:GetServerTimeNow()
+								bedwars.Client:Get(remotes.AttackEntity):SendToServer({
+									weapon = sword.tool,
+									chargedAttack = {chargeRatio = 0},
+									entityInstance = ent.Character,
+									validate = {
+										raycast = {
+											cameraPosition = {value = pos},
+											cursorDirection = {value = dir},
+										},
+										targetPosition = {
+											value = ent.RootPart.Position,
+										},
+										selfPosition = {value = pos},
 									},
-									targetPosition = {
-										value = ent.RootPart.Position,
-									},
-									selfPosition = {value = pos},
-								},
-							})
+								})
+							end
 						else
 							lastfound = 0
 							frames = 0
@@ -15970,7 +15976,14 @@ run(function()
 	-- 追加: Killauraのターゲットを優先するトグル
 	UseKillauraTarget = SilentAura:CreateToggle({
 		Name = 'Use Killaura Target',
-		Tooltip = 'Prioritizes the target currently selected by Killaura module',
+		Tooltip = 'Prioritizes the target currently selected by Killaura module (Players only)',
+		Default = false
+	})
+	
+	-- 追加: 攻撃を行わない（NoHit）トグル
+	NoHit = SilentAura:CreateToggle({
+		Name = 'No Hit',
+		Tooltip = 'Aims at the target but does not send attack packets',
 		Default = false
 	})
 end)
