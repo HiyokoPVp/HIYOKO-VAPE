@@ -792,7 +792,7 @@ run(function()
 	local KnitInit, Knit
 	repeat
 		KnitInit, Knit = pcall(function()
-			return debug.getupvalue(require(lplr.PlayerScripts.TS.knit).setup, 9)
+			return require(replicatedStorage.rbxts_include.node_modules["@easy-games"].knit.src).KnitClient
 		end)
 		if KnitInit then break end
 		task.wait()
