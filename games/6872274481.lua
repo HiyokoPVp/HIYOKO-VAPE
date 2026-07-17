@@ -19226,3 +19226,151 @@ run(function()
 		Tooltip = 'Hides the Match Draft UI (Kit selection screen)'
 	})
 end)
+
+run(function()
+	local ClientCrasher
+local rayCheck = RaycastParams.new()
+rayCheck.RespectCanCollide = true
+
+local projectileRemote = {InvokeServer = function() end}
+task.spawn(function()
+    projectileRemote = bedwars.Client:Get('ProjectileFire')
+end)
+
+local function firePearl(pos, dir, item)
+    switchItem(item.tool)
+
+    local threwPearl = projectileRemote:CallServerAsync(
+        item.tool,
+        'telepearl',
+        'telepearl',
+        pos,
+        pos,
+        dir,
+        '9U3ZAYNE',
+        {
+            shotId = '2XKTHZ4I',
+            drawDurationSec = 9e9
+        },
+        workspace:GetServerTimeNow()
+    )
+
+    if store.hand then
+        switchItem(store.hand.tool)
+    end
+
+    return threwPearl
+end
+
+ClientCrasher = vape.Categories.Minigames:CreateModule({
+    Name = 'Pearl Crasher',
+    Function = function(callback)
+        if callback then
+            if entitylib.isAlive then
+                local root = entitylib.character.RootPart
+                local pearl = getItem('telepearl')
+
+                if not pearl then
+                    ClientCrasher:Toggle()
+                    return notif('ClientCrasher', 'Missing item buddy', 5, 'warning')
+                end
+
+                rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+                rayCheck.CollisionGroup = root.CollisionGroup
+
+                local ray = workspace:Raycast(root.Position, Vector3.new(0, 500, 0), rayCheck)
+                if ray then
+                    ClientCrasher:Toggle()
+                    return notif('ClientCrasher', 'You are under a block', 5, 'warning')
+                end
+
+                notif('ClientCrasher', 'Crashing please wait...', 10)
+
+                local s = firePearl(
+                    root.Position,
+                    Vector3.new(9e7, 9e9, 9e6),
+                    pearl
+                )
+
+                ClientCrasher:Toggle()
+
+                return notif('ClientCrasher', (s and 'Successfully crashed everyone' or 'Failed to crash, please retry.'), 5, (not s and 'warning'))
+            end
+            return nil
+        end
+        return nil
+    end,
+    Tooltip = 'crashes everyone'
+})
+
+end)
+
+run(function()
+	local hooked = {}
+
+local function hookConnection(connection)
+    local func = connection.Function
+    if func and not hooked[func] then
+        local old; old = hookfunction(func, newcclosure(function(...)
+            local tab = select(2, ...)
+            if typeof(tab) == "table" then
+                local vec = tab[1]
+                if typeof(vec) == "Vector3" then
+                    if vec.Y > 1e7 then
+                        return tab[2]:Destroy()
+                    end
+                end
+            end
+            return old(...)
+        end))
+        hooked[func] = true
+    end
+end
+
+AntiDRACO = vape.Categories.Minigames:CreateModule({
+    Name = 'Anti-Crash',
+    Function = function(callback)
+        if callback then
+            for _, connection in getconnections(replicatedStorage:WaitForChild('ZAP'):WaitForChild('ZAP_RELIABLE').OnClientEvent) do
+                hookConnection(connection)
+            end
+        else
+            for func in hooked do
+                restorefunction(func)
+            end
+            table.clear(hooked)
+        end
+    end,
+    Tooltip = 'Protects against the pearl crasher',
+})
+
+local otherAntiCrashHooked = {}
+
+OtherAntiCrash = vape.Categories.Minigames:CreateModule({
+    Name = 'Other Anti Crash',
+    Function = function(callback)
+        local abilityUsed = replicatedStorage:WaitForChild('events-@easy-games/game-core:shared/game-core-networking@getEvents.Events'):WaitForChild('abilityUsed')
+        if callback then
+            for _, connection in getconnections(abilityUsed.OnClientEvent) do
+                local func = connection.Function
+                if func and not otherAntiCrashHooked[func] then
+                    local old; old = hookfunction(func, newcclosure(function(...)
+                        if select(2, ...) == 'close_black_market' then
+                            return
+                        end
+                        return old(...)
+                    end))
+                    otherAntiCrashHooked[func] = true
+                end
+            end
+        else
+            for func in otherAntiCrashHooked do
+                restorefunction(func)
+            end
+            table.clear(otherAntiCrashHooked)
+        end
+    end,
+    Tooltip = 'protects against wren crasher',
+})
+
+end)
