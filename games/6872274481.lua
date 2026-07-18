@@ -19420,4 +19420,3 @@ Crasher1 = vape.Categories.Minigames:CreateModule({
     Tooltip = 'yes 1',
 })
 end)
-
