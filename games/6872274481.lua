@@ -2286,9 +2286,10 @@ run(function()
 	local rayCheck = RaycastParams.new()
 	rayCheck.RespectCanCollide = true
 	local up, down, old = 0, 0
-	local guiTimer, guiLabel, guiProgressBar
+	local guiTimer, guiLabel, guiProgressBar, screenGui
 	local lastGroundTick, isOnGround = tick(), true
 	local damageSound
+	local hasShaken = false
 
 	Fly = vape.Categories.Blatant:CreateModule({
 		Name = 'Fly',
@@ -2308,7 +2309,7 @@ run(function()
 				if EnableGui.Enabled then
 					pcall(function()
 						if not guiTimer then
-							local screenGui = Instance.new("ScreenGui")
+							screenGui = Instance.new("ScreenGui")
 							screenGui.Name = "FlyTimerGui"
 							screenGui.ResetOnSpawn = false
 							screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -2316,30 +2317,37 @@ run(function()
 							
 							guiTimer = Instance.new("Frame")
 							guiTimer.Name = "TimerFrame"
-							guiTimer.Size = UDim2.new(0.3, 0, 0.05, 0)
-							guiTimer.Position = UDim2.new(0.5, 0, 0.92, 0)
-							guiTimer.AnchorPoint = Vector2.new(0.5, 0.5)
-							guiTimer.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-							guiTimer.BackgroundTransparency = 0.5
+							guiTimer.Size = UDim2.fromOffset(200, 30)
+							guiTimer.Position = UDim2.fromOffset((workspace.CurrentView.X / 2) - 100, workspace.CurrentView.Y - 80)
+							guiTimer.BackgroundColor3 = Color3.fromRGB(255, 255, 170)
 							guiTimer.BorderSizePixel = 0
 							guiTimer.Parent = screenGui
 							
 							guiProgressBar = Instance.new("Frame")
 							guiProgressBar.Name = "ProgressBar"
-							guiProgressBar.Size = UDim2.new(1, 0, 1, 0)
-							guiProgressBar.Position = UDim2.new(0, 0, 0, 0)
-							guiProgressBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+							guiProgressBar.Size = UDim2.fromOffset(200, 30)
+							guiProgressBar.Position = UDim2.fromOffset(0, 0)
+							guiProgressBar.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
 							guiProgressBar.BorderSizePixel = 0
 							guiProgressBar.Parent = guiTimer
 							
+							local progressFill = Instance.new("Frame")
+							progressFill.Name = "ProgressFill"
+							progressFill.Size = UDim2.fromOffset(200, 30)
+							progressFill.Position = UDim2.fromOffset(0, 0)
+							progressFill.BackgroundColor3 = Color3.fromRGB(118, 118, 68)
+							progressFill.BorderSizePixel = 0
+							progressFill.Parent = guiProgressBar
+							guiProgressBar.Fill = progressFill
+							
 							guiLabel = Instance.new("TextLabel")
 							guiLabel.Name = "TimerLabel"
-							guiLabel.Size = UDim2.new(1, 0, 1, 0)
-							guiLabel.Position = UDim2.new(0, 0, 0, 0)
+							guiLabel.Size = UDim2.fromOffset(200, 30)
+							guiLabel.Position = UDim2.fromOffset(0, 0)
 							guiLabel.BackgroundTransparency = 1
 							guiLabel.Text = "2.5s"
 							guiLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-							guiLabel.TextSize = 18
+							guiLabel.TextSize = 16
 							guiLabel.Font = Enum.Font.GothamBold
 							guiLabel.Parent = guiTimer
 							
@@ -2351,6 +2359,7 @@ run(function()
 							damageSound.Parent = lplr.Character or workspace
 						end
 						guiTimer.Parent.Visible = true
+						hasShaken = false
 					end)
 				end
 				
@@ -2382,10 +2391,13 @@ run(function()
 							if not isOnGround then
 								isOnGround = true
 								lastGroundTick = tick()
+								hasShaken = false
 								-- Reset GUI
 								if EnableGui.Enabled and guiLabel then
 									guiLabel.Text = "2.5s"
-									guiProgressBar.Size = UDim2.new(1, 0, 1, 0)
+									if guiProgressBar.Fill then
+										guiProgressBar.Fill.Size = UDim2.fromOffset(200, 30)
+									end
 								end
 							end
 						else
@@ -2424,14 +2436,18 @@ run(function()
 						root.AssemblyLinearVelocity = (moveDirection * velo) + Vector3.new(0, mass, 0)
 						
 						-- CameraShake effect
-						if CameraShake.Enabled and not isOnGround and (tick() - lastGroundTick) > 0.1 then
+						if CameraShake.Enabled and not isOnGround and not hasShaken and (tick() - lastGroundTick) > 0.05 then
 							pcall(function()
+								hasShaken = true
 								-- Play damage sound
 								if damageSound then
+									damageSound:Stop()
 									damageSound:Play()
 								end
 								-- Camera shake
-								gameCamera.CameraShake:ShakeOnce(2, 0.5)
+								if gameCamera.CameraShake then
+									gameCamera.CameraShake:ShakeOnce(2, 0.5)
+								end
 							end)
 						end
 						
@@ -2440,7 +2456,10 @@ run(function()
 							local elapsed = tick() - lastGroundTick
 							local remaining = math.max(2.5 - elapsed, 0)
 							guiLabel.Text = string.format("%.1fs", remaining)
-							guiProgressBar.Size = UDim2.new(remaining / 2.5, 0, 1, 0)
+							if guiProgressBar.Fill then
+								local fillWidth = math.floor((remaining / 2.5) * 200)
+								guiProgressBar.Fill.Size = UDim2.fromOffset(fillWidth, 30)
+							end
 						end
 					end
 				end))
@@ -2476,9 +2495,10 @@ run(function()
 					end
 				end
 				-- Hide GUI when disabled
-				if guiTimer then
+				if guiTimer and guiTimer.Parent then
 					guiTimer.Parent.Visible = false
 				end
+				hasShaken = false
 			end
 		end,
 		ExtraText = function()
