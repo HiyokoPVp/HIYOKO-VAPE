@@ -2309,38 +2309,32 @@ run(function()
 					
 					guiTimer = Instance.new("Frame")
 					guiTimer.Name = "TimerFrame"
-					guiTimer.Size = UDim2.fromOffset(200, 30)
-					guiTimer.Position = UDim2.new(0.5, -100, 1, -60)
-					guiTimer.BackgroundColor3 = Color3.fromRGB(255, 255, 170)
+					guiTimer.Size = UDim2.fromOffset(250, 20)
+					guiTimer.Position = UDim2.new(0.5, -125, 0.87, 0)
+					guiTimer.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
 					guiTimer.BorderSizePixel = 0
 					guiTimer.Visible = false
 					guiTimer.Parent = screenGui
 					
-					guiProgressBar = Instance.new("Frame")
-					guiProgressBar.Name = "ProgressBar"
-					guiProgressBar.Size = UDim2.fromOffset(200, 30)
-					guiProgressBar.Position = UDim2.fromOffset(0, 0)
-					guiProgressBar.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
-					guiProgressBar.BorderSizePixel = 0
-					guiProgressBar.Parent = guiTimer
-					
 					progressFill = Instance.new("Frame")
 					progressFill.Name = "ProgressFill"
-					progressFill.Size = UDim2.fromOffset(200, 30)
+					progressFill.Size = UDim2.fromOffset(250, 20)
 					progressFill.Position = UDim2.fromOffset(0, 0)
 					progressFill.BackgroundColor3 = Color3.fromRGB(118, 118, 68)
 					progressFill.BorderSizePixel = 0
-					progressFill.Parent = guiProgressBar
+					progressFill.Parent = guiTimer
 					
 					guiLabel = Instance.new("TextLabel")
 					guiLabel.Name = "TimerLabel"
-					guiLabel.Size = UDim2.fromOffset(200, 30)
+					guiLabel.Size = UDim2.fromOffset(250, 20)
 					guiLabel.Position = UDim2.fromOffset(0, 0)
 					guiLabel.BackgroundTransparency = 1
 					guiLabel.Text = "2.5s"
 					guiLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-					guiLabel.TextSize = 16
+					guiLabel.TextSize = 14
 					guiLabel.Font = Enum.Font.GothamBold
+					guiLabel.TextXAlignment = Enum.TextXAlignment.Center
+					guiLabel.TextYAlignment = Enum.TextYAlignment.Center
 					guiLabel.Parent = guiTimer
 					
 					damageSound = Instance.new("Sound")
@@ -2400,7 +2394,7 @@ run(function()
 								if EnableGui.Enabled and guiLabel then
 									guiLabel.Text = "2.5s"
 									if progressFill then
-										progressFill.Size = UDim2.fromOffset(200, 30)
+										progressFill.Size = UDim2.fromOffset(250, 20)
 									end
 								end
 							end
@@ -2459,8 +2453,8 @@ run(function()
 							local remaining = math.max(2.5 - elapsed, 0)
 							guiLabel.Text = string.format("%.1fs", remaining)
 							if progressFill then
-								local fillWidth = math.floor((remaining / 2.5) * 200)
-								progressFill.Size = UDim2.fromOffset(fillWidth, 30)
+								local fillWidth = math.floor((remaining / 2.5) * 250)
+								progressFill.Size = UDim2.fromOffset(fillWidth, 20)
 							end
 						end
 					end
