@@ -2281,9 +2281,14 @@ run(function()
 	local WallCheck
 	local PopBalloons
 	local TP
+	local EnableGui
+	local CameraShake
 	local rayCheck = RaycastParams.new()
 	rayCheck.RespectCanCollide = true
 	local up, down, old = 0, 0
+	local guiTimer, guiLabel, guiProgressBar
+	local lastGroundTick, isOnGround = tick(), true
+	local damageSound
 
 	Fly = vape.Categories.Blatant:CreateModule({
 		Name = 'Fly',
@@ -2298,6 +2303,57 @@ run(function()
 				if lplr.Character and (lplr.Character:GetAttribute('InflatedBalloons') or 0) == 0 and getItem('balloon') then
 					bedwars.BalloonController:inflateBalloon()
 				end
+				
+				-- GUI作成
+				if EnableGui.Enabled then
+					pcall(function()
+						if not guiTimer then
+							local screenGui = Instance.new("ScreenGui")
+							screenGui.Name = "FlyTimerGui"
+							screenGui.ResetOnSpawn = false
+							screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+							screenGui.Parent = lplr.PlayerGui
+							
+							guiTimer = Instance.new("Frame")
+							guiTimer.Name = "TimerFrame"
+							guiTimer.Size = UDim2.new(0.3, 0, 0.05, 0)
+							guiTimer.Position = UDim2.new(0.5, 0, 0.92, 0)
+							guiTimer.AnchorPoint = Vector2.new(0.5, 0.5)
+							guiTimer.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+							guiTimer.BackgroundTransparency = 0.5
+							guiTimer.BorderSizePixel = 0
+							guiTimer.Parent = screenGui
+							
+							guiProgressBar = Instance.new("Frame")
+							guiProgressBar.Name = "ProgressBar"
+							guiProgressBar.Size = UDim2.new(1, 0, 1, 0)
+							guiProgressBar.Position = UDim2.new(0, 0, 0, 0)
+							guiProgressBar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+							guiProgressBar.BorderSizePixel = 0
+							guiProgressBar.Parent = guiTimer
+							
+							guiLabel = Instance.new("TextLabel")
+							guiLabel.Name = "TimerLabel"
+							guiLabel.Size = UDim2.new(1, 0, 1, 0)
+							guiLabel.Position = UDim2.new(0, 0, 0, 0)
+							guiLabel.BackgroundTransparency = 1
+							guiLabel.Text = "2.5s"
+							guiLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+							guiLabel.TextSize = 18
+							guiLabel.Font = Enum.Font.GothamBold
+							guiLabel.Parent = guiTimer
+							
+							-- Damage sound
+							damageSound = Instance.new("Sound")
+							damageSound.Name = "DamageSound"
+							damageSound.SoundId = "rbxassetid://6765470941"
+							damageSound.Volume = 0.5
+							damageSound.Parent = lplr.Character or workspace
+						end
+						guiTimer.Parent.Visible = true
+					end)
+				end
+				
 				Fly:Clean(vapeEvents.AttributeChanged.Event:Connect(function(changed)
 					if changed == 'InflatedBalloons' and (lplr.Character:GetAttribute('InflatedBalloons') or 0) == 0 and getItem('balloon') then
 						bedwars.BalloonController:inflateBalloon()
@@ -2318,6 +2374,22 @@ run(function()
 							if ray then
 								destination = ((ray.Position + ray.Normal) - root.Position)
 							end
+						end
+
+						-- Ground check
+						local groundRay = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), rayCheck)
+						if groundRay then
+							if not isOnGround then
+								isOnGround = true
+								lastGroundTick = tick()
+								-- Reset GUI
+								if EnableGui.Enabled and guiLabel then
+									guiLabel.Text = "2.5s"
+									guiProgressBar.Size = UDim2.new(1, 0, 1, 0)
+								end
+							end
+						else
+							isOnGround = false
 						end
 
 						if not flyAllowed then
@@ -2350,6 +2422,26 @@ run(function()
 
 						root.CFrame += destination
 						root.AssemblyLinearVelocity = (moveDirection * velo) + Vector3.new(0, mass, 0)
+						
+						-- CameraShake effect
+						if CameraShake.Enabled and not isOnGround and (tick() - lastGroundTick) > 0.1 then
+							pcall(function()
+								-- Play damage sound
+								if damageSound then
+									damageSound:Play()
+								end
+								-- Camera shake
+								gameCamera.CameraShake:ShakeOnce(2, 0.5)
+							end)
+						end
+						
+						-- Update GUI timer
+						if EnableGui.Enabled and guiLabel and not isOnGround then
+							local elapsed = tick() - lastGroundTick
+							local remaining = math.max(2.5 - elapsed, 0)
+							guiLabel.Text = string.format("%.1fs", remaining)
+							guiProgressBar.Size = UDim2.new(remaining / 2.5, 0, 1, 0)
+						end
 					end
 				end))
 				Fly:Clean(inputService.InputBegan:Connect(function(input)
@@ -2382,6 +2474,10 @@ run(function()
 					for _ = 1, 3 do
 						bedwars.BalloonController:deflateBalloon()
 					end
+				end
+				-- Hide GUI when disabled
+				if guiTimer then
+					guiTimer.Parent.Visible = false
 				end
 			end
 		end,
@@ -2419,6 +2515,14 @@ run(function()
 	TP = Fly:CreateToggle({
 		Name = 'TP Down',
 		Default = true
+	})
+	EnableGui = Fly:CreateToggle({
+		Name = 'Enable GUI',
+		Default = true
+	})
+	CameraShake = Fly:CreateToggle({
+		Name = 'Camera Shake',
+		Default = false
 	})
 end)
 	
