@@ -19425,7 +19425,7 @@ run(function()
     local SigridExploit
     local Kit, Mount = 'elk_master', bedwars.Client:Get('ElkKitMounted')
 
-    SigridExploit = vape.Categories.Blatant:CreateModule({
+    SigridExploit = vape.Categories.Minigames:CreateModule({
     	Name = 'Infinite Sigrid',
     	Tooltip = 'Lets you ride in the elk forever',
     	Function = function(call)
