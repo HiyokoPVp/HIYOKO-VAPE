@@ -2286,81 +2286,85 @@ run(function()
 	local rayCheck = RaycastParams.new()
 	rayCheck.RespectCanCollide = true
 	local up, down, old = 0, 0
-	local guiTimer, guiLabel, guiProgressBar, screenGui
+	local guiTimer, guiLabel, guiProgressBar, screenGui, progressFill
 	local lastGroundTick, isOnGround = tick(), true
 	local damageSound
 	local hasShaken = false
+	local flyActive = false
 
 	Fly = vape.Categories.Blatant:CreateModule({
 		Name = 'Fly',
 		Function = function(callback)
 			frictionTable.Fly = callback or nil
 			updateVelocity()
+			
+			-- GUIを最初に作成（callbackに関わらず）
+			pcall(function()
+				if not screenGui then
+					screenGui = Instance.new("ScreenGui")
+					screenGui.Name = "FlyTimerGui"
+					screenGui.ResetOnSpawn = false
+					screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+					screenGui.Parent = lplr.PlayerGui
+					
+					guiTimer = Instance.new("Frame")
+					guiTimer.Name = "TimerFrame"
+					guiTimer.Size = UDim2.fromOffset(200, 30)
+					guiTimer.Position = UDim2.fromOffset((workspace.CurrentView.X / 2) - 100, workspace.CurrentView.Y - 80)
+					guiTimer.BackgroundColor3 = Color3.fromRGB(255, 255, 170)
+					guiTimer.BorderSizePixel = 0
+					guiTimer.Visible = false
+					guiTimer.Parent = screenGui
+					
+					guiProgressBar = Instance.new("Frame")
+					guiProgressBar.Name = "ProgressBar"
+					guiProgressBar.Size = UDim2.fromOffset(200, 30)
+					guiProgressBar.Position = UDim2.fromOffset(0, 0)
+					guiProgressBar.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
+					guiProgressBar.BorderSizePixel = 0
+					guiProgressBar.Parent = guiTimer
+					
+					progressFill = Instance.new("Frame")
+					progressFill.Name = "ProgressFill"
+					progressFill.Size = UDim2.fromOffset(200, 30)
+					progressFill.Position = UDim2.fromOffset(0, 0)
+					progressFill.BackgroundColor3 = Color3.fromRGB(118, 118, 68)
+					progressFill.BorderSizePixel = 0
+					progressFill.Parent = guiProgressBar
+					
+					guiLabel = Instance.new("TextLabel")
+					guiLabel.Name = "TimerLabel"
+					guiLabel.Size = UDim2.fromOffset(200, 30)
+					guiLabel.Position = UDim2.fromOffset(0, 0)
+					guiLabel.BackgroundTransparency = 1
+					guiLabel.Text = "2.5s"
+					guiLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+					guiLabel.TextSize = 16
+					guiLabel.Font = Enum.Font.GothamBold
+					guiLabel.Parent = guiTimer
+					
+					damageSound = Instance.new("Sound")
+					damageSound.Name = "DamageSound"
+					damageSound.SoundId = "rbxassetid://6765470941"
+					damageSound.Volume = 0.5
+					damageSound.Parent = lplr.Character or workspace
+				end
+			end)
+			
 			if callback then
+				flyActive = true
 				up, down, old = 0, 0, bedwars.BalloonController.deflateBalloon
 				bedwars.BalloonController.deflateBalloon = function() end
 				local tpTick, tpToggle, oldy = tick(), true
+				hasShaken = false
 
 				if lplr.Character and (lplr.Character:GetAttribute('InflatedBalloons') or 0) == 0 and getItem('balloon') then
 					bedwars.BalloonController:inflateBalloon()
 				end
 				
-				-- GUI作成
-				if EnableGui.Enabled then
-					pcall(function()
-						if not guiTimer then
-							screenGui = Instance.new("ScreenGui")
-							screenGui.Name = "FlyTimerGui"
-							screenGui.ResetOnSpawn = false
-							screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-							screenGui.Parent = lplr.PlayerGui
-							
-							guiTimer = Instance.new("Frame")
-							guiTimer.Name = "TimerFrame"
-							guiTimer.Size = UDim2.fromOffset(200, 30)
-							guiTimer.Position = UDim2.fromOffset((workspace.CurrentView.X / 2) - 100, workspace.CurrentView.Y - 80)
-							guiTimer.BackgroundColor3 = Color3.fromRGB(255, 255, 170)
-							guiTimer.BorderSizePixel = 0
-							guiTimer.Parent = screenGui
-							
-							guiProgressBar = Instance.new("Frame")
-							guiProgressBar.Name = "ProgressBar"
-							guiProgressBar.Size = UDim2.fromOffset(200, 30)
-							guiProgressBar.Position = UDim2.fromOffset(0, 0)
-							guiProgressBar.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
-							guiProgressBar.BorderSizePixel = 0
-							guiProgressBar.Parent = guiTimer
-							
-							local progressFill = Instance.new("Frame")
-							progressFill.Name = "ProgressFill"
-							progressFill.Size = UDim2.fromOffset(200, 30)
-							progressFill.Position = UDim2.fromOffset(0, 0)
-							progressFill.BackgroundColor3 = Color3.fromRGB(118, 118, 68)
-							progressFill.BorderSizePixel = 0
-							progressFill.Parent = guiProgressBar
-							guiProgressBar.Fill = progressFill
-							
-							guiLabel = Instance.new("TextLabel")
-							guiLabel.Name = "TimerLabel"
-							guiLabel.Size = UDim2.fromOffset(200, 30)
-							guiLabel.Position = UDim2.fromOffset(0, 0)
-							guiLabel.BackgroundTransparency = 1
-							guiLabel.Text = "2.5s"
-							guiLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-							guiLabel.TextSize = 16
-							guiLabel.Font = Enum.Font.GothamBold
-							guiLabel.Parent = guiTimer
-							
-							-- Damage sound
-							damageSound = Instance.new("Sound")
-							damageSound.Name = "DamageSound"
-							damageSound.SoundId = "rbxassetid://6765470941"
-							damageSound.Volume = 0.5
-							damageSound.Parent = lplr.Character or workspace
-						end
-						guiTimer.Parent.Visible = true
-						hasShaken = false
-					end)
+				-- GUIを表示
+				if EnableGui.Enabled and guiTimer then
+					guiTimer.Visible = true
 				end
 				
 				Fly:Clean(vapeEvents.AttributeChanged.Event:Connect(function(changed)
@@ -2395,8 +2399,8 @@ run(function()
 								-- Reset GUI
 								if EnableGui.Enabled and guiLabel then
 									guiLabel.Text = "2.5s"
-									if guiProgressBar.Fill then
-										guiProgressBar.Fill.Size = UDim2.fromOffset(200, 30)
+									if progressFill then
+										progressFill.Size = UDim2.fromOffset(200, 30)
 									end
 								end
 							end
@@ -2436,15 +2440,13 @@ run(function()
 						root.AssemblyLinearVelocity = (moveDirection * velo) + Vector3.new(0, mass, 0)
 						
 						-- CameraShake effect
-						if CameraShake.Enabled and not isOnGround and not hasShaken and (tick() - lastGroundTick) > 0.05 then
+						if CameraShake.Enabled and not isOnGround and not hasShaken and flyActive then
 							pcall(function()
 								hasShaken = true
-								-- Play damage sound
 								if damageSound then
 									damageSound:Stop()
 									damageSound:Play()
 								end
-								-- Camera shake
 								if gameCamera.CameraShake then
 									gameCamera.CameraShake:ShakeOnce(2, 0.5)
 								end
@@ -2452,13 +2454,13 @@ run(function()
 						end
 						
 						-- Update GUI timer
-						if EnableGui.Enabled and guiLabel and not isOnGround then
+						if EnableGui.Enabled and guiLabel and not isOnGround and flyActive then
 							local elapsed = tick() - lastGroundTick
 							local remaining = math.max(2.5 - elapsed, 0)
 							guiLabel.Text = string.format("%.1fs", remaining)
-							if guiProgressBar.Fill then
+							if progressFill then
 								local fillWidth = math.floor((remaining / 2.5) * 200)
-								guiProgressBar.Fill.Size = UDim2.fromOffset(fillWidth, 30)
+								progressFill.Size = UDim2.fromOffset(fillWidth, 30)
 							end
 						end
 					end
@@ -2488,15 +2490,16 @@ run(function()
 					end)
 				end
 			else
+				flyActive = false
 				bedwars.BalloonController.deflateBalloon = old
 				if PopBalloons.Enabled and entitylib.isAlive and (lplr.Character:GetAttribute('InflatedBalloons') or 0) > 0 then
 					for _ = 1, 3 do
 						bedwars.BalloonController:deflateBalloon()
 					end
 				end
-				-- Hide GUI when disabled
-				if guiTimer and guiTimer.Parent then
-					guiTimer.Parent.Visible = false
+				-- GUIを非表示
+				if guiTimer then
+					guiTimer.Visible = false
 				end
 				hasShaken = false
 			end
