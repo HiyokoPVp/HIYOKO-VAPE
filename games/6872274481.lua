@@ -2281,86 +2281,23 @@ run(function()
 	local WallCheck
 	local PopBalloons
 	local TP
-	local EnableGui
-	local CameraShake
 	local rayCheck = RaycastParams.new()
 	rayCheck.RespectCanCollide = true
 	local up, down, old = 0, 0
-	local guiTimer, guiLabel, guiProgressBar, screenGui, progressFill
-	local lastGroundTick, isOnGround = tick(), true
-	local damageSound
-	local hasShaken = false
-	local flyActive = false
 
 	Fly = vape.Categories.Blatant:CreateModule({
 		Name = 'Fly',
 		Function = function(callback)
 			frictionTable.Fly = callback or nil
 			updateVelocity()
-			
-			-- GUIを最初に作成（callbackに関わらず）
-			pcall(function()
-				if not screenGui then
-					screenGui = Instance.new("ScreenGui")
-					screenGui.Name = "FlyTimerGui"
-					screenGui.ResetOnSpawn = false
-					screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-					screenGui.Parent = game:GetService("CoreGui")
-					
-					guiTimer = Instance.new("Frame")
-					guiTimer.Name = "TimerFrame"
-					guiTimer.Size = UDim2.fromOffset(250, 20)
-					guiTimer.Position = UDim2.new(0.5, -125, 0.87, 0)
-					guiTimer.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
-					guiTimer.BorderSizePixel = 0
-					guiTimer.Visible = false
-					guiTimer.Parent = screenGui
-					
-					progressFill = Instance.new("Frame")
-					progressFill.Name = "ProgressFill"
-					progressFill.Size = UDim2.fromOffset(250, 20)
-					progressFill.Position = UDim2.fromOffset(0, 0)
-					progressFill.BackgroundColor3 = Color3.fromRGB(118, 118, 68)
-					progressFill.BorderSizePixel = 0
-					progressFill.Parent = guiTimer
-					
-					guiLabel = Instance.new("TextLabel")
-					guiLabel.Name = "TimerLabel"
-					guiLabel.Size = UDim2.fromOffset(250, 20)
-					guiLabel.Position = UDim2.fromOffset(0, 0)
-					guiLabel.BackgroundTransparency = 1
-					guiLabel.Text = "2.5s"
-					guiLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
-					guiLabel.TextSize = 14
-					guiLabel.Font = Enum.Font.GothamBold
-					guiLabel.TextXAlignment = Enum.TextXAlignment.Center
-					guiLabel.TextYAlignment = Enum.TextYAlignment.Center
-					guiLabel.Parent = guiTimer
-					
-					damageSound = Instance.new("Sound")
-					damageSound.Name = "DamageSound"
-					damageSound.SoundId = "rbxassetid://6765470941"
-					damageSound.Volume = 0.5
-					damageSound.Parent = lplr.Character or workspace
-				end
-			end)
-			
 			if callback then
-				flyActive = true
 				up, down, old = 0, 0, bedwars.BalloonController.deflateBalloon
 				bedwars.BalloonController.deflateBalloon = function() end
 				local tpTick, tpToggle, oldy = tick(), true
-				hasShaken = false
 
 				if lplr.Character and (lplr.Character:GetAttribute('InflatedBalloons') or 0) == 0 and getItem('balloon') then
 					bedwars.BalloonController:inflateBalloon()
 				end
-				
-				-- GUIを表示
-				if EnableGui.Enabled and guiTimer then
-					guiTimer.Visible = true
-				end
-				
 				Fly:Clean(vapeEvents.AttributeChanged.Event:Connect(function(changed)
 					if changed == 'InflatedBalloons' and (lplr.Character:GetAttribute('InflatedBalloons') or 0) == 0 and getItem('balloon') then
 						bedwars.BalloonController:inflateBalloon()
@@ -2381,25 +2318,6 @@ run(function()
 							if ray then
 								destination = ((ray.Position + ray.Normal) - root.Position)
 							end
-						end
-
-						-- Ground check
-						local groundRay = workspace:Raycast(root.Position, Vector3.new(0, -10, 0), rayCheck)
-						if groundRay then
-							if not isOnGround then
-								isOnGround = true
-								lastGroundTick = tick()
-								hasShaken = false
-								-- Reset GUI
-								if EnableGui.Enabled and guiLabel then
-									guiLabel.Text = "2.5s"
-									if progressFill then
-										progressFill.Size = UDim2.fromOffset(250, 20)
-									end
-								end
-							end
-						else
-							isOnGround = false
 						end
 
 						if not flyAllowed then
@@ -2432,31 +2350,6 @@ run(function()
 
 						root.CFrame += destination
 						root.AssemblyLinearVelocity = (moveDirection * velo) + Vector3.new(0, mass, 0)
-						
-						-- CameraShake effect
-						if CameraShake.Enabled and not isOnGround and not hasShaken and flyActive then
-							pcall(function()
-								hasShaken = true
-								if damageSound then
-									damageSound:Stop()
-									damageSound:Play()
-								end
-								if gameCamera.CameraShake then
-									gameCamera.CameraShake:ShakeOnce(2, 0.5)
-								end
-							end)
-						end
-						
-						-- Update GUI timer
-						if EnableGui.Enabled and guiLabel and not isOnGround and flyActive then
-							local elapsed = tick() - lastGroundTick
-							local remaining = math.max(2.5 - elapsed, 0)
-							guiLabel.Text = string.format("%.1fs", remaining)
-							if progressFill then
-								local fillWidth = math.floor((remaining / 2.5) * 250)
-								progressFill.Size = UDim2.fromOffset(fillWidth, 20)
-							end
-						end
 					end
 				end))
 				Fly:Clean(inputService.InputBegan:Connect(function(input)
@@ -2484,18 +2377,12 @@ run(function()
 					end)
 				end
 			else
-				flyActive = false
 				bedwars.BalloonController.deflateBalloon = old
 				if PopBalloons.Enabled and entitylib.isAlive and (lplr.Character:GetAttribute('InflatedBalloons') or 0) > 0 then
 					for _ = 1, 3 do
 						bedwars.BalloonController:deflateBalloon()
 					end
 				end
-				-- GUIを非表示
-				if guiTimer then
-					guiTimer.Visible = false
-				end
-				hasShaken = false
 			end
 		end,
 		ExtraText = function()
@@ -2532,14 +2419,6 @@ run(function()
 	TP = Fly:CreateToggle({
 		Name = 'TP Down',
 		Default = true
-	})
-	EnableGui = Fly:CreateToggle({
-		Name = 'Enable GUI',
-		Default = true
-	})
-	CameraShake = Fly:CreateToggle({
-		Name = 'Camera Shake',
-		Default = false
 	})
 end)
 	
