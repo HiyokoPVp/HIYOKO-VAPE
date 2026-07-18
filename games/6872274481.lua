@@ -2305,12 +2305,12 @@ run(function()
 					screenGui.Name = "FlyTimerGui"
 					screenGui.ResetOnSpawn = false
 					screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-					screenGui.Parent = lplr.PlayerGui
+					screenGui.Parent = game:GetService("CoreGui")
 					
 					guiTimer = Instance.new("Frame")
 					guiTimer.Name = "TimerFrame"
 					guiTimer.Size = UDim2.fromOffset(200, 30)
-					guiTimer.Position = UDim2.fromOffset((workspace.CurrentView.X / 2) - 100, workspace.CurrentView.Y - 80)
+					guiTimer.Position = UDim2.new(0.5, -100, 1, -60)
 					guiTimer.BackgroundColor3 = Color3.fromRGB(255, 255, 170)
 					guiTimer.BorderSizePixel = 0
 					guiTimer.Visible = false
