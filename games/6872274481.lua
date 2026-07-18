@@ -16805,30 +16805,27 @@ end)
 
 local InfiniteFly
 run(function()
-    local InfiniteFly
     local HiddenPart = Instance.new('Part')
-    local falling
-    local lastUp = os.clock()
     HiddenPart.Parent = workspace
     HiddenPart.Transparency = 1
     HiddenPart.CanQuery = false
     HiddenPart.CanTouch = false
     HiddenPart.CanCollide = false
     HiddenPart.Anchored = true
-    
+
     local oldTransparency = {}
     local function doCharacterThing()
         if entitylib.isAlive then
             for index, value in entitylib.character.Character:GetDescendants() do
                 if value:IsA('Part') or value:IsA('BasePart') then
                     oldTransparency[value] = value.Transparency
-    
+
                     value.Transparency = 1
                 end
             end
         end
     end
-    
+
     local function revertCharacter()
         if entitylib.isAlive then
             for index, value in entitylib.character.Character:GetDescendants() do
@@ -16838,34 +16835,27 @@ run(function()
             end
         end
     end
-    
+
     InfiniteFly = vape.Categories.Blatant:CreateModule({
         Name = 'InfiniteFly',
         Function = function(callback)
             gameCamera.CameraSubject = callback and HiddenPart or entitylib.character.Character
-    
+
             if callback then
                 doCharacterThing()
                 HiddenPart.CFrame = entitylib.character.Character.Head.CFrame
-    
-                entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 175, entitylib.character.RootPart.CFrame.Z))
-    
-                InfiniteFly:Clean(runService.PreSimulation:Connect(function(dt: number)
+
+                entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 210, entitylib.character.RootPart.CFrame.Z))
+
+                InfiniteFly:Clean(runService.RenderStepped:Connect(function(dt: number)
                     if not entitylib.isAlive then
                         return
                     end
-    
-                    if os.clock() - lastUp < 0.35 then
-                        entitylib.character.RootPart.AssemblyLinearVelocity *= Vector3.new(1, 0, 1)
-                        entitylib.character.RootPart.CFrame -= Vector3.new(0, 0.3 * dt)
-                    end
-    
+
                     HiddenPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.Position.X, HiddenPart.CFrame.Y, entitylib.character.RootPart.Position.Z))
-    
+
                     if entitylib.character.RootPart.CFrame.Y < -75 then
-                        entitylib.character.RootPart.AssemblyLinearVelocity *= Vector3.new(1, 0, 1)
                         entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 210, entitylib.character.RootPart.CFrame.Z))
-                        lastUp = os.clock()
                     end
                 end))
             else
@@ -17291,6 +17281,100 @@ run(function()
 end)
 
 run(function()
+    local DamageBoost
+    local BoostSpeed
+    local Duration
+    
+    -- 状態管理用変数
+    local isBoosting = false
+    local boostEndTime = 0
+
+    DamageBoost = vape.Categories.Blatant:CreateModule({
+        Name = 'DamageBoost',
+        Function = function(callback)
+            if callback then
+                -- ダメージイベントの監視開始
+                DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
+                    -- 自分自身がダメージを受けた場合のみ処理
+                    if damageTable.entityInstance == lplr.Character then
+                        -- 現在の時間を記録し、ブースト終了時間を設定
+                        boostEndTime = tick() + Duration.Value
+                        isBoosting = true
+                        
+                        -- 物理演算の更新ループで速度を上書きするためのフラグを立てる
+                        frictionTable.DamageBoost = true
+                        updateVelocity()
+                    end
+                end))
+                
+                -- PreSimulationループで速度を強制適用
+                DamageBoost:Clean(runService.PreSimulation:Connect(function(dt)
+                    if isBoosting and entitylib.isAlive and isnetworkowner(entitylib.character.RootPart) then
+                        local currentTime = tick()
+                        
+                        -- 設定された時間が経過したらブースト解除
+                        if currentTime >= boostEndTime then
+                            isBoosting = false
+                            frictionTable.DamageBoost = nil
+                            updateVelocity()
+                            return
+                        end
+                        
+                        -- ブースト中の速度適用ロジック (Speedモジュールを参考)
+                        local root = entitylib.character.RootPart
+                        local moveDirection = entitylib.character.Humanoid.MoveDirection
+                        
+                        -- 移動方向がない場合は何もしない（空中での制御防止など）
+                        if moveDirection.Magnitude > 0 then
+                            -- 目標速度(BoostSpeed)と現在速度の差を埋めるようにCFrameを操作
+                            -- Speedモジュールと同様、直接AssemblyLinearVelocityを書き換えるのではなく
+                            -- CFrameの移動量として加算することで、ゲームの物理挙動と馴染みやすくする
+                            
+                            local currentSpeed = getSpeed() -- 現在の基本速度を取得
+                            local targetSpeed = BoostSpeed.Value
+                            
+                            -- 加速が必要な場合のみ適用
+                            if targetSpeed > currentSpeed then
+                                local destination = (moveDirection * (targetSpeed - currentSpeed) * dt)
+                                root.CFrame += destination
+                                
+                                -- 速度ベクトルも強制的に上書きして即座に反映させる
+                                root.AssemblyLinearVelocity = (moveDirection * targetSpeed) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+                            end
+                        end
+                    end
+                end))
+            else
+                -- モジュールOFF時のクリーンアップ
+                isBoosting = false
+                frictionTable.DamageBoost = nil
+                updateVelocity()
+            end
+        end,
+        Tooltip = 'Applies a burst of speed when taking damage.'
+    })
+
+    BoostSpeed = DamageBoost:CreateSlider({
+        Name = 'Boost Speed',
+        Min = 1,
+        Max = 50, -- RealTimeSpeedやSpeedの最大値より少し高めに設定可能に
+        Default = 30,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+
+    Duration = DamageBoost:CreateSlider({
+        Name = 'Duration',
+        Min = 0.1,
+        Max = 2.0,
+        Default = 0.5,
+        Decimal = 10,
+        Suffix = 'seconds'
+    })
+end)
+
+run(function()
     local Lighting = game:GetService("Lighting")
     local NightMode
     local Brightness
@@ -17466,31 +17550,6 @@ run(function()
                 currentTrack:AdjustSpeed(val)
             end
         end
-    })
-end)
-
-run(function()
-    local DamageBoost
-    local stack
-    
-    DamageBoost = vape.Categories.Blatant:CreateModule({
-    	Name = 'Damage Boost',
-    	Function = function(callback)
-    		if callback then
-    			DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-    				if entitylib.isAlive and tick() > (stack or 0) and damageTable.entityInstance == lplr.Character and not LongJump.Enabled then
-    					local horizontal = (damageTable.knockbackMultiplier and damageTable.knockbackMultiplier.horizontal or 0)
-    					knockbackSpeed = bedwars.KnockbackUtil.calculateKnockbackVelocity(Vector3.one, 1, {
-    						vertical = 0,
-    						horizontal = horizontal,
-    					}).Magnitude * (0.9 + lplr:GetNetworkPing())
-                        stack = tick() + (knockbackSpeed / 45)
-                        knockbackBoost = tick() + (horizontal / 3.5)
-    				end
-    			end))
-    		end
-    	end,
-        Tooltip = 'Makes you go slightly faster when damaged'
     })
 end)
 
@@ -19360,98 +19419,4 @@ Crasher1 = vape.Categories.Minigames:CreateModule({
     end,
     Tooltip = 'yes 1',
 })
-end)
-
-run(function()
-    local DamageBoost
-    local BoostSpeed
-    local Duration
-    
-    -- 状態管理用変数
-    local isBoosting = false
-    local boostEndTime = 0
-
-    DamageBoost = vape.Categories.Blatant:CreateModule({
-        Name = 'DamageBoost',
-        Function = function(callback)
-            if callback then
-                -- ダメージイベントの監視開始
-                DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-                    -- 自分自身がダメージを受けた場合のみ処理
-                    if damageTable.entityInstance == lplr.Character then
-                        -- 現在の時間を記録し、ブースト終了時間を設定
-                        boostEndTime = tick() + Duration.Value
-                        isBoosting = true
-                        
-                        -- 物理演算の更新ループで速度を上書きするためのフラグを立てる
-                        frictionTable.DamageBoost = true
-                        updateVelocity()
-                    end
-                end))
-                
-                -- PreSimulationループで速度を強制適用
-                DamageBoost:Clean(runService.PreSimulation:Connect(function(dt)
-                    if isBoosting and entitylib.isAlive and isnetworkowner(entitylib.character.RootPart) then
-                        local currentTime = tick()
-                        
-                        -- 設定された時間が経過したらブースト解除
-                        if currentTime >= boostEndTime then
-                            isBoosting = false
-                            frictionTable.DamageBoost = nil
-                            updateVelocity()
-                            return
-                        end
-                        
-                        -- ブースト中の速度適用ロジック (Speedモジュールを参考)
-                        local root = entitylib.character.RootPart
-                        local moveDirection = entitylib.character.Humanoid.MoveDirection
-                        
-                        -- 移動方向がない場合は何もしない（空中での制御防止など）
-                        if moveDirection.Magnitude > 0 then
-                            -- 目標速度(BoostSpeed)と現在速度の差を埋めるようにCFrameを操作
-                            -- Speedモジュールと同様、直接AssemblyLinearVelocityを書き換えるのではなく
-                            -- CFrameの移動量として加算することで、ゲームの物理挙動と馴染みやすくする
-                            
-                            local currentSpeed = getSpeed() -- 現在の基本速度を取得
-                            local targetSpeed = BoostSpeed.Value
-                            
-                            -- 加速が必要な場合のみ適用
-                            if targetSpeed > currentSpeed then
-                                local destination = (moveDirection * (targetSpeed - currentSpeed) * dt)
-                                root.CFrame += destination
-                                
-                                -- 速度ベクトルも強制的に上書きして即座に反映させる
-                                root.AssemblyLinearVelocity = (moveDirection * targetSpeed) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
-                            end
-                        end
-                    end
-                end))
-            else
-                -- モジュールOFF時のクリーンアップ
-                isBoosting = false
-                frictionTable.DamageBoost = nil
-                updateVelocity()
-            end
-        end,
-        Tooltip = 'Applies a burst of speed when taking damage.'
-    })
-
-    BoostSpeed = DamageBoost:CreateSlider({
-        Name = 'Boost Speed',
-        Min = 1,
-        Max = 50, -- RealTimeSpeedやSpeedの最大値より少し高めに設定可能に
-        Default = 30,
-        Suffix = function(val)
-            return val == 1 and 'stud' or 'studs'
-        end
-    })
-
-    Duration = DamageBoost:CreateSlider({
-        Name = 'Duration',
-        Min = 0.1,
-        Max = 2.0,
-        Default = 0.5,
-        Decimal = 10,
-        Suffix = 'seconds'
-    })
 end)
