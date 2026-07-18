@@ -16805,27 +16805,30 @@ end)
 
 local InfiniteFly
 run(function()
+    local InfiniteFly
     local HiddenPart = Instance.new('Part')
+    local falling
+    local lastUp = os.clock()
     HiddenPart.Parent = workspace
     HiddenPart.Transparency = 1
     HiddenPart.CanQuery = false
     HiddenPart.CanTouch = false
     HiddenPart.CanCollide = false
     HiddenPart.Anchored = true
-
+    
     local oldTransparency = {}
     local function doCharacterThing()
         if entitylib.isAlive then
             for index, value in entitylib.character.Character:GetDescendants() do
                 if value:IsA('Part') or value:IsA('BasePart') then
                     oldTransparency[value] = value.Transparency
-
+    
                     value.Transparency = 1
                 end
             end
         end
     end
-
+    
     local function revertCharacter()
         if entitylib.isAlive then
             for index, value in entitylib.character.Character:GetDescendants() do
@@ -16835,27 +16838,34 @@ run(function()
             end
         end
     end
-
+    
     InfiniteFly = vape.Categories.Blatant:CreateModule({
         Name = 'InfiniteFly',
         Function = function(callback)
             gameCamera.CameraSubject = callback and HiddenPart or entitylib.character.Character
-
+    
             if callback then
                 doCharacterThing()
                 HiddenPart.CFrame = entitylib.character.Character.Head.CFrame
-
-                entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 210, entitylib.character.RootPart.CFrame.Z))
-
-                InfiniteFly:Clean(runService.RenderStepped:Connect(function(dt: number)
+    
+                entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 175, entitylib.character.RootPart.CFrame.Z))
+    
+                InfiniteFly:Clean(runService.PreSimulation:Connect(function(dt: number)
                     if not entitylib.isAlive then
                         return
                     end
-
+    
+                    if os.clock() - lastUp < 0.35 then
+                        entitylib.character.RootPart.AssemblyLinearVelocity *= Vector3.new(1, 0, 1)
+                        entitylib.character.RootPart.CFrame -= Vector3.new(0, 0.3 * dt)
+                    end
+    
                     HiddenPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.Position.X, HiddenPart.CFrame.Y, entitylib.character.RootPart.Position.Z))
-
+    
                     if entitylib.character.RootPart.CFrame.Y < -75 then
+                        entitylib.character.RootPart.AssemblyLinearVelocity *= Vector3.new(1, 0, 1)
                         entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 210, entitylib.character.RootPart.CFrame.Z))
+                        lastUp = os.clock()
                     end
                 end))
             else
@@ -17278,98 +17288,6 @@ run(function()
 		end,
 		Tooltip = 'Stacked rod lightning effect'
 	})
-end)
-
-run(function()
-    local DamageBoost
-    local Multiplier
-    local OnlyPlayers
-    local lastDamageTime = 0
-    local lastAttackerPos = nil
-    local stack = 0
-
-    DamageBoost = vape.Categories.Combat:CreateModule({
-        Name = 'DamageBoost',
-        Function = function(callback)
-            if callback then
-                -- 1. エンティティからのダメージイベントを監視（提示いただいたしくみをベースに構築）
-                DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
-                    -- 自分が生きており、クールダウン中ではなく、自分がダメージを受け、LongJumpと競合しない場合
-                    if entitylib.isAlive and tick() > stack and damageTable.entityInstance == lplr.Character and not LongJump.Enabled then
-                        local fromEntity = damageTable.fromEntity
-                        local isEntityAttack = false
-                        
-                        if fromEntity then
-                            local attacker = playersService:GetPlayerFromCharacter(fromEntity)
-                            if OnlyPlayers.Enabled then
-                                -- 「プレイヤーのみ」モード: 攻撃者がプレイヤーかつ自分自身でない場合
-                                if attacker and attacker ~= lplr then
-                                    isEntityAttack = true
-                                end
-                            else
-                                -- 「すべてのエンティティ」モード: 攻撃者が自分自身でなければOK（NPCなども含む）
-                                if attacker ~= lplr or not attacker then
-                                    isEntityAttack = true
-                                end
-                            end
-                        end
-                        
-                        if isEntityAttack then
-                            -- 連続ヒット防止のクールダウン管理
-                            local horizontal = (damageTable.knockbackMultiplier and damageTable.knockbackMultiplier.horizontal or 0)
-                            stack = tick() + (horizontal / 3.5) 
-                            
-                            -- 攻撃者の位置を保存
-                            if damageTable.fromPosition then
-                                lastAttackerPos = Vector3.new(damageTable.fromPosition.X, damageTable.fromPosition.Y, damageTable.fromPosition.Z)
-                            elseif fromEntity and fromEntity.PrimaryPart then
-                                lastAttackerPos = fromEntity.PrimaryPart.Position
-                            end
-                            
-                            lastDamageTime = tick()
-                        end
-                    end
-                end))
-                
-                -- 2. Pull処理 (PreSimulationで直接Velocityを操作して引き寄せる)
-                DamageBoost:Clean(runService.PreSimulation:Connect(function(dt)
-                    -- ダメージを受けてから短時間（0.3秒）以内かつ、攻撃者の位置がわかっている場合
-                    if entitylib.isAlive and lastAttackerPos and (tick() - lastDamageTime) < 0.3 then
-                        local root = entitylib.character.RootPart
-                        
-                        -- 自分の位置から攻撃者の位置への方向ベクトルを計算
-                        local dirToAttacker = (lastAttackerPos - root.Position).Unit
-                        
-                        -- Pullの強さを計算 (Multiplierの値を使用)
-                        local pullStrength = Multiplier.Value / 10
-                        
-                        -- 現在のVelocityに、攻撃者方向への力を加算（Y軸は重力干渉を防ぐため0に）
-                        local currentVel = root.AssemblyLinearVelocity
-                        root.AssemblyLinearVelocity = currentVel + (dirToAttacker * Vector3.new(1, 0, 1)) * pullStrength
-                        
-                        -- 一度適用したらリセット（連続して干渉しすぎないようにする）
-                        lastAttackerPos = nil
-                    end
-                end))
-            end
-        end,
-        Tooltip = 'Pulls you towards the attacker when hit by an entity (No hooks, event-based).'
-    })
-
-    Multiplier = DamageBoost:CreateSlider({
-        Name = 'Pull Strength',
-        Min = 0,
-        Max = 500,
-        Default = 100,
-        Suffix = '%',
-        Tooltip = 'Higher value = stronger pull towards the attacker'
-    })
-
-    OnlyPlayers = DamageBoost:CreateToggle({
-        Name = 'Only Players',
-        Default = true,
-        Tooltip = 'If enabled, only triggers when hit by a player. If disabled, also boosts from NPCs/Entities.'
-    })
 end)
 
 run(function()
@@ -19442,4 +19360,98 @@ Crasher1 = vape.Categories.Minigames:CreateModule({
     end,
     Tooltip = 'yes 1',
 })
+end)
+
+run(function()
+    local DamageBoost
+    local BoostSpeed
+    local Duration
+    
+    -- 状態管理用変数
+    local isBoosting = false
+    local boostEndTime = 0
+
+    DamageBoost = vape.Categories.Blatant:CreateModule({
+        Name = 'DamageBoost',
+        Function = function(callback)
+            if callback then
+                -- ダメージイベントの監視開始
+                DamageBoost:Clean(vapeEvents.EntityDamageEvent.Event:Connect(function(damageTable)
+                    -- 自分自身がダメージを受けた場合のみ処理
+                    if damageTable.entityInstance == lplr.Character then
+                        -- 現在の時間を記録し、ブースト終了時間を設定
+                        boostEndTime = tick() + Duration.Value
+                        isBoosting = true
+                        
+                        -- 物理演算の更新ループで速度を上書きするためのフラグを立てる
+                        frictionTable.DamageBoost = true
+                        updateVelocity()
+                    end
+                end))
+                
+                -- PreSimulationループで速度を強制適用
+                DamageBoost:Clean(runService.PreSimulation:Connect(function(dt)
+                    if isBoosting and entitylib.isAlive and isnetworkowner(entitylib.character.RootPart) then
+                        local currentTime = tick()
+                        
+                        -- 設定された時間が経過したらブースト解除
+                        if currentTime >= boostEndTime then
+                            isBoosting = false
+                            frictionTable.DamageBoost = nil
+                            updateVelocity()
+                            return
+                        end
+                        
+                        -- ブースト中の速度適用ロジック (Speedモジュールを参考)
+                        local root = entitylib.character.RootPart
+                        local moveDirection = entitylib.character.Humanoid.MoveDirection
+                        
+                        -- 移動方向がない場合は何もしない（空中での制御防止など）
+                        if moveDirection.Magnitude > 0 then
+                            -- 目標速度(BoostSpeed)と現在速度の差を埋めるようにCFrameを操作
+                            -- Speedモジュールと同様、直接AssemblyLinearVelocityを書き換えるのではなく
+                            -- CFrameの移動量として加算することで、ゲームの物理挙動と馴染みやすくする
+                            
+                            local currentSpeed = getSpeed() -- 現在の基本速度を取得
+                            local targetSpeed = BoostSpeed.Value
+                            
+                            -- 加速が必要な場合のみ適用
+                            if targetSpeed > currentSpeed then
+                                local destination = (moveDirection * (targetSpeed - currentSpeed) * dt)
+                                root.CFrame += destination
+                                
+                                -- 速度ベクトルも強制的に上書きして即座に反映させる
+                                root.AssemblyLinearVelocity = (moveDirection * targetSpeed) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+                            end
+                        end
+                    end
+                end))
+            else
+                -- モジュールOFF時のクリーンアップ
+                isBoosting = false
+                frictionTable.DamageBoost = nil
+                updateVelocity()
+            end
+        end,
+        Tooltip = 'Applies a burst of speed when taking damage.'
+    })
+
+    BoostSpeed = DamageBoost:CreateSlider({
+        Name = 'Boost Speed',
+        Min = 1,
+        Max = 50, -- RealTimeSpeedやSpeedの最大値より少し高めに設定可能に
+        Default = 30,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+
+    Duration = DamageBoost:CreateSlider({
+        Name = 'Duration',
+        Min = 0.1,
+        Max = 2.0,
+        Default = 0.5,
+        Decimal = 10,
+        Suffix = 'seconds'
+    })
 end)
