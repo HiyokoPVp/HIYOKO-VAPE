@@ -19441,6 +19441,14 @@ run(function()
     local Players = game:GetService("Players")
     local lplr = Players.LocalPlayer
     local MoveSpeed
+    local EnableNotify
+
+    -- 通知ヘルパー (EnableNotifyがオンのときだけ通知する)
+    local function notify(title, text, duration)
+        if EnableNotify and EnableNotify.Enabled then
+            notif(title, text, duration or 5)
+        end
+    end
 
     -- 既存モジュールへのアクセスヘルパー
     local function getModule(name)
@@ -19449,29 +19457,30 @@ run(function()
 
     -- WalkSpeedを使わずにRootPartのCFrameとAssemblyLinearVelocityを直接操作して移動する関数
     local function moveTo(targetPos, rootPart)
-        -- Y軸（高さ）は無視して水平方向のベクトルを計算
         local flatDir = Vector3.new(targetPos.X - rootPart.Position.X, 0, targetPos.Z - rootPart.Position.Z)
         local flatDist = flatDir.Magnitude
-        
-        -- 目的地に近づきすぎたら何もしない
         if flatDist < 0.5 then return end
-        
         local moveDir = flatDir.Unit
-        local step = MoveSpeed.Value * 0.1 -- 0.1秒あたりの移動距離（task.wait(0.1)に合わせる）
-        
+        local step = MoveSpeed.Value * 0.1 
         if flatDist > step then
-            -- CFrameを直接ずらしてテレポート的に移動させる
             rootPart.CFrame = rootPart.CFrame + (moveDir * step)
-            -- 物理速度も合わせて設定することで、サーバーとの同期やScaffoldの判定を安定させる
             rootPart.AssemblyLinearVelocity = Vector3.new(
                 moveDir.X * MoveSpeed.Value, 
                 rootPart.AssemblyLinearVelocity.Y, 
                 moveDir.Z * MoveSpeed.Value
             )
         else
-            -- 目的地まで残りわずかだったらピッタリ合わせる
             rootPart.CFrame = CFrame.new(targetPos.X, rootPart.CFrame.Y, targetPos.Z)
         end
+    end
+
+    -- 空中判定関数 (足元にブロックがあるかチェック)
+    local function isInAir(rootPart)
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {lplr.Character}
+        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+        local ray = workspace:Raycast(rootPart.Position, Vector3.new(0, -10, 0), rayParams)
+        return not ray -- Rayが何にも当たらなければ空中
     end
 
     AutoRageFarm = vape.Categories.Blatant:CreateModule({
@@ -19482,11 +19491,11 @@ run(function()
                 -- 1. 必要なモジュールを自動的に有効化
                 local modulesToEnable = {
                     "AutoBuy",      -- 羊毛や剣を自動購入
-                    "Scaffold",     -- 橋を自動作成
-                    "Breaker",      -- ベッドを自動破壊 (Nuker)
-                    "SilentAura",   -- 敵を自動撃破 (Killaura)
+                    "Breaker",      -- ベッドや敵のブロックを自動破壊
+                    "SilentAura",   -- 敵を自動撃破
                     "Sprint",       -- 高速移動
-                    "NoFall"        -- 落下ダメージ無効
+                    "NoFall",       -- 落下ダメージ無効
+                    "PickupRange"   -- アイテム自動収集
                 }
                 
                 for _, mName in ipairs(modulesToEnable) do
@@ -19495,6 +19504,8 @@ run(function()
                         m:Toggle()
                     end
                 end
+
+                notify("AutoRageFarm", "Started! Modules enabled.", 5)
 
                 -- 2. メインループ
                 task.spawn(function()
@@ -19509,6 +19520,18 @@ run(function()
                             if not myTeam then task.wait(1) return end
 
                             local rootPart = entitylib.character.RootPart
+                            local scaffoldModule = getModule("Scaffold")
+
+                            -- 【重要】Scaffold の動的制御
+                            -- 空中にいるときだけ Scaffold をオンにする
+                            if scaffoldModule then
+                                local air = isInAir(rootPart)
+                                if air and not scaffoldModule.Enabled then
+                                    scaffoldModule:Toggle()
+                                elseif not air and scaffoldModule.Enabled then
+                                    scaffoldModule:Toggle()
+                                end
+                            end
 
                             -- 3. リソース確認 (羊毛)
                             local woolAmount = 0
@@ -19542,7 +19565,6 @@ run(function()
                                     if minDist < 10 then
                                         task.wait(1)
                                     else
-                                        -- WalkSpeedを使わずにカスタム移動
                                         moveTo(shopNPC.RootPart.Position, rootPart)
                                         task.wait(0.1)
                                     end
@@ -19550,7 +19572,7 @@ run(function()
                                     task.wait(1)
                                 end
                             else
-                                -- 【羊毛がある場合】敵のベッドを探す
+                                -- 【羊毛がある場合】敵のベッドを探す (Rush)
                                 local beds = CollectionService:GetTagged("bed")
                                 local targetBed = nil
                                 local minBedDist = math.huge
@@ -19569,11 +19591,16 @@ run(function()
                                 end
 
                                 if targetBed then
+                                    -- Rush 開始通知 (距離が遠いときだけ)
+                                    if minBedDist > 20 then
+                                        notify("AutoRageFarm", "Rushing to bed!", 3)
+                                    end
+
+                                    -- ベッドの少し手前を目指す
                                     local dir = (targetBed.Position - rootPart.Position).Unit
                                     local targetPos = targetBed.Position - (dir * 4)
                                     targetPos = Vector3.new(targetPos.X, rootPart.Position.Y, targetPos.Z)
                                     
-                                    -- WalkSpeedを使わずにカスタム移動
                                     moveTo(targetPos, rootPart)
 
                                     if minBedDist < 12 then
@@ -19582,6 +19609,7 @@ run(function()
                                         task.wait(0.1)
                                     end
                                 else
+                                    -- ベッドがない（勝利または敵全滅）
                                     task.wait(2)
                                 end
                             end
@@ -19590,16 +19618,26 @@ run(function()
                         task.wait(0.1)
                     end
                 end)
+            else
+                -- OFF時の処理
+                notify("AutoRageFarm", "Stopped.", 3)
             end
         end
     })
 
-    -- オプション: 移動速度の調節 (WalkSpeedは使用せず、CFrameと物理演算を直接操作)
+    -- オプション: 移動速度の調節
     MoveSpeed = AutoRageFarm:CreateSlider({
         Name = "Move Speed",
         Min = 10,
         Max = 150,
         Default = 40,
         Suffix = "studs/s"
+    })
+
+    -- オプション: 通知の有効化
+    EnableNotify = AutoRageFarm:CreateToggle({
+        Name = "Enable Notify",
+        Default = true,
+        Tooltip = "Show notifications for actions"
     })
 end)
