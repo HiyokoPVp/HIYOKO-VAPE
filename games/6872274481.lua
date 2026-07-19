@@ -19455,37 +19455,52 @@ run(function()
         return vape.Modules[name]
     end
 
-    -- 滑らかに移動し、壁貫通を防む関数
-    local function moveTo(targetPos, rootPart, humanoid)
-        local dir = (targetPos - rootPart.Position)
-        dir = Vector3.new(dir.X, 0, dir.Z) -- 水平方向のみ
-        local dist = dir.Magnitude
+    -- 滑らかに移動し、壁貫通・崖落ちを防む関数
+    local function moveTo(targetPos, rootPart)
+        local flatDir = Vector3.new(targetPos.X - rootPart.Position.X, 0, targetPos.Z - rootPart.Position.Z)
+        local flatDist = flatDir.Magnitude
         
-        if dist < 2 then
-            humanoid:Move(Vector3.zero, false)
-            return
+        -- 目的地に近づいたら停止
+        if flatDist < 1.5 then 
+            rootPart.AssemblyLinearVelocity = Vector3.new(0, rootPart.AssemblyLinearVelocity.Y, 0)
+            return 
         end
         
-        dir = dir.Unit
+        local moveDir = flatDir.Unit
+        local step = MoveSpeed.Value * 0.05 -- 0.1秒ループに応じた移動ステップ
         
-        -- 前方の壁チェック (Raycast)
         local rayParams = RaycastParams.new()
         rayParams.FilterDescendantsInstances = {lplr.Character}
         rayParams.FilterType = Enum.RaycastFilterType.Exclude
-        local ray = workspace:Raycast(rootPart.Position + Vector3.new(0, 2, 0), dir * 3, rayParams)
         
-        if ray and ray.Instance and ray.Instance.CanCollide then
-            -- 【壁にぶつかりそう】
-            -- CFrameを直接操作して貫通するのを防ぎ、物理速度を与えてScaffoldが橋を架けられるようにする
+        -- 1. 前方の壁チェック
+        local forwardRay = workspace:Raycast(rootPart.Position + Vector3.new(0, 2, 0), moveDir * 3, rayParams)
+        -- 2. 足元の崖チェック
+        local downRay = workspace:Raycast(rootPart.Position + (moveDir * 2) + Vector3.new(0, 1, 0), Vector3.new(0, -10, 0), rayParams)
+        
+        local canMoveCFrame = true
+        if forwardRay and forwardRay.Instance and forwardRay.Instance.CanCollide then
+            canMoveCFrame = false -- 壁がある場合はCFrameを進ませない
+        end
+        if not downRay then
+            canMoveCFrame = false -- 崖がある場合はCFrameを進ませない
+        end
+        
+        if canMoveCFrame then
+            -- 【安全】CFrameを直接ずらしてスムーズに移動
+            rootPart.CFrame = rootPart.CFrame + (moveDir * step)
             rootPart.AssemblyLinearVelocity = Vector3.new(
-                dir.X * math.min(MoveSpeed.Value, 25), 
+                moveDir.X * MoveSpeed.Value, 
                 rootPart.AssemblyLinearVelocity.Y, 
-                dir.Z * math.min(MoveSpeed.Value, 25)
+                moveDir.Z * MoveSpeed.Value
             )
         else
-            -- 【壁がない】
-            -- Humanoid:Move を使って滑らかに移動 (物理演算準拠なので壁に当たれば止まる)
-            humanoid:Move(dir, false)
+            -- 【壁・崖】CFrameは固定し、速度だけ与えてScaffoldに任せる
+            rootPart.AssemblyLinearVelocity = Vector3.new(
+                moveDir.X * math.min(MoveSpeed.Value, 20), 
+                rootPart.AssemblyLinearVelocity.Y, 
+                moveDir.Z * math.min(MoveSpeed.Value, 20)
+            )
         end
     end
 
@@ -19535,13 +19550,9 @@ run(function()
                             if not myTeam then task.wait(1) return end
 
                             local rootPart = entitylib.character.RootPart
-                            local humanoid = entitylib.character.Humanoid
-                            if not humanoid then task.wait(1) return end
-
                             local scaffoldModule = getModule("Scaffold")
 
                             -- 【重要】Scaffold の動的制御
-                            -- 空中にいるときだけ Scaffold をオンにする
                             if scaffoldModule then
                                 local air = isInAir(rootPart)
                                 if air and not scaffoldModule.Enabled then
@@ -19569,7 +19580,7 @@ run(function()
                                 
                                 if store.shop then
                                     for _, s in pairs(store.shop) do
-                                        -- ★ s.Shop が true (ItemShop) のみ対象にする
+                                        -- s.Shop が true (ItemShop) のみ対象
                                         if s.RootPart and s.Shop then
                                             local dist = (s.RootPart.Position - rootPart.Position).Magnitude
                                             if dist < minDist then
@@ -19584,7 +19595,7 @@ run(function()
                                     if minDist < 8 then
                                         task.wait(1)
                                     else
-                                        moveTo(shopNPC.RootPart.Position, rootPart, humanoid)
+                                        moveTo(shopNPC.RootPart.Position, rootPart)
                                         task.wait(0.1)
                                     end
                                 else
@@ -19619,7 +19630,7 @@ run(function()
                                     local targetPos = targetBed.Position - (dir * 4)
                                     targetPos = Vector3.new(targetPos.X, rootPart.Position.Y, targetPos.Z)
                                     
-                                    moveTo(targetPos, rootPart, humanoid)
+                                    moveTo(targetPos, rootPart)
 
                                     if minBedDist < 12 then
                                         task.wait(0.5)
