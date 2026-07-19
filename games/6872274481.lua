@@ -19433,3 +19433,158 @@ Crasher1 = vape.Categories.Minigames:CreateModule({
     Tooltip = 'yes 1',
 })
 end)
+
+-- ==========================================
+-- AutoRageFarm (AutoWin) Module
+-- 元のコードの末尾に追加してください
+-- ==========================================
+run(function()
+    local AutoRageFarm
+    local CollectionService = game:GetService("CollectionService")
+    local Players = game:GetService("Players")
+    local lplr = Players.LocalPlayer
+
+    -- 既存モジュールへのアクセスヘルパー
+    local function getModule(name)
+        return vape.Modules[name]
+    end
+
+    AutoRageFarm = vape.Categories.Blatant:CreateModule({
+        Name = "AutoRageFarm",
+        Tooltip = "Automatically buys wool, bridges to enemies, breaks beds, and wins.",
+        Function = function(callback)
+            if callback then
+                -- 1. 必要なモジュールを自動的に有効化
+                local modulesToEnable = {
+                    "AutoBuy",      -- 羊毛や剣を自動購入
+                    "Scaffold",     -- 橋を自動作成
+                    "Breaker",      -- ベッドを自動破壊 (Nuker)
+                    "SilentAura",   -- 敵を自動撃破 (Killaura)
+                    "Sprint",       -- 高速移動
+                    "NoFall"        -- 落下ダメージ無効
+                }
+                
+                for _, mName in ipairs(modulesToEnable) do
+                    local m = getModule(mName)
+                    if m and not m.Enabled then
+                        m:Toggle()
+                    end
+                end
+
+                -- AutoBuyで羊毛を買う設定を強制（簡易チェック）
+                -- ※本来はUI設定ですが、ここでは動作保証のため通知のみ
+                -- notif('AutoRageFarm', 'Make sure AutoBuy is set to buy Wool!', 5)
+
+                -- 2. メインループ
+                task.spawn(function()
+                    while AutoRageFarm.Enabled do
+                        -- エラー対策: pcallで囲む
+                        pcall(function()
+                            -- 生存確認
+                            if not entitylib.isAlive or not entitylib.character or not entitylib.character.RootPart then
+                                task.wait(1)
+                                return
+                            end
+
+                            local myTeam = lplr:GetAttribute("Team")
+                            if not myTeam then task.wait(1) return end
+
+                            local rootPart = entitylib.character.RootPart
+                            local humanoid = entitylib.character.Humanoid
+                            if not humanoid then task.wait(1) return end
+
+                            -- 3. リソース確認 (羊毛)
+                            local woolAmount = 0
+                            if store and store.inventory and store.inventory.inventory and store.inventory.inventory.items then
+                                for _, item in pairs(store.inventory.inventory.items) do
+                                    if item.itemType and item.itemType:find("wool") then
+                                        woolAmount = woolAmount + (item.amount or 0)
+                                    end
+                                end
+                            end
+
+                            -- 4. 行動分岐
+                            if woolAmount < 32 then
+                                -- 【羊毛が少ない場合】ショップへ向かう
+                                local shopNPC = nil
+                                local minDist = math.huge
+                                
+                                if store.shop then
+                                    for _, s in pairs(store.shop) do
+                                        if s.RootPart then
+                                            local dist = (s.RootPart.Position - rootPart.Position).Magnitude
+                                            if dist < minDist then
+                                                minDist = dist
+                                                shopNPC = s
+                                            end
+                                        end
+                                    end
+                                end
+
+                                if shopNPC then
+                                    if minDist < 10 then
+                                        -- ショップ付近にいる -> AutoBuyに任せて待機
+                                        task.wait(1)
+                                    else
+                                        -- ショップへ移動
+                                        humanoid:MoveTo(shopNPC.RootPart.Position)
+                                        task.wait(0.1)
+                                    end
+                                else
+                                    -- ショップが見つからない場合（マップ外など）
+                                    task.wait(1)
+                                end
+                            else
+                                -- 【羊毛がある場合】敵のベッドを探す
+                                local beds = CollectionService:GetTagged("bed")
+                                local targetBed = nil
+                                local minBedDist = math.huge
+
+                                for _, bed in ipairs(beds) do
+                                    if bed and bed.Parent then
+                                        local bedTeam = bed:GetAttribute("Team") or bed:GetAttribute("TeamId")
+                                        -- 自分のチームと異なるベッドを探す
+                                        if bedTeam and tonumber(bedTeam) ~= tonumber(myTeam) then
+                                            local dist = (bed.Position - rootPart.Position).Magnitude
+                                            if dist < minBedDist then
+                                                minBedDist = dist
+                                                targetBed = bed
+                                            end
+                                        end
+                                    end
+                                end
+
+                                if targetBed then
+                                    -- 5. 移動 (Scaffoldモジュールが橋を置いてくれる)
+                                    -- ベッドの少し手前（4スタッド手前）を目指す
+                                    local dir = (targetBed.Position - rootPart.Position).Unit
+                                    local targetPos = targetBed.Position - (dir * 4)
+                                    
+                                    -- 高さを現在の位置に固定（Scaffoldが処理）
+                                    targetPos = Vector3.new(targetPos.X, rootPart.Position.Y, targetPos.Z)
+                                    
+                                    humanoid:MoveTo(targetPos)
+
+                                    -- 近づいたらBreaker/SilentAuraが処理するのを待つ
+                                    if minBedDist < 12 then
+                                        task.wait(0.5)
+                                    else
+                                        task.wait(0.1)
+                                    end
+                                else
+                                    -- ベッドがない（勝利または敵全滅）
+                                    task.wait(2)
+                                end
+                            end
+                        end)
+                        
+                        -- 負荷分散
+                        task.wait(0.1)
+                    end
+                end)
+            else
+                -- OFF時の処理（モジュールは手動でOFFにしてもらう）
+            end
+        end
+    })
+end)
