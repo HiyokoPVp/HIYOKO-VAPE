@@ -16804,70 +16804,68 @@ run(function()
 end)
 
 local InfiniteFly
-local VoidThreshold -- 追加: 閾値設定用変数
 run(function()
-local HiddenPart = Instance.new('Part')
-HiddenPart.Parent = workspace
-HiddenPart.Transparency = 1
-HiddenPart.CanQuery = false
-HiddenPart.CanTouch = false
-HiddenPart.CanCollide = false
-HiddenPart.Anchored = true
-local oldTransparency = {}
-local function doCharacterThing()
-if entitylib.isAlive then
-for index, value in entitylib.character.Character:GetDescendants() do
-if value:IsA('Part') or value:IsA('BasePart') then
-oldTransparency[value] = value.Transparency
-value.Transparency = 1
-end
-end
-end
-end
-local function revertCharacter()
-if entitylib.isAlive then
-for index, value in entitylib.character.Character:GetDescendants() do
-if value:IsA('Part') or value:IsA('BasePart') then
-value.Transparency = oldTransparency[value]
-end
-end
-end
-end
-InfiniteFly = vape.Categories.Blatant:CreateModule({
-Name = 'InfiniteFly',
-Function = function(callback)
-gameCamera.CameraSubject = callback and HiddenPart or entitylib.character.Character
-if callback then
-doCharacterThing()
-HiddenPart.CFrame = entitylib.character.Character.Head.CFrame
-entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 210, entitylib.character.RootPart.CFrame.Z))
-InfiniteFly:Clean(runService.RenderStepped:Connect(function(dt: number)
-if not entitylib.isAlive then
-return
-end
-HiddenPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.Position.X, HiddenPart.CFrame.Y, entitylib.character.RootPart.Position.Z))
--- 閾値をスライダーの値 (VoidThreshold.Value) に変更
-if entitylib.character.RootPart.CFrame.Y < VoidThreshold.Value then
-entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 210, entitylib.character.RootPart.CFrame.Z))
-end
-end))
-else
-revertCharacter()
-end
-end,
-ExtraText = function()
-return 'Heatseeker'
-end
-})
--- 追加: 奈落テレポートの閾値を調整するスライダーオプション
-VoidThreshold = InfiniteFly:CreateSlider({
-Name = 'Void Threshold',
-Min = -200,
-Max = 0,
-Default = -70,
-Suffix = ' studs',
-Tooltip = 'Y-level at which you get teleported back up to avoid void damage.'
-})
+    local HiddenPart = Instance.new('Part')
+    HiddenPart.Parent = workspace
+    HiddenPart.Transparency = 1
+    HiddenPart.CanQuery = false
+    HiddenPart.CanTouch = false
+    HiddenPart.CanCollide = false
+    HiddenPart.Anchored = true
+
+    local oldTransparency = {}
+    local function doCharacterThing()
+        if entitylib.isAlive then
+            for index, value in entitylib.character.Character:GetDescendants() do
+                if value:IsA('Part') or value:IsA('BasePart') then
+                    oldTransparency[value] = value.Transparency
+
+                    value.Transparency = 1
+                end
+            end
+        end
+    end
+
+    local function revertCharacter()
+        if entitylib.isAlive then
+            for index, value in entitylib.character.Character:GetDescendants() do
+                if value:IsA('Part') or value:IsA('BasePart') then
+                    value.Transparency = oldTransparency[value]
+                end
+            end
+        end
+    end
+
+    InfiniteFly = vape.Categories.Blatant:CreateModule({
+        Name = 'InfiniteFly',
+        Function = function(callback)
+            gameCamera.CameraSubject = callback and HiddenPart or entitylib.character.Character
+
+            if callback then
+                doCharacterThing()
+                HiddenPart.CFrame = entitylib.character.Character.Head.CFrame
+
+                entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 210, entitylib.character.RootPart.CFrame.Z))
+
+                InfiniteFly:Clean(runService.RenderStepped:Connect(function(dt: number)
+                    if not entitylib.isAlive then
+                        return
+                    end
+
+                    HiddenPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.Position.X, HiddenPart.CFrame.Y, entitylib.character.RootPart.Position.Z))
+
+                    if entitylib.character.RootPart.CFrame.Y < -75 then
+                        entitylib.character.RootPart.CFrame = CFrame.new(Vector3.new(entitylib.character.RootPart.CFrame.X, 210, entitylib.character.RootPart.CFrame.Z))
+                    end
+                end))
+            else
+                revertCharacter()
+            end
+        end,
+        ExtraText = function()
+            return 'Heatseeker'
+        end
+    })
 end)
 
 run(function()
