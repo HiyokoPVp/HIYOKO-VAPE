@@ -17899,38 +17899,51 @@ run(function()
 end)
 
 run(function()
-    local NoFall
+local NoFall
+local AlwaysNofall
 
-    NoFall = vape.Categories.Blatant:CreateModule({
-        Name = 'Render NoFall',
-        Function = function(callback)
-            if callback then
-                NoFall:Clean(runService.Heartbeat:Connect(function(dt)
-                    if entitylib.isAlive and bedwars.Knit.Controllers.MatchController:getMatchState() == 1 then
-                        local root = entitylib.character.RootPart
-                        local v = root.Velocity
+NoFall = vape.Categories.Blatant:CreateModule({
+	Name = 'Render NoFall',
+	Function = function(callback)
+		if callback then
+			NoFall:Clean(runService.Heartbeat:Connect(function(dt)
+				if entitylib.isAlive and bedwars.Knit.Controllers.MatchController:getMatchState() == 1 then
+					local root = entitylib.character.RootPart
+					local v = root.Velocity
 
-                        if root.Velocity.Y < -35 and not vape.Modules.Fly.Enabled then
-                            root.Velocity = Vector3.new(0,2.5,0)
-                            entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
-                            runService.PreRender:Wait()
-                            root.Velocity = v
-                        end
-                    end
-                end))
+					-- AlwaysNofall: 常にLanded状態にする
+					if AlwaysNofall.Enabled then
+						entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
+					end
 
-                NoFall:Clean(entitylib.Events.LocalAdded:Connect(function(char)
-                    local animator = char.Humanoid:WaitForChild('Animator', 1)
-                    if animator and NoFall.Enabled and not vape.Modules.Fly.Enabled then
-                        task.wait(.5)
-                        NoFall:Toggle()
-                        NoFall:Toggle()
-                    end
-                end))
-            end
-        end,
-        Tooltip = 'Take no fall damage.'
-    })
+					if root.Velocity.Y < -35 and not vape.Modules.Fly.Enabled then
+						root.Velocity = Vector3.new(0, 2.5, 0)
+						entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
+						runService.PreRender:Wait()
+						root.Velocity = v
+					end
+				end
+			end))
+
+			NoFall:Clean(entitylib.Events.LocalAdded:Connect(function(char)
+				local animator = char.Humanoid:WaitForChild('Animator', 1)
+				if animator and NoFall.Enabled and not vape.Modules.Fly.Enabled then
+					task.wait(.5)
+					NoFall:Toggle()
+					NoFall:Toggle()
+				end
+			end))
+		end
+	end,
+	Tooltip = 'Take no fall damage.'
+})
+
+-- 追加: AlwaysNofall オプション
+AlwaysNofall = NoFall:CreateToggle({
+	Name = 'Always NoFall',
+	Default = false,
+	Tooltip = 'Constantly sets Humanoid state to Landed every frame.'
+})
 end)
 
 run(function()
