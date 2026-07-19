@@ -19434,19 +19434,44 @@ Crasher1 = vape.Categories.Minigames:CreateModule({
 })
 end)
 
--- ==========================================
--- AutoRageFarm (AutoWin) Module
--- 元のコードの末尾に追加してください
--- ==========================================
+
 run(function()
     local AutoRageFarm
     local CollectionService = game:GetService("CollectionService")
     local Players = game:GetService("Players")
     local lplr = Players.LocalPlayer
+    local MoveSpeed
 
     -- 既存モジュールへのアクセスヘルパー
     local function getModule(name)
         return vape.Modules[name]
+    end
+
+    -- WalkSpeedを使わずにRootPartのCFrameとAssemblyLinearVelocityを直接操作して移動する関数
+    local function moveTo(targetPos, rootPart)
+        -- Y軸（高さ）は無視して水平方向のベクトルを計算
+        local flatDir = Vector3.new(targetPos.X - rootPart.Position.X, 0, targetPos.Z - rootPart.Position.Z)
+        local flatDist = flatDir.Magnitude
+        
+        -- 目的地に近づきすぎたら何もしない
+        if flatDist < 0.5 then return end
+        
+        local moveDir = flatDir.Unit
+        local step = MoveSpeed.Value * 0.1 -- 0.1秒あたりの移動距離（task.wait(0.1)に合わせる）
+        
+        if flatDist > step then
+            -- CFrameを直接ずらしてテレポート的に移動させる
+            rootPart.CFrame = rootPart.CFrame + (moveDir * step)
+            -- 物理速度も合わせて設定することで、サーバーとの同期やScaffoldの判定を安定させる
+            rootPart.AssemblyLinearVelocity = Vector3.new(
+                moveDir.X * MoveSpeed.Value, 
+                rootPart.AssemblyLinearVelocity.Y, 
+                moveDir.Z * MoveSpeed.Value
+            )
+        else
+            -- 目的地まで残りわずかだったらピッタリ合わせる
+            rootPart.CFrame = CFrame.new(targetPos.X, rootPart.CFrame.Y, targetPos.Z)
+        end
     end
 
     AutoRageFarm = vape.Categories.Blatant:CreateModule({
@@ -19471,16 +19496,10 @@ run(function()
                     end
                 end
 
-                -- AutoBuyで羊毛を買う設定を強制（簡易チェック）
-                -- ※本来はUI設定ですが、ここでは動作保証のため通知のみ
-                -- notif('AutoRageFarm', 'Make sure AutoBuy is set to buy Wool!', 5)
-
                 -- 2. メインループ
                 task.spawn(function()
                     while AutoRageFarm.Enabled do
-                        -- エラー対策: pcallで囲む
                         pcall(function()
-                            -- 生存確認
                             if not entitylib.isAlive or not entitylib.character or not entitylib.character.RootPart then
                                 task.wait(1)
                                 return
@@ -19490,8 +19509,6 @@ run(function()
                             if not myTeam then task.wait(1) return end
 
                             local rootPart = entitylib.character.RootPart
-                            local humanoid = entitylib.character.Humanoid
-                            if not humanoid then task.wait(1) return end
 
                             -- 3. リソース確認 (羊毛)
                             local woolAmount = 0
@@ -19523,15 +19540,13 @@ run(function()
 
                                 if shopNPC then
                                     if minDist < 10 then
-                                        -- ショップ付近にいる -> AutoBuyに任せて待機
                                         task.wait(1)
                                     else
-                                        -- ショップへ移動
-                                        humanoid:MoveTo(shopNPC.RootPart.Position)
+                                        -- WalkSpeedを使わずにカスタム移動
+                                        moveTo(shopNPC.RootPart.Position, rootPart)
                                         task.wait(0.1)
                                     end
                                 else
-                                    -- ショップが見つからない場合（マップ外など）
                                     task.wait(1)
                                 end
                             else
@@ -19543,7 +19558,6 @@ run(function()
                                 for _, bed in ipairs(beds) do
                                     if bed and bed.Parent then
                                         local bedTeam = bed:GetAttribute("Team") or bed:GetAttribute("TeamId")
-                                        -- 自分のチームと異なるベッドを探す
                                         if bedTeam and tonumber(bedTeam) ~= tonumber(myTeam) then
                                             local dist = (bed.Position - rootPart.Position).Magnitude
                                             if dist < minBedDist then
@@ -19555,36 +19569,37 @@ run(function()
                                 end
 
                                 if targetBed then
-                                    -- 5. 移動 (Scaffoldモジュールが橋を置いてくれる)
-                                    -- ベッドの少し手前（4スタッド手前）を目指す
                                     local dir = (targetBed.Position - rootPart.Position).Unit
                                     local targetPos = targetBed.Position - (dir * 4)
-                                    
-                                    -- 高さを現在の位置に固定（Scaffoldが処理）
                                     targetPos = Vector3.new(targetPos.X, rootPart.Position.Y, targetPos.Z)
                                     
-                                    humanoid:MoveTo(targetPos)
+                                    -- WalkSpeedを使わずにカスタム移動
+                                    moveTo(targetPos, rootPart)
 
-                                    -- 近づいたらBreaker/SilentAuraが処理するのを待つ
                                     if minBedDist < 12 then
                                         task.wait(0.5)
                                     else
                                         task.wait(0.1)
                                     end
                                 else
-                                    -- ベッドがない（勝利または敵全滅）
                                     task.wait(2)
                                 end
                             end
                         end)
                         
-                        -- 負荷分散
                         task.wait(0.1)
                     end
                 end)
-            else
-                -- OFF時の処理（モジュールは手動でOFFにしてもらう）
             end
         end
+    })
+
+    -- オプション: 移動速度の調節 (WalkSpeedは使用せず、CFrameと物理演算を直接操作)
+    MoveSpeed = AutoRageFarm:CreateSlider({
+        Name = "Move Speed",
+        Min = 10,
+        Max = 150,
+        Default = 40,
+        Suffix = "studs/s"
     })
 end)
