@@ -19443,7 +19443,7 @@ run(function()
     local MoveSpeed
     local EnableNotify
 
-    -- 通知ヘルパー (EnableNotifyがオンのときだけ通知する)
+    -- 通知ヘルパー
     local function notify(title, text, duration)
         if EnableNotify and EnableNotify.Enabled then
             notif(title, text, duration or 5)
@@ -19455,32 +19455,47 @@ run(function()
         return vape.Modules[name]
     end
 
-    -- WalkSpeedを使わずにRootPartのCFrameとAssemblyLinearVelocityを直接操作して移動する関数
-    local function moveTo(targetPos, rootPart)
-        local flatDir = Vector3.new(targetPos.X - rootPart.Position.X, 0, targetPos.Z - rootPart.Position.Z)
-        local flatDist = flatDir.Magnitude
-        if flatDist < 0.5 then return end
-        local moveDir = flatDir.Unit
-        local step = MoveSpeed.Value * 0.1 
-        if flatDist > step then
-            rootPart.CFrame = rootPart.CFrame + (moveDir * step)
+    -- 滑らかに移動し、壁貫通を防む関数
+    local function moveTo(targetPos, rootPart, humanoid)
+        local dir = (targetPos - rootPart.Position)
+        dir = Vector3.new(dir.X, 0, dir.Z) -- 水平方向のみ
+        local dist = dir.Magnitude
+        
+        if dist < 2 then
+            humanoid:Move(Vector3.zero, false)
+            return
+        end
+        
+        dir = dir.Unit
+        
+        -- 前方の壁チェック (Raycast)
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {lplr.Character}
+        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+        local ray = workspace:Raycast(rootPart.Position + Vector3.new(0, 2, 0), dir * 3, rayParams)
+        
+        if ray and ray.Instance and ray.Instance.CanCollide then
+            -- 【壁にぶつかりそう】
+            -- CFrameを直接操作して貫通するのを防ぎ、物理速度を与えてScaffoldが橋を架けられるようにする
             rootPart.AssemblyLinearVelocity = Vector3.new(
-                moveDir.X * MoveSpeed.Value, 
+                dir.X * math.min(MoveSpeed.Value, 25), 
                 rootPart.AssemblyLinearVelocity.Y, 
-                moveDir.Z * MoveSpeed.Value
+                dir.Z * math.min(MoveSpeed.Value, 25)
             )
         else
-            rootPart.CFrame = CFrame.new(targetPos.X, rootPart.CFrame.Y, targetPos.Z)
+            -- 【壁がない】
+            -- Humanoid:Move を使って滑らかに移動 (物理演算準拠なので壁に当たれば止まる)
+            humanoid:Move(dir, false)
         end
     end
 
-    -- 空中判定関数 (足元にブロックがあるかチェック)
+    -- 空中判定関数
     local function isInAir(rootPart)
         local rayParams = RaycastParams.new()
         rayParams.FilterDescendantsInstances = {lplr.Character}
         rayParams.FilterType = Enum.RaycastFilterType.Exclude
         local ray = workspace:Raycast(rootPart.Position, Vector3.new(0, -10, 0), rayParams)
-        return not ray -- Rayが何にも当たらなければ空中
+        return not ray
     end
 
     AutoRageFarm = vape.Categories.Blatant:CreateModule({
@@ -19520,6 +19535,9 @@ run(function()
                             if not myTeam then task.wait(1) return end
 
                             local rootPart = entitylib.character.RootPart
+                            local humanoid = entitylib.character.Humanoid
+                            if not humanoid then task.wait(1) return end
+
                             local scaffoldModule = getModule("Scaffold")
 
                             -- 【重要】Scaffold の動的制御
@@ -19545,13 +19563,14 @@ run(function()
 
                             -- 4. 行動分岐
                             if woolAmount < 32 then
-                                -- 【羊毛が少ない場合】ショップへ向かう
+                                -- 【羊毛が少ない場合】ItemShopへ向かう
                                 local shopNPC = nil
                                 local minDist = math.huge
                                 
                                 if store.shop then
                                     for _, s in pairs(store.shop) do
-                                        if s.RootPart then
+                                        -- ★ s.Shop が true (ItemShop) のみ対象にする
+                                        if s.RootPart and s.Shop then
                                             local dist = (s.RootPart.Position - rootPart.Position).Magnitude
                                             if dist < minDist then
                                                 minDist = dist
@@ -19562,10 +19581,10 @@ run(function()
                                 end
 
                                 if shopNPC then
-                                    if minDist < 10 then
+                                    if minDist < 8 then
                                         task.wait(1)
                                     else
-                                        moveTo(shopNPC.RootPart.Position, rootPart)
+                                        moveTo(shopNPC.RootPart.Position, rootPart, humanoid)
                                         task.wait(0.1)
                                     end
                                 else
@@ -19591,7 +19610,6 @@ run(function()
                                 end
 
                                 if targetBed then
-                                    -- Rush 開始通知 (距離が遠いときだけ)
                                     if minBedDist > 20 then
                                         notify("AutoRageFarm", "Rushing to bed!", 3)
                                     end
@@ -19601,7 +19619,7 @@ run(function()
                                     local targetPos = targetBed.Position - (dir * 4)
                                     targetPos = Vector3.new(targetPos.X, rootPart.Position.Y, targetPos.Z)
                                     
-                                    moveTo(targetPos, rootPart)
+                                    moveTo(targetPos, rootPart, humanoid)
 
                                     if minBedDist < 12 then
                                         task.wait(0.5)
@@ -19609,7 +19627,6 @@ run(function()
                                         task.wait(0.1)
                                     end
                                 else
-                                    -- ベッドがない（勝利または敵全滅）
                                     task.wait(2)
                                 end
                             end
@@ -19619,7 +19636,6 @@ run(function()
                     end
                 end)
             else
-                -- OFF時の処理
                 notify("AutoRageFarm", "Stopped.", 3)
             end
         end
