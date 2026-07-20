@@ -19439,78 +19439,31 @@ run(function()
     local AutoRageFarm
     local CollectionService = game:GetService("CollectionService")
     local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
     local lplr = Players.LocalPlayer
     local MoveSpeed
     local EnableNotify
 
-    -- 通知ヘルパー
+    local lastRushNotify = 0
+    local currentTarget = nil -- 毎フレーム移動が参照する目標座標
+
     local function notify(title, text, duration)
         if EnableNotify and EnableNotify.Enabled then
             notif(title, text, duration or 5)
         end
     end
 
-    -- 既存モジュールへのアクセスヘルパー
     local function getModule(name)
         return vape.Modules[name]
     end
 
-    -- 滑らかに移動し、壁貫通・崖落ちを防む関数
-    local function moveTo(targetPos, rootPart)
-        local flatDir = Vector3.new(targetPos.X - rootPart.Position.X, 0, targetPos.Z - rootPart.Position.Z)
-        local flatDist = flatDir.Magnitude
-        
-        -- 目的地に近づいたら停止
-        if flatDist < 1.5 then 
-            rootPart.AssemblyLinearVelocity = Vector3.new(0, rootPart.AssemblyLinearVelocity.Y, 0)
-            return 
-        end
-        
-        local moveDir = flatDir.Unit
-        local step = MoveSpeed.Value * 0.05 -- 0.1秒ループに応じた移動ステップ
-        
-        local rayParams = RaycastParams.new()
-        rayParams.FilterDescendantsInstances = {lplr.Character}
-        rayParams.FilterType = Enum.RaycastFilterType.Exclude
-        
-        -- 1. 前方の壁チェック
-        local forwardRay = workspace:Raycast(rootPart.Position + Vector3.new(0, 2, 0), moveDir * 3, rayParams)
-        -- 2. 足元の崖チェック
-        local downRay = workspace:Raycast(rootPart.Position + (moveDir * 2) + Vector3.new(0, 1, 0), Vector3.new(0, -10, 0), rayParams)
-        
-        local canMoveCFrame = true
-        if forwardRay and forwardRay.Instance and forwardRay.Instance.CanCollide then
-            canMoveCFrame = false -- 壁がある場合はCFrameを進ませない
-        end
-        if not downRay then
-            canMoveCFrame = false -- 崖がある場合はCFrameを進ませない
-        end
-        
-        if canMoveCFrame then
-            -- 【安全】CFrameを直接ずらしてスムーズに移動
-            rootPart.CFrame = rootPart.CFrame + (moveDir * step)
-            rootPart.AssemblyLinearVelocity = Vector3.new(
-                moveDir.X * MoveSpeed.Value, 
-                rootPart.AssemblyLinearVelocity.Y, 
-                moveDir.Z * MoveSpeed.Value
-            )
-        else
-            -- 【壁・崖】CFrameは固定し、速度だけ与えてScaffoldに任せる
-            rootPart.AssemblyLinearVelocity = Vector3.new(
-                moveDir.X * math.min(MoveSpeed.Value, 20), 
-                rootPart.AssemblyLinearVelocity.Y, 
-                moveDir.Z * math.min(MoveSpeed.Value, 20)
-            )
-        end
-    end
-
-    -- 空中判定関数
+    -- 足元に地面があるか（空中判定）
     local function isInAir(rootPart)
-        local rayParams = RaycastParams.new()
-        rayParams.FilterDescendantsInstances = {lplr.Character}
-        rayParams.FilterType = Enum.RaycastFilterType.Exclude
-        local ray = workspace:Raycast(rootPart.Position, Vector3.new(0, -10, 0), rayParams)
-        return not ray
+        local p = RaycastParams.new()
+        p.FilterDescendantsInstances = {lplr.Character}
+        p.FilterType = Enum.RaycastFilterType.Exclude
+        local r = workspace:Raycast(rootPart.Position, Vector3.new(0, -6, 0), p)
+        return not r
     end
 
     AutoRageFarm = vape.Categories.Blatant:CreateModule({
@@ -19518,51 +19471,35 @@ run(function()
         Tooltip = "Automatically buys wool, bridges to enemies, breaks beds, and wins.",
         Function = function(callback)
             if callback then
-                -- 1. 必要なモジュールを自動的に有効化
                 local modulesToEnable = {
-                    "AutoBuy",      -- 羊毛や剣を自動購入
-                    "Breaker",      -- ベッドや敵のブロックを自動破壊
-                    "SilentAura",   -- 敵を自動撃破
-                    "Sprint",       -- 高速移動
-                    "NoFall",       -- 落下ダメージ無効
-                    "PickupRange"   -- アイテム自動収集
+                    "AutoBuy", "Breaker", "SilentAura",
+                    "Sprint", "NoFall", "PickupRange"
                 }
-                
                 for _, mName in ipairs(modulesToEnable) do
                     local m = getModule(mName)
-                    if m and not m.Enabled then
-                        m:Toggle()
-                    end
+                    if m and not m.Enabled then m:Toggle() end
                 end
 
                 notify("AutoRageFarm", "Started! Modules enabled.", 5)
 
-                -- 2. メインループ
+                -- =====================================================
+                -- [A] 目標決定ループ (0.1秒ごと)
+                -- =====================================================
                 task.spawn(function()
                     while AutoRageFarm.Enabled do
                         pcall(function()
                             if not entitylib.isAlive or not entitylib.character or not entitylib.character.RootPart then
+                                currentTarget = nil
                                 task.wait(1)
                                 return
                             end
 
                             local myTeam = lplr:GetAttribute("Team")
-                            if not myTeam then task.wait(1) return end
+                            if not myTeam then currentTarget = nil task.wait(1) return end
 
                             local rootPart = entitylib.character.RootPart
-                            local scaffoldModule = getModule("Scaffold")
 
-                            -- 【重要】Scaffold の動的制御
-                            if scaffoldModule then
-                                local air = isInAir(rootPart)
-                                if air and not scaffoldModule.Enabled then
-                                    scaffoldModule:Toggle()
-                                elseif not air and scaffoldModule.Enabled then
-                                    scaffoldModule:Toggle()
-                                end
-                            end
-
-                            -- 3. リソース確認 (羊毛)
+                            -- 羊毛カウント
                             local woolAmount = 0
                             if store and store.inventory and store.inventory.inventory and store.inventory.inventory.items then
                                 for _, item in pairs(store.inventory.inventory.items) do
@@ -19572,99 +19509,146 @@ run(function()
                                 end
                             end
 
-                            -- 4. 行動分岐
                             if woolAmount < 32 then
-                                -- 【羊毛が少ない場合】ItemShopへ向かう
-                                local shopNPC = nil
-                                local minDist = math.huge
-                                
+                                -- ItemShop へ
+                                local shopNPC, minDist = nil, math.huge
                                 if store.shop then
                                     for _, s in pairs(store.shop) do
-                                        -- s.Shop が true (ItemShop) のみ対象
-                                        if s.RootPart and s.Shop then
-                                            local dist = (s.RootPart.Position - rootPart.Position).Magnitude
-                                            if dist < minDist then
-                                                minDist = dist
-                                                shopNPC = s
-                                            end
+                                        if s.RootPart and s.Shop then -- ItemShopのみ
+                                            local d = (s.RootPart.Position - rootPart.Position).Magnitude
+                                            if d < minDist then minDist = d shopNPC = s end
                                         end
                                     end
                                 end
-
-                                if shopNPC then
-                                    if minDist < 8 then
-                                        task.wait(1)
-                                    else
-                                        moveTo(shopNPC.RootPart.Position, rootPart)
-                                        task.wait(0.1)
-                                    end
+                                if shopNPC and minDist >= 8 then
+                                    currentTarget = shopNPC.RootPart.Position
                                 else
-                                    task.wait(1)
+                                    currentTarget = nil -- 到着 or 未発見 -> 待機(AutoBuyに任せる)
                                 end
                             else
-                                -- 【羊毛がある場合】敵のベッドを探す (Rush)
+                                -- 敵ベッドへ Rush
                                 local beds = CollectionService:GetTagged("bed")
-                                local targetBed = nil
-                                local minBedDist = math.huge
-
+                                local targetBed, minBedDist = nil, math.huge
                                 for _, bed in ipairs(beds) do
                                     if bed and bed.Parent then
-                                        local bedTeam = bed:GetAttribute("Team") or bed:GetAttribute("TeamId")
-                                        if bedTeam and tonumber(bedTeam) ~= tonumber(myTeam) then
-                                            local dist = (bed.Position - rootPart.Position).Magnitude
-                                            if dist < minBedDist then
-                                                minBedDist = dist
-                                                targetBed = bed
-                                            end
+                                        local bt = bed:GetAttribute("Team") or bed:GetAttribute("TeamId")
+                                        if bt and tonumber(bt) ~= tonumber(myTeam) then
+                                            local d = (bed.Position - rootPart.Position).Magnitude
+                                            if d < minBedDist then minBedDist = d targetBed = bed end
                                         end
                                     end
                                 end
-
                                 if targetBed then
-                                    if minBedDist > 20 then
+                                    if minBedDist > 20 and tick() - lastRushNotify > 3 then
+                                        lastRushNotify = tick()
                                         notify("AutoRageFarm", "Rushing to bed!", 3)
                                     end
-
-                                    -- ベッドの少し手前を目指す
-                                    local dir = (targetBed.Position - rootPart.Position).Unit
-                                    local targetPos = targetBed.Position - (dir * 4)
-                                    targetPos = Vector3.new(targetPos.X, rootPart.Position.Y, targetPos.Z)
-                                    
-                                    moveTo(targetPos, rootPart)
-
-                                    if minBedDist < 12 then
-                                        task.wait(0.5)
-                                    else
-                                        task.wait(0.1)
-                                    end
+                                    local dir = (targetBed.Position - rootPart.Position)
+                                    dir = Vector3.new(dir.X, 0, dir.Z)
+                                    if dir.Magnitude > 0.1 then dir = dir.Unit else dir = Vector3.new(0,0,1) end
+                                    local tp = targetBed.Position - (dir * 4)
+                                    currentTarget = Vector3.new(tp.X, rootPart.Position.Y, tp.Z)
                                 else
-                                    task.wait(2)
+                                    currentTarget = nil
                                 end
                             end
                         end)
-                        
                         task.wait(0.1)
                     end
                 end)
+
+                -- =====================================================
+                -- [B] 毎フレーム移動 (滑らか + 壁追随 + 崖保護 + Scaffold連携)
+                -- =====================================================
+                local rayParams = RaycastParams.new()
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+                AutoRageFarm:Clean(RunService.PreSimulation:Connect(function(dt)
+                    pcall(function()
+                        if not entitylib.isAlive or not entitylib.character or not entitylib.character.RootPart then return end
+                        local rootPart = entitylib.character.RootPart
+                        local humanoid = entitylib.character.Humanoid
+                        if not humanoid then return end
+
+                        -- Scaffold 動的制御 (空中のみON)
+                        local scaffoldModule = getModule("Scaffold")
+                        if scaffoldModule then
+                            local air = isInAir(rootPart)
+                            if air and not scaffoldModule.Enabled then
+                                scaffoldModule:Toggle()
+                            elseif not air and scaffoldModule.Enabled then
+                                scaffoldModule:Toggle()
+                            end
+                        end
+
+                        if not currentTarget then return end
+
+                        -- 水平方向の進行ベクトル
+                        local flat = Vector3.new(
+                            currentTarget.X - rootPart.Position.X, 0,
+                            currentTarget.Z - rootPart.Position.Z
+                        )
+                        if flat.Magnitude < 2 then return end
+                        local dir = flat.Unit
+
+                        -- ★ MoveDirection を設定 (Scaffold が橋を置くために必須)
+                        humanoid:Move(dir, false)
+
+                        rayParams.FilterDescendantsInstances = {lplr.Character}
+
+                        -- 1) 前方の壁チェック + 壁追随(スライド)
+                        local fwd = workspace:Raycast(rootPart.Position + Vector3.new(0, 1, 0), dir * 3, rayParams)
+                        if fwd and fwd.Instance and fwd.Instance.CanCollide then
+                            local n = Vector3.new(fwd.Normal.X, 0, fwd.Normal.Z)
+                            if n.Magnitude > 0.01 then
+                                n = n.Unit
+                                local slide = dir - n * dir:Dot(n) -- 壁に沿う成分
+                                if slide.Magnitude > 0.1 then
+                                    dir = slide.Unit
+                                    humanoid:Move(dir, false) -- 曲げた方向で再設定
+                                else
+                                    return -- 完全に詰まり
+                                end
+                            else
+                                return
+                            end
+                        end
+
+                        -- 2) 崖チェック (進行方向の足元)
+                        local down = workspace:Raycast(
+                            rootPart.Position + dir * 2.5 + Vector3.new(0, 1, 0),
+                            Vector3.new(0, -8, 0), rayParams
+                        )
+
+                        local step = MoveSpeed.Value * math.min(dt, 0.05)
+
+                        if not down then
+                            -- 崖: CFrameは進めない(落下防止)。MoveDirectionは維持済みなので
+                            -- Scaffold が橋を置く -> 橋ができたら崖判定が外れて走り出す
+                            rootPart.AssemblyLinearVelocity = Vector3.new(0, rootPart.AssemblyLinearVelocity.Y, 0)
+                            return
+                        end
+
+                        -- 3) 安全: CFrame + Velocity で滑らかに高速移動
+                        rootPart.CFrame = rootPart.CFrame + (dir * step)
+                        rootPart.AssemblyLinearVelocity = Vector3.new(
+                            dir.X * MoveSpeed.Value,
+                            rootPart.AssemblyLinearVelocity.Y,
+                            dir.Z * MoveSpeed.Value
+                        )
+                    end)
+                end))
             else
+                currentTarget = nil
                 notify("AutoRageFarm", "Stopped.", 3)
             end
         end
     })
 
-    -- オプション: 移動速度の調節
     MoveSpeed = AutoRageFarm:CreateSlider({
-        Name = "Move Speed",
-        Min = 10,
-        Max = 150,
-        Default = 40,
-        Suffix = "studs/s"
+        Name = "Move Speed", Min = 10, Max = 150, Default = 40, Suffix = "studs/s"
     })
-
-    -- オプション: 通知の有効化
     EnableNotify = AutoRageFarm:CreateToggle({
-        Name = "Enable Notify",
-        Default = true,
-        Tooltip = "Show notifications for actions"
+        Name = "Enable Notify", Default = true, Tooltip = "Show notifications for actions"
     })
 end)
