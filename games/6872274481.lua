@@ -19489,35 +19489,6 @@ run(function()
         return n
     end
 
-    -- 自チームのスポーン位置 (MapCFrames から取得)
-    local function getMySpawnPos(myTeam)
-        local mc = workspace:FindFirstChild("MapCFrames")
-        if mc then
-            local sp = mc:FindFirstChild(tostring(myTeam) .. "_spawn")
-            if sp then return sp.Value end
-        end
-        return nil
-    end
-
-    -- ★ 自チームのItemShopかどうかを判定 (敵のショップを除外)
-    local function isMyTeamShop(s, myTeam, spawnPos)
-        if not s or not s.Shop or not s.RootPart then return false end
-        local rp = s.RootPart
-        -- 1) チーム属性で判定
-        local t = rp:GetAttribute("Team") or rp:GetAttribute("TeamId")
-        if t and tonumber(t) == tonumber(myTeam) then
-            return true
-        end
-        -- 2) 属性が無効な場合は自チームスポーンからの距離で判定
-        if spawnPos then
-            local rpPos = rp.Position or (rp.GetPivot and rp:GetPivot().Position)
-            if rpPos and (rpPos - spawnPos).Magnitude < 60 then
-                return true
-            end
-        end
-        return false
-    end
-
     -- 自チームのジェネレーター位置を取得(初回だけ探索してキャッシュ)
     local function getIronGenPos(myTeam)
         if ironGenCache and ironGenCache.Parent then
@@ -19535,8 +19506,11 @@ run(function()
             end
         end
         -- フォールバック: スポーン地点
-        local sp = getMySpawnPos(myTeam)
-        if sp then return sp.Position end
+        local mc = workspace:FindFirstChild("MapCFrames")
+        if mc then
+            local sp = mc:FindFirstChild(tostring(myTeam) .. "_spawn")
+            if sp then return sp.Value.Position end
+        end
         return nil
     end
 
@@ -19551,7 +19525,7 @@ run(function()
 
     AutoRageFarm = vape.Categories.Blatant:CreateModule({
         Name = "AutoRageFarm",
-        Tooltip = "Collects iron, buys wool at OWN shop, bridges to enemies, breaks beds, and wins.",
+        Tooltip = "Collects iron, buys wool, bridges to enemies, breaks beds, and wins.",
         Function = function(callback)
             if callback then
                 phase = "iron"
@@ -19599,6 +19573,7 @@ run(function()
                                     notify("AutoRageFarm", "Rushing to bed!", 3)
                                 end
                             elseif phase == "rush" then
+                                -- Rush中: 羊毛が尽きそうになったら補充に戻る(ヒステリシス)
                                 if wool <= RUSH_REFILL then
                                     phase = "wool"
                                     notify("AutoRageFarm", "Low wool, refilling.", 3)
@@ -19611,16 +19586,14 @@ run(function()
                                 if genPos and (genPos - rootPart.Position).Magnitude >= 6 then
                                     currentTarget = genPos
                                 else
-                                    currentTarget = nil
+                                    currentTarget = nil -- 到着 -> 鉄が湧くのを待機(PickupRangeが拾う)
                                 end
 
                             elseif phase == "wool" then
-                                -- ★ 自チームのItemShopのみを探す (敵ショップを完全除外)
                                 local shopNPC, minDist = nil, math.huge
-                                local spawnPos = getMySpawnPos(myTeam)
                                 if store.shop then
                                     for _, s in pairs(store.shop) do
-                                        if isMyTeamShop(s, myTeam, spawnPos) then
+                                        if s.RootPart and s.Shop then -- ItemShopのみ
                                             local d = (s.RootPart.Position - rootPart.Position).Magnitude
                                             if d < minDist then minDist = d shopNPC = s end
                                         end
@@ -19655,7 +19628,7 @@ run(function()
                                     local tp = targetBed.Position - (dir * 4)
                                     currentTarget = Vector3.new(tp.X, rootPart.Position.Y, tp.Z)
                                 else
-                                    currentTarget = nil
+                                    currentTarget = nil -- ベッドなし(勝利/全滅) -> 待機
                                 end
                             end
                         end)
