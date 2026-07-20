@@ -19443,9 +19443,15 @@ run(function()
     local lplr = Players.LocalPlayer
     local MoveSpeed
     local EnableNotify
+    local IronAmount
 
     local lastRushNotify = 0
-    local currentTarget = nil -- 毎フレーム移動が参照する目標座標
+    local currentTarget = nil
+    local phase = "iron"          -- "iron" / "wool" / "rush"
+    local ironGenCache = nil      -- 自チームのジェネレーター(キャッシュ)
+
+    local RUSH_RESUME = 32        -- 羊毛がこの数になったらRush再開
+    local RUSH_REFILL = 8         -- Rush中にこの数以下になったら補充に戻る(ヒステリシス)
 
     local function notify(title, text, duration)
         if EnableNotify and EnableNotify.Enabled then
@@ -19457,7 +19463,58 @@ run(function()
         return vape.Modules[name]
     end
 
-    -- 足元に地面があるか（空中判定）
+    -- 羊毛カウント
+    local function countWool()
+        local n = 0
+        if store and store.inventory and store.inventory.inventory and store.inventory.inventory.items then
+            for _, item in pairs(store.inventory.inventory.items) do
+                if item.itemType and item.itemType:find("wool") then
+                    n = n + (item.amount or 0)
+                end
+            end
+        end
+        return n
+    end
+
+    -- 鉄カウント
+    local function countIron()
+        local n = 0
+        if store and store.inventory and store.inventory.inventory and store.inventory.inventory.items then
+            for _, item in pairs(store.inventory.inventory.items) do
+                if item.itemType == "iron" then
+                    n = n + (item.amount or 0)
+                end
+            end
+        end
+        return n
+    end
+
+    -- 自チームのジェネレーター位置を取得(初回だけ探索してキャッシュ)
+    local function getIronGenPos(myTeam)
+        if ironGenCache and ironGenCache.Parent then
+            return ironGenCache:GetPivot().Position
+        end
+        local map = workspace:FindFirstChild("Map")
+        local root = map or workspace
+        for _, obj in root:GetDescendants() do
+            if obj.Name == "GeneratorAdornee" then
+                local id = obj:GetAttribute("Id")
+                if id and tostring(id) == tostring(myTeam) .. "_generator" then
+                    ironGenCache = obj
+                    return obj:GetPivot().Position
+                end
+            end
+        end
+        -- フォールバック: スポーン地点
+        local mc = workspace:FindFirstChild("MapCFrames")
+        if mc then
+            local sp = mc:FindFirstChild(tostring(myTeam) .. "_spawn")
+            if sp then return sp.Value.Position end
+        end
+        return nil
+    end
+
+    -- 空中判定
     local function isInAir(rootPart)
         local p = RaycastParams.new()
         p.FilterDescendantsInstances = {lplr.Character}
@@ -19468,9 +19525,12 @@ run(function()
 
     AutoRageFarm = vape.Categories.Blatant:CreateModule({
         Name = "AutoRageFarm",
-        Tooltip = "Automatically buys wool, bridges to enemies, breaks beds, and wins.",
+        Tooltip = "Collects iron, buys wool, bridges to enemies, breaks beds, and wins.",
         Function = function(callback)
             if callback then
+                phase = "iron"
+                ironGenCache = nil
+
                 local modulesToEnable = {
                     "AutoBuy", "Breaker", "SilentAura",
                     "Sprint", "NoFall", "PickupRange"
@@ -19480,10 +19540,10 @@ run(function()
                     if m and not m.Enabled then m:Toggle() end
                 end
 
-                notify("AutoRageFarm", "Started! Modules enabled.", 5)
+                notify("AutoRageFarm", "Started! Collecting iron first.", 5)
 
                 -- =====================================================
-                -- [A] 目標決定ループ (0.1秒ごと)
+                -- [A] フェーズ判定 & 目標決定ループ (0.1秒ごと)
                 -- =====================================================
                 task.spawn(function()
                     while AutoRageFarm.Enabled do
@@ -19498,19 +19558,38 @@ run(function()
                             if not myTeam then currentTarget = nil task.wait(1) return end
 
                             local rootPart = entitylib.character.RootPart
+                            local wool = countWool()
+                            local iron = countIron()
 
-                            -- 羊毛カウント
-                            local woolAmount = 0
-                            if store and store.inventory and store.inventory.inventory and store.inventory.inventory.items then
-                                for _, item in pairs(store.inventory.inventory.items) do
-                                    if item.itemType and item.itemType:find("wool") then
-                                        woolAmount = woolAmount + (item.amount or 0)
-                                    end
+                            -- ---- フェーズ遷移 ----
+                            if phase == "iron" then
+                                if iron >= IronAmount.Value then
+                                    phase = "wool"
+                                    notify("AutoRageFarm", "Iron ready! Buying wool.", 3)
+                                end
+                            elseif phase == "wool" then
+                                if wool >= RUSH_RESUME then
+                                    phase = "rush"
+                                    notify("AutoRageFarm", "Rushing to bed!", 3)
+                                end
+                            elseif phase == "rush" then
+                                -- Rush中: 羊毛が尽きそうになったら補充に戻る(ヒステリシス)
+                                if wool <= RUSH_REFILL then
+                                    phase = "wool"
+                                    notify("AutoRageFarm", "Low wool, refilling.", 3)
                                 end
                             end
 
-                            if woolAmount < 32 then
-                                -- ItemShop へ
+                            -- ---- フェーズ別の移動目標 ----
+                            if phase == "iron" then
+                                local genPos = getIronGenPos(myTeam)
+                                if genPos and (genPos - rootPart.Position).Magnitude >= 6 then
+                                    currentTarget = genPos
+                                else
+                                    currentTarget = nil -- 到着 -> 鉄が湧くのを待機(PickupRangeが拾う)
+                                end
+
+                            elseif phase == "wool" then
                                 local shopNPC, minDist = nil, math.huge
                                 if store.shop then
                                     for _, s in pairs(store.shop) do
@@ -19523,10 +19602,10 @@ run(function()
                                 if shopNPC and minDist >= 8 then
                                     currentTarget = shopNPC.RootPart.Position
                                 else
-                                    currentTarget = nil -- 到着 or 未発見 -> 待機(AutoBuyに任せる)
+                                    currentTarget = nil -- 到着 -> AutoBuyに任せて待機
                                 end
-                            else
-                                -- 敵ベッドへ Rush
+
+                            else -- rush
                                 local beds = CollectionService:GetTagged("bed")
                                 local targetBed, minBedDist = nil, math.huge
                                 for _, bed in ipairs(beds) do
@@ -19549,7 +19628,7 @@ run(function()
                                     local tp = targetBed.Position - (dir * 4)
                                     currentTarget = Vector3.new(tp.X, rootPart.Position.Y, tp.Z)
                                 else
-                                    currentTarget = nil
+                                    currentTarget = nil -- ベッドなし(勝利/全滅) -> 待機
                                 end
                             end
                         end)
@@ -19583,7 +19662,6 @@ run(function()
 
                         if not currentTarget then return end
 
-                        -- 水平方向の進行ベクトル
                         local flat = Vector3.new(
                             currentTarget.X - rootPart.Position.X, 0,
                             currentTarget.Z - rootPart.Position.Z
@@ -19591,30 +19669,30 @@ run(function()
                         if flat.Magnitude < 2 then return end
                         local dir = flat.Unit
 
-                        -- ★ MoveDirection を設定 (Scaffold が橋を置くために必須)
+                        -- ★ MoveDirection を維持 (Scaffoldが橋を置くために必須)
                         humanoid:Move(dir, false)
 
                         rayParams.FilterDescendantsInstances = {lplr.Character}
 
-                        -- 1) 前方の壁チェック + 壁追随(スライド)
+                        -- 1) 壁チェック + 壁追随(スライド)
                         local fwd = workspace:Raycast(rootPart.Position + Vector3.new(0, 1, 0), dir * 3, rayParams)
                         if fwd and fwd.Instance and fwd.Instance.CanCollide then
                             local n = Vector3.new(fwd.Normal.X, 0, fwd.Normal.Z)
                             if n.Magnitude > 0.01 then
                                 n = n.Unit
-                                local slide = dir - n * dir:Dot(n) -- 壁に沿う成分
+                                local slide = dir - n * dir:Dot(n)
                                 if slide.Magnitude > 0.1 then
                                     dir = slide.Unit
-                                    humanoid:Move(dir, false) -- 曲げた方向で再設定
+                                    humanoid:Move(dir, false)
                                 else
-                                    return -- 完全に詰まり
+                                    return
                                 end
                             else
                                 return
                             end
                         end
 
-                        -- 2) 崖チェック (進行方向の足元)
+                        -- 2) 崖チェック
                         local down = workspace:Raycast(
                             rootPart.Position + dir * 2.5 + Vector3.new(0, 1, 0),
                             Vector3.new(0, -8, 0), rayParams
@@ -19623,13 +19701,12 @@ run(function()
                         local step = MoveSpeed.Value * math.min(dt, 0.05)
 
                         if not down then
-                            -- 崖: CFrameは進めない(落下防止)。MoveDirectionは維持済みなので
-                            -- Scaffold が橋を置く -> 橋ができたら崖判定が外れて走り出す
+                            -- 崖: 落下防止のためCFrameは進めない(Scaffoldが橋を置くのを待つ)
                             rootPart.AssemblyLinearVelocity = Vector3.new(0, rootPart.AssemblyLinearVelocity.Y, 0)
                             return
                         end
 
-                        -- 3) 安全: CFrame + Velocity で滑らかに高速移動
+                        -- 3) 安全: 滑らかに高速移動
                         rootPart.CFrame = rootPart.CFrame + (dir * step)
                         rootPart.AssemblyLinearVelocity = Vector3.new(
                             dir.X * MoveSpeed.Value,
@@ -19640,6 +19717,7 @@ run(function()
                 end))
             else
                 currentTarget = nil
+                phase = "iron"
                 notify("AutoRageFarm", "Stopped.", 3)
             end
         end
@@ -19647,6 +19725,11 @@ run(function()
 
     MoveSpeed = AutoRageFarm:CreateSlider({
         Name = "Move Speed", Min = 10, Max = 150, Default = 40, Suffix = "studs/s"
+    })
+    IronAmount = AutoRageFarm:CreateSlider({
+        Name = "Iron to collect", Min = 8, Max = 48, Default = 24,
+        Suffix = "iron",
+        Tooltip = "How much iron to gather at the generator before buying wool (wool x32 = 16 iron, extra covers sword/armor)"
     })
     EnableNotify = AutoRageFarm:CreateToggle({
         Name = "Enable Notify", Default = true, Tooltip = "Show notifications for actions"
