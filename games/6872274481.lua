@@ -19758,3 +19758,84 @@ run(function()
         Tooltip = 'Continuously sends ElkKitMounted while alive'
     })
 end)
+
+run(function()
+local AntiHit
+local Height
+local AirTime
+local GroundTime
+local rayCheck = RaycastParams.new()
+rayCheck.RespectCanCollide = true
+
+AntiHit = vape.Categories.Blatant:CreateModule({
+Name = 'AntiHit',
+Function = function(callback)
+if callback then
+task.spawn(function()
+while AntiHit.Enabled do
+if entitylib.isAlive and isnetworkowner(entitylib.character.RootPart) then
+local root = entitylib.character.RootPart
+local hipHeight = entitylib.character.Humanoid.HipHeight or 2
+
+-- 地面のY座標をRaycastで取得
+rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+rayCheck.CollisionGroup = root.CollisionGroup
+local ray = workspace:Raycast(root.Position + Vector3.new(0, 2, 0), Vector3.new(0, -500, 0), rayCheck)
+local groundY = root.Position.Y
+if ray then
+groundY = ray.Position.Y + hipHeight
+end
+
+-- 高く飛ぶ（InfinityFlyと同じ仕組み）
+root.CFrame = CFrame.new(Vector3.new(root.Position.X, Height.Value, root.Position.Z))
+root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
+
+-- 上空で待機
+task.wait(AirTime.Value)
+
+-- 地面に戻る
+if entitylib.isAlive and AntiHit.Enabled then
+root.CFrame = CFrame.new(Vector3.new(root.Position.X, groundY, root.Position.Z))
+root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
+end
+
+-- 地面で少し待機してからまた飛ぶ
+task.wait(GroundTime.Value)
+else
+task.wait(0.1)
+end
+end
+end)
+end
+end,
+Tooltip = 'Teleports you high up and back to the ground repeatedly to dodge attacks'
+})
+
+Height = AntiHit:CreateSlider({
+Name = 'Height',
+Min = 50,
+Max = 500,
+Default = 210,
+Suffix = function(val)
+return val == 1 and 'stud' or 'studs'
+end
+})
+
+AirTime = AntiHit:CreateSlider({
+Name = 'Air Time',
+Min = 0.1,
+Max = 3,
+Default = 1,
+Decimal = 10,
+Suffix = 'seconds'
+})
+
+GroundTime = AntiHit:CreateSlider({
+Name = 'Ground Time',
+Min = 0,
+Max = 1,
+Default = 0.05,
+Decimal = 100,
+Suffix = 'seconds'
+})
+end)
