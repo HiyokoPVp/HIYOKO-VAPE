@@ -19760,82 +19760,174 @@ run(function()
 end)
 
 run(function()
-local AntiHit
-local Height
-local AirTime
-local GroundTime
-local rayCheck = RaycastParams.new()
-rayCheck.RespectCanCollide = true
+    local AntiHit
+    local Height
+    local AirTime
+    local GroundTime
+    local OnlyTargeting
+    local TargetRange
 
-AntiHit = vape.Categories.Blatant:CreateModule({
-Name = 'AntiHit',
-Function = function(callback)
-if callback then
-task.spawn(function()
-while AntiHit.Enabled do
-if entitylib.isAlive and isnetworkowner(entitylib.character.RootPart) then
-local root = entitylib.character.RootPart
-local hipHeight = entitylib.character.Humanoid.HipHeight or 2
+    local rayCheck = RaycastParams.new()
+    rayCheck.RespectCanCollide = true
 
--- 地面のY座標をRaycastで取得
-rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
-rayCheck.CollisionGroup = root.CollisionGroup
-local ray = workspace:Raycast(root.Position + Vector3.new(0, 2, 0), Vector3.new(0, -500, 0), rayCheck)
-local groundY = root.Position.Y
-if ray then
-groundY = ray.Position.Y + hipHeight
-end
+    -------------------------------------------------------
+    -- 近くに敵がいるかチェック
+    -------------------------------------------------------
+    local function isEnemyNearby()
+        if not OnlyTargeting.Enabled then
+            return true
+        end
+        local ent = entitylib.EntityPosition({
+            Range = TargetRange.Value,
+            Part = 'RootPart',
+            Players = true,
+            NPCs = false,
+            Wallcheck = true,
+        })
+        return ent ~= nil
+    end
 
--- 高く飛ぶ（InfinityFlyと同じ仕組み）
-root.CFrame = CFrame.new(Vector3.new(root.Position.X, Height.Value, root.Position.Z))
-root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
+    -------------------------------------------------------
+    -- Raycastで地面のY座標を取得
+    -------------------------------------------------------
+    local function getGroundY(root)
+        local hipHeight = entitylib.character.Humanoid.HipHeight or 2
+        rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+        rayCheck.CollisionGroup = root.CollisionGroup
 
--- 上空で待機
-task.wait(AirTime.Value)
+        local ray = workspace:Raycast(
+            root.Position + Vector3.new(0, 2, 0),
+            Vector3.new(0, -500, 0),
+            rayCheck
+        )
+        if ray then
+            return ray.Position.Y + hipHeight
+        end
+        return root.Position.Y
+    end
 
--- 地面に戻る
-if entitylib.isAlive and AntiHit.Enabled then
-root.CFrame = CFrame.new(Vector3.new(root.Position.X, groundY, root.Position.Z))
-root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
-end
+    -------------------------------------------------------
+    -- モジュール本体
+    -------------------------------------------------------
+    AntiHit = vape.Categories.Blatant:CreateModule({
+        Name = 'AntiHit',
+        Function = function(callback)
+            if not callback then return end
 
--- 地面で少し待機してからまた飛ぶ
-task.wait(GroundTime.Value)
-else
-task.wait(0.1)
-end
-end
-end)
-end
-end,
-Tooltip = 'Teleports you high up and back to the ground repeatedly to dodge attacks'
-})
+            -- カメラは一切触らない（キャラに固定のまま）
+            task.spawn(function()
+                while AntiHit.Enabled do
+                    -- 生存 & ネットワーク所有チェック
+                    if not entitylib.isAlive
+                        or not isnetworkowner(entitylib.character.RootPart)
+                    then
+                        task.wait(0.1)
+                        continue
+                    end
 
-Height = AntiHit:CreateSlider({
-Name = 'Height',
-Min = 50,
-Max = 500,
-Default = 210,
-Suffix = function(val)
-return val == 1 and 'stud' or 'studs'
-end
-})
+                    -- OnlyTargeting: 敵が近くにいないならスキップ
+                    if not isEnemyNearby() then
+                        task.wait(0.1)
+                        continue
+                    end
 
-AirTime = AntiHit:CreateSlider({
-Name = 'Air Time',
-Min = 0.1,
-Max = 3,
-Default = 1,
-Decimal = 10,
-Suffix = 'seconds'
-})
+                    local root = entitylib.character.RootPart
 
-GroundTime = AntiHit:CreateSlider({
-Name = 'Ground Time',
-Min = 0,
-Max = 1,
-Default = 0.05,
-Decimal = 100,
-Suffix = 'seconds'
-})
+                    -- 地面のY座標を事前に取得
+                    local groundY = getGroundY(root)
+
+                    -- ① 高く飛ぶ
+                    root.CFrame = CFrame.new(Vector3.new(
+                        root.Position.X,
+                        Height.Value,
+                        root.Position.Z
+                    ))
+                    root.AssemblyLinearVelocity = Vector3.new(
+                        root.AssemblyLinearVelocity.X, 0,
+                        root.AssemblyLinearVelocity.Z
+                    )
+
+                    -- ② 上空で待機
+                    task.wait(AirTime.Value)
+
+                    -- ③ 地面に戻る
+                    if entitylib.isAlive and AntiHit.Enabled then
+                        root.CFrame = CFrame.new(Vector3.new(
+                            root.Position.X,
+                            groundY,
+                            root.Position.Z
+                        ))
+                        root.AssemblyLinearVelocity = Vector3.new(
+                            root.AssemblyLinearVelocity.X, 0,
+                            root.AssemblyLinearVelocity.Z
+                        )
+                    end
+
+                    -- ④ 地面で少し待機 → ①に戻る
+                    task.wait(GroundTime.Value)
+                end
+            end)
+        end,
+        Tooltip = 'Teleports you high up and back down to dodge attacks. Camera stays on your character.'
+    })
+
+    -------------------------------------------------------
+    -- オプション
+    -------------------------------------------------------
+
+    -- 飛ぶ高さ（デフォルト 80）
+    Height = AntiHit:CreateSlider({
+        Name = 'Height',
+        Min = 50,
+        Max = 500,
+        Default = 80,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+
+    -- 上空にいる時間（デフォルト 0.7秒）
+    AirTime = AntiHit:CreateSlider({
+        Name = 'Air Time',
+        Min = 0.1,
+        Max = 3,
+        Default = 0.7,
+        Decimal = 10,
+        Suffix = 'seconds'
+    })
+
+    -- 地面にいる時間（デフォルト 0.1秒）
+    GroundTime = AntiHit:CreateSlider({
+        Name = 'Ground Time',
+        Min = 0,
+        Max = 1,
+        Default = 0.1,
+        Decimal = 100,
+        Suffix = 'seconds'
+    })
+
+    -- 敵が近くにいるときだけ動作する
+    OnlyTargeting = AntiHit:CreateToggle({
+        Name = 'Only Targeting',
+        Default = false,
+        Tooltip = 'Only activates when an enemy is nearby',
+        Function = function(callback)
+            if TargetRange and TargetRange.Object then
+                TargetRange.Object.Visible = callback
+            end
+        end
+    })
+
+    -- 敵の検知範囲（OnlyTargetingがオンのときだけ表示）
+    TargetRange = AntiHit:CreateSlider({
+        Name = 'Target Range',
+        Min = 5,
+        Max = 50,
+        Default = 30,
+        Darker = true,
+        Visible = false,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
 end)
