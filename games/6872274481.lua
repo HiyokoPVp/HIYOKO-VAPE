@@ -19767,14 +19767,14 @@ run(function()
     local OnlyTargeting
     local TargetRange
 
-    -- RenderStepped専用のRaycast設定
+    -- 地面検出用Raycast設定
     local groundRay = RaycastParams.new()
     groundRay.RespectCanCollide = true
 
-    -- カメラ固定用ダミーPart / 地面情報
-    local camAnchor
-    local lastGroundY = 0
-    local groundValid = false
+    -- カメラ補正が有効か（実際にテレポート中のみtrue）
+    local antiHitActive = false
+    -- BindToRenderStep用ユニーク名
+    local camBindName = 'AntiHitCamFix'
 
     -------------------------------------------------------
     -- 近くに敵がいるかチェック
@@ -19803,7 +19803,6 @@ run(function()
         params.FilterType = Enum.RaycastFilterType.Exclude
         params.RespectCanCollide = true
         params.CollisionGroup = root.CollisionGroup
-        -- RootPartの上端から頭2つ分上まで見て、ブロックがあれば不安全
         local origin = pos + Vector3.new(0, root.Size.Y / 2, 0)
         local hit = workspace:Raycast(origin, Vector3.new(0, hip * 2 + 1, 0), params)
         return hit == nil
@@ -19823,65 +19822,96 @@ run(function()
     end
 
     -------------------------------------------------------
+    -- カメラ補正（向きはそのまま / 位置Yだけ地面に固定）
+    -- CameraSubjectは変えないのでマウス視点は壊れない
+    -------------------------------------------------------
+    local function bindCameraFix()
+        runService:BindToRenderStep(
+            camBindName,
+            Enum.RenderPriority.Camera.Value + 5, -- カメラ更新の“直後”に実行
+            function()
+                -- 実際にテレポート中以外は補正しない（＝通常カメラのまま）
+                if not antiHitActive or not entitylib.isAlive then
+                    return
+                end
+
+                local root = entitylib.character.RootPart
+
+                -- 地面のYを取得
+                groundRay.FilterDescendantsInstances = {lplr.Character, gameCamera}
+                groundRay.CollisionGroup = root.CollisionGroup
+                local ray = workspace:Raycast(
+                    root.Position + Vector3.new(0, 2, 0),
+                    Vector3.new(0, -500, 0),
+                    groundRay
+                )
+                if not ray then
+                    return -- 奈落（地面なし）なら補正しない
+                end
+
+                local groundY = ray.Position.Y + (entitylib.character.HipHeight or 2)
+                -- 注視点を“地面レベルの頭の高さ”に固定
+                local focus = Vector3.new(root.Position.X, groundY + 1, root.Position.Z)
+
+                -- 現在のカメラの“向き”をそのまま保持
+                local cf = gameCamera.CFrame
+                local look = cf.LookVector
+
+                -- 現在のズーム距離（1人称時は小さくなるのでガード）
+                local dist = (gameCamera.Focus.Position - cf.Position).Magnitude
+                if not (dist == dist) or dist < 0.1 then
+                    dist = 0.5
+                end
+
+                -- 向きは変えず、位置だけ「地面注視点 - 向き*距離」に移動
+                local newPos = focus - look * dist
+                gameCamera.CFrame = CFrame.fromMatrix(newPos, cf.RightVector, cf.UpVector)
+            end
+        )
+    end
+
+    -------------------------------------------------------
     -- モジュール本体
     -------------------------------------------------------
     AntiHit = vape.Categories.Blatant:CreateModule({
         Name = 'AntiHit',
         Function = function(callback)
             if callback then
-                -- 初期地面Y
-                lastGroundY = entitylib.isAlive and entitylib.character.RootPart.Position.Y or 0
-                groundValid = false
+                antiHitActive = false
 
-                -- カメラ固定用Partを作成
-                camAnchor = Instance.new('Part')
-                camAnchor.Name = 'AntiHitCamAnchor'
-                camAnchor.Size = Vector3.new(0.1, 0.1, 0.1)
-                camAnchor.Transparency = 1
-                camAnchor.CanCollide = false
-                camAnchor.CanQuery = false
-                camAnchor.CanTouch = false
-                camAnchor.Anchored = true
-                camAnchor.Parent = workspace
-                -- カメラの被写体をダミーPartにする → キャラの上下移動をカメラが無視
-                gameCamera.CameraSubject = camAnchor
-
-                -- 毎フレーム: カメラ位置を更新（X,Zだけ追従 / Yは地面固定）
-                AntiHit:Clean(runService.RenderStepped:Connect(function()
-                    if not entitylib.isAlive or not camAnchor then return end
-                    local root = entitylib.character.RootPart
-                    groundRay.FilterDescendantsInstances = {lplr.Character, gameCamera}
-                    groundRay.CollisionGroup = root.CollisionGroup
-                    local ray = workspace:Raycast(
-                        root.Position + Vector3.new(0, 2, 0),
-                        Vector3.new(0, -500, 0),
-                        groundRay
-                    )
-                    if ray then
-                        lastGroundY = ray.Position.Y + (entitylib.character.HipHeight or 2)
-                        groundValid = true
-                    else
-                        groundValid = false -- 奈落（地面なし）
-                    end
-                    -- Yを地面に固定するので、上昇/下降でカメラが動かない
-                    camAnchor.CFrame = CFrame.new(root.Position.X, lastGroundY, root.Position.Z)
-                end))
+                -- カメラ補正を登録（CameraSubjectは一切触らない）
+                bindCameraFix()
+                AntiHit:Clean(function()
+                    pcall(function()
+                        runService:UnbindFromRenderStep(camBindName)
+                    end)
+                    antiHitActive = false
+                end)
 
                 -- メインループ
                 task.spawn(function()
                     while AntiHit.Enabled do
-                        if not entitylib.isAlive
-                            or not isnetworkowner(entitylib.character.RootPart)
-                        then
-                            task.wait(0.1)
-                            continue
-                        end
-                        if not isEnemyNearby() then
+                        local root = entitylib.character and entitylib.character.RootPart
+                        local alive = entitylib.isAlive
+                        local owner = root and isnetworkowner(root)
+
+                        -- 生存 / 所有チェック
+                        if not alive or not owner then
+                            antiHitActive = false
                             task.wait(0.1)
                             continue
                         end
 
-                        local root = entitylib.character.RootPart
+                        -- OnlyTargeting: 敵が近くにいないならスキップ（カメラも通常）
+                        if not isEnemyNearby() then
+                            antiHitActive = false
+                            task.wait(0.1)
+                            continue
+                        end
+
+                        -- ここからテレポート開始 → カメラ補正ON
+                        antiHitActive = true
+
                         local hip = entitylib.character.HipHeight or 2
 
                         -- ① 高く飛ぶ（天井＆めり込みチェック付き）
@@ -19897,7 +19927,6 @@ run(function()
                             upParams
                         )
                         if upRay then
-                            -- 天井がある場合はその少し下に抑える
                             skyY = upRay.Position.Y - (hip + 2)
                             if skyY < root.Position.Y + 3 then
                                 skyY = root.Position.Y + 3
@@ -19916,37 +19945,43 @@ run(function()
                         task.wait(AirTime.Value)
 
                         -- ③ 地面に戻る（奈落＆窒息チェック付き）
-                        if entitylib.isAlive and AntiHit.Enabled and groundValid then
-                            local returnPos = Vector3.new(
-                                root.Position.X, lastGroundY, root.Position.Z
+                        if entitylib.isAlive and AntiHit.Enabled then
+                            local ray2 = workspace:Raycast(
+                                root.Position + Vector3.new(0, 2, 0),
+                                Vector3.new(0, -500, 0),
+                                groundRay
                             )
-                            if isHeadClear(returnPos, root) then
-                                root.CFrame = CFrame.new(returnPos)
-                                root.AssemblyLinearVelocity = Vector3.new(
-                                    root.AssemblyLinearVelocity.X, 0,
-                                    root.AssemblyLinearVelocity.Z
+                            if ray2 then
+                                local returnY = ray2.Position.Y + hip
+                                local returnPos = Vector3.new(
+                                    root.Position.X, returnY, root.Position.Z
                                 )
+                                if isHeadClear(returnPos, root) then
+                                    root.CFrame = CFrame.new(returnPos)
+                                    root.AssemblyLinearVelocity = Vector3.new(
+                                        root.AssemblyLinearVelocity.X, 0,
+                                        root.AssemblyLinearVelocity.Z
+                                    )
+                                end
                             end
-                            -- 頭上にブロックがある/奈落の場合は戻らず上空に留まる
+                            -- 頭上にブロック/奈落なら戻らず上空に留まる
                         end
 
                         -- ④ 地面で少し待機 → ①に戻る
                         task.wait(GroundTime.Value)
                     end
+
+                    antiHitActive = false
                 end)
             else
-                -- 復元処理
-                if camAnchor then
-                    camAnchor:Destroy()
-                    camAnchor = nil
-                end
+                -- 無効化時
                 pcall(function()
-                    gameCamera.CameraSubject = (entitylib.character and entitylib.character.Humanoid)
-                        or lplr.Character
+                    runService:UnbindFromRenderStep(camBindName)
                 end)
+                antiHitActive = false
             end
         end,
-        Tooltip = 'Dodges attacks by bouncing between sky and ground. Camera stays fixed; avoids suffocation & void.'
+        Tooltip = 'Dodges attacks by bouncing sky/ground. Camera stays normal (mouse aim intact); no suffocation/void.'
     })
 
     -------------------------------------------------------
