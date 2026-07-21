@@ -19735,3 +19735,24 @@ run(function()
         Name = "Enable Notify", Default = true, Tooltip = "Show notifications for actions"
     })
 end)
+
+run(function()
+	local pussy
+    local Kit, Mount = 'elk_master', bedwars.Client:Get('ElkKitMounted')
+
+	pussy = vape.Categories.Blatant:CreateModule({
+		Name = "inf sigrid",
+		Function = function(call)
+            if call then
+                repeat
+                    if entitylib.isAlive then
+                        if store.equippedKit == Kit then
+                            Mount:SendToServer()
+                        end
+                    end
+                    task.wait()
+                until not pussy.Enabled
+            end
+		end
+	})
+end)
