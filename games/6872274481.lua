@@ -19767,8 +19767,14 @@ run(function()
     local OnlyTargeting
     local TargetRange
 
-    local rayCheck = RaycastParams.new()
-    rayCheck.RespectCanCollide = true
+    -- RenderStepped専用のRaycast設定
+    local groundRay = RaycastParams.new()
+    groundRay.RespectCanCollide = true
+
+    -- カメラ固定用ダミーPart / 地面情報
+    local camAnchor
+    local lastGroundY = 0
+    local groundValid = false
 
     -------------------------------------------------------
     -- 近くに敵がいるかチェック
@@ -19788,22 +19794,32 @@ run(function()
     end
 
     -------------------------------------------------------
-    -- Raycastで地面のY座標を取得
+    -- 頭上にブロックがないか（窒息 = SUFFOCATE 防止）
     -------------------------------------------------------
-    local function getGroundY(root)
-        local hipHeight = entitylib.character.Humanoid.HipHeight or 2
-        rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
-        rayCheck.CollisionGroup = root.CollisionGroup
+    local function isHeadClear(pos, root)
+        local hip = entitylib.character.HipHeight or 2
+        local params = RaycastParams.new()
+        params.FilterDescendantsInstances = {lplr.Character, gameCamera}
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        params.RespectCanCollide = true
+        params.CollisionGroup = root.CollisionGroup
+        -- RootPartの上端から頭2つ分上まで見て、ブロックがあれば不安全
+        local origin = pos + Vector3.new(0, root.Size.Y / 2, 0)
+        local hit = workspace:Raycast(origin, Vector3.new(0, hip * 2 + 1, 0), params)
+        return hit == nil
+    end
 
-        local ray = workspace:Raycast(
-            root.Position + Vector3.new(0, 2, 0),
-            Vector3.new(0, -500, 0),
-            rayCheck
-        )
-        if ray then
-            return ray.Position.Y + hipHeight
-        end
-        return root.Position.Y
+    -------------------------------------------------------
+    -- 全身がブロックにめり込んでいないか（上空テレポート用）
+    -------------------------------------------------------
+    local function isBodyClear(pos, root)
+        local hip = entitylib.character.HipHeight or 2
+        local size = root.Size + Vector3.new(0.5, hip * 2, 0.5)
+        local overlap = OverlapParams.new()
+        overlap.FilterDescendantsInstances = {lplr.Character, gameCamera}
+        overlap.FilterType = Enum.RaycastFilterType.Exclude
+        overlap.RespectCanCollide = true
+        return #workspace:GetPartBoundsInBox(CFrame.new(pos), size, overlap) == 0
     end
 
     -------------------------------------------------------
@@ -19812,70 +19828,130 @@ run(function()
     AntiHit = vape.Categories.Blatant:CreateModule({
         Name = 'AntiHit',
         Function = function(callback)
-            if not callback then return end
+            if callback then
+                -- 初期地面Y
+                lastGroundY = entitylib.isAlive and entitylib.character.RootPart.Position.Y or 0
+                groundValid = false
 
-            -- カメラは一切触らない（キャラに固定のまま）
-            task.spawn(function()
-                while AntiHit.Enabled do
-                    -- 生存 & ネットワーク所有チェック
-                    if not entitylib.isAlive
-                        or not isnetworkowner(entitylib.character.RootPart)
-                    then
-                        task.wait(0.1)
-                        continue
-                    end
+                -- カメラ固定用Partを作成
+                camAnchor = Instance.new('Part')
+                camAnchor.Name = 'AntiHitCamAnchor'
+                camAnchor.Size = Vector3.new(0.1, 0.1, 0.1)
+                camAnchor.Transparency = 1
+                camAnchor.CanCollide = false
+                camAnchor.CanQuery = false
+                camAnchor.CanTouch = false
+                camAnchor.Anchored = true
+                camAnchor.Parent = workspace
+                -- カメラの被写体をダミーPartにする → キャラの上下移動をカメラが無視
+                gameCamera.CameraSubject = camAnchor
 
-                    -- OnlyTargeting: 敵が近くにいないならスキップ
-                    if not isEnemyNearby() then
-                        task.wait(0.1)
-                        continue
-                    end
-
+                -- 毎フレーム: カメラ位置を更新（X,Zだけ追従 / Yは地面固定）
+                AntiHit:Clean(runService.RenderStepped:Connect(function()
+                    if not entitylib.isAlive or not camAnchor then return end
                     local root = entitylib.character.RootPart
-
-                    -- 地面のY座標を事前に取得
-                    local groundY = getGroundY(root)
-
-                    -- ① 高く飛ぶ
-                    root.CFrame = CFrame.new(Vector3.new(
-                        root.Position.X,
-                        Height.Value,
-                        root.Position.Z
-                    ))
-                    root.AssemblyLinearVelocity = Vector3.new(
-                        root.AssemblyLinearVelocity.X, 0,
-                        root.AssemblyLinearVelocity.Z
+                    groundRay.FilterDescendantsInstances = {lplr.Character, gameCamera}
+                    groundRay.CollisionGroup = root.CollisionGroup
+                    local ray = workspace:Raycast(
+                        root.Position + Vector3.new(0, 2, 0),
+                        Vector3.new(0, -500, 0),
+                        groundRay
                     )
-
-                    -- ② 上空で待機
-                    task.wait(AirTime.Value)
-
-                    -- ③ 地面に戻る
-                    if entitylib.isAlive and AntiHit.Enabled then
-                        root.CFrame = CFrame.new(Vector3.new(
-                            root.Position.X,
-                            groundY,
-                            root.Position.Z
-                        ))
-                        root.AssemblyLinearVelocity = Vector3.new(
-                            root.AssemblyLinearVelocity.X, 0,
-                            root.AssemblyLinearVelocity.Z
-                        )
+                    if ray then
+                        lastGroundY = ray.Position.Y + (entitylib.character.HipHeight or 2)
+                        groundValid = true
+                    else
+                        groundValid = false -- 奈落（地面なし）
                     end
+                    -- Yを地面に固定するので、上昇/下降でカメラが動かない
+                    camAnchor.CFrame = CFrame.new(root.Position.X, lastGroundY, root.Position.Z)
+                end))
 
-                    -- ④ 地面で少し待機 → ①に戻る
-                    task.wait(GroundTime.Value)
+                -- メインループ
+                task.spawn(function()
+                    while AntiHit.Enabled do
+                        if not entitylib.isAlive
+                            or not isnetworkowner(entitylib.character.RootPart)
+                        then
+                            task.wait(0.1)
+                            continue
+                        end
+                        if not isEnemyNearby() then
+                            task.wait(0.1)
+                            continue
+                        end
+
+                        local root = entitylib.character.RootPart
+                        local hip = entitylib.character.HipHeight or 2
+
+                        -- ① 高く飛ぶ（天井＆めり込みチェック付き）
+                        local skyY = Height.Value
+                        local upParams = RaycastParams.new()
+                        upParams.FilterDescendantsInstances = {lplr.Character, gameCamera}
+                        upParams.FilterType = Enum.RaycastFilterType.Exclude
+                        upParams.RespectCanCollide = true
+                        upParams.CollisionGroup = root.CollisionGroup
+                        local upRay = workspace:Raycast(
+                            root.Position + Vector3.new(0, 2, 0),
+                            Vector3.new(0, math.max(skyY - root.Position.Y, 1), 0),
+                            upParams
+                        )
+                        if upRay then
+                            -- 天井がある場合はその少し下に抑える
+                            skyY = upRay.Position.Y - (hip + 2)
+                            if skyY < root.Position.Y + 3 then
+                                skyY = root.Position.Y + 3
+                            end
+                        end
+                        local skyPos = Vector3.new(root.Position.X, skyY, root.Position.Z)
+                        if isBodyClear(skyPos, root) then
+                            root.CFrame = CFrame.new(skyPos)
+                            root.AssemblyLinearVelocity = Vector3.new(
+                                root.AssemblyLinearVelocity.X, 0,
+                                root.AssemblyLinearVelocity.Z
+                            )
+                        end
+
+                        -- ② 上空で待機
+                        task.wait(AirTime.Value)
+
+                        -- ③ 地面に戻る（奈落＆窒息チェック付き）
+                        if entitylib.isAlive and AntiHit.Enabled and groundValid then
+                            local returnPos = Vector3.new(
+                                root.Position.X, lastGroundY, root.Position.Z
+                            )
+                            if isHeadClear(returnPos, root) then
+                                root.CFrame = CFrame.new(returnPos)
+                                root.AssemblyLinearVelocity = Vector3.new(
+                                    root.AssemblyLinearVelocity.X, 0,
+                                    root.AssemblyLinearVelocity.Z
+                                )
+                            end
+                            -- 頭上にブロックがある/奈落の場合は戻らず上空に留まる
+                        end
+
+                        -- ④ 地面で少し待機 → ①に戻る
+                        task.wait(GroundTime.Value)
+                    end
+                end)
+            else
+                -- 復元処理
+                if camAnchor then
+                    camAnchor:Destroy()
+                    camAnchor = nil
                 end
-            end)
+                pcall(function()
+                    gameCamera.CameraSubject = (entitylib.character and entitylib.character.Humanoid)
+                        or lplr.Character
+                end)
+            end
         end,
-        Tooltip = 'Teleports you high up and back down to dodge attacks. Camera stays on your character.'
+        Tooltip = 'Dodges attacks by bouncing between sky and ground. Camera stays fixed; avoids suffocation & void.'
     })
 
     -------------------------------------------------------
     -- オプション
     -------------------------------------------------------
-
-    -- 飛ぶ高さ（デフォルト 80）
     Height = AntiHit:CreateSlider({
         Name = 'Height',
         Min = 50,
@@ -19886,7 +19962,6 @@ run(function()
         end
     })
 
-    -- 上空にいる時間（デフォルト 0.7秒）
     AirTime = AntiHit:CreateSlider({
         Name = 'Air Time',
         Min = 0.1,
@@ -19896,7 +19971,6 @@ run(function()
         Suffix = 'seconds'
     })
 
-    -- 地面にいる時間（デフォルト 0.1秒）
     GroundTime = AntiHit:CreateSlider({
         Name = 'Ground Time',
         Min = 0,
@@ -19906,7 +19980,6 @@ run(function()
         Suffix = 'seconds'
     })
 
-    -- 敵が近くにいるときだけ動作する
     OnlyTargeting = AntiHit:CreateToggle({
         Name = 'Only Targeting',
         Default = false,
@@ -19918,7 +19991,6 @@ run(function()
         end
     })
 
-    -- 敵の検知範囲（OnlyTargetingがオンのときだけ表示）
     TargetRange = AntiHit:CreateSlider({
         Name = 'Target Range',
         Min = 5,
