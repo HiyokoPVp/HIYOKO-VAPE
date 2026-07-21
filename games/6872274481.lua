@@ -19737,22 +19737,24 @@ run(function()
 end)
 
 run(function()
-	local pussy
-    local Kit, Mount = 'elk_master', bedwars.Client:Get('ElkKitMounted')
+    local InfinitySigrid
 
-	pussy = vape.Categories.Blatant:CreateModule({
-		Name = "inf sigrid",
-		Function = function(call)
-            if call then
-                repeat
-                    if entitylib.isAlive then
-                        if store.equippedKit == Kit then
-                            Mount:SendToServer()
+    InfinitySigrid = vape.Categories.Utility:CreateModule({
+        Name = "Infinity Sigrid",
+        Function = function(callback)
+            if callback then
+                task.spawn(function()
+                    repeat
+                        if entitylib.isAlive then
+                            pcall(function()
+                                bedwars.Client:Get('ElkKitMounted'):SendToServer({})
+                            end)
                         end
-                    end
-                    task.wait()
-                until not pussy.Enabled
+                        task.wait(0.1)
+                    until not InfinitySigrid.Enabled
+                end)
             end
-		end
-	})
+        end,
+        Tooltip = 'Continuously sends ElkKitMounted while alive'
+    })
 end)
