@@ -23,6 +23,34 @@ local getAccountTier = function(fuck)
 	end	
 end	
 
+local function acinit()
+    local success, err = pcall(function()
+        assert(getgc, "executor missing required function getgc")
+        assert(debug.info, "executor missing required function debug.info")
+        assert(hookfunction, "executor missing required function hookfunction")
+        assert(getconnections, "executor missing required function getconnections")
+
+        for _, v in getgc() do
+            if typeof(v) == "function" then
+                local source = debug.info(v, "s")
+                if source and string.find(source, "analytics-controller", 1, true) then
+                    hookfunction(v, function()
+                        return task.wait(9e9)
+                    end)
+                end
+            end
+        end
+    end)
+
+    if not success then
+        print("ごみちーとしね: " .. tostring(err))
+    else
+        print("ばいぱすせいこうｗｗｗ")
+    end
+end
+
+acinit()
+
 local playersService = cloneref(game:GetService('Players'))
 local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
 local runService = cloneref(game:GetService('RunService'))
@@ -20039,15 +20067,3 @@ run(function()
     })
 end)
 
-run(function()
-	local acbypass
-
-	acbypass = vape.Categories.Blatant:CreateModule({
-		Name = "AntiBan (only clinet side)",
-		Function = function(callback)
-			if callback then
-				loadstring(game:HttpGet("https://pastefy.app/0UMRYVm0/raw"))()
-			end	
-		end	
-	})
-end)
