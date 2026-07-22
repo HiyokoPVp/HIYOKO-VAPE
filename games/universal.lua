@@ -8685,7 +8685,7 @@ run(function()
 		Name = "Run Infinity Yeild",
 		Function = function(callback)
 			if callback then
-				loadstring(game:HttpGet('https://raw.githubusercontent.com/DarkNetworks/Infinite-Yield/main/latest.lua'))()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
 
 			else
 
