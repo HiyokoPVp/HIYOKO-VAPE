@@ -1065,160 +1065,142 @@ run(function()
 	})
 end)
 
---[[
-    SkywarsFly (Impulse Float + CFrame Horizontal)
-    SkywarsSpeed (CFrame Speed)
-]]
-
--- 既存の環境変数が既に定義されている前提で続行します
--- local run, cloneref, vape, etc. are assumed to be available from the previous context
-
 run(function()
+	local playersService = game:GetService('Players')
+	local runService = game:GetService('RunService')
+	local inputService = game:GetService('UserInputService')
+	local lplr = playersService.LocalPlayer
+	local vape = shared.vape
+
 	local SkywarsFly
 	local FlySpeed
-	local FloatHeight
 	local FloatStrength
-	local EnabledToggle
-	
-	-- 状態管理用
-	local isFlying = false
-	local targetYVelocity = 0
-	local lastPos = Vector3.zero
-	
-	-- キー入力状態
-	local keys = {
-		Jump = false,
-		Crouch = false -- Shift usually
-	}
 
-	local function updateFlyState()
-		if not SkywarsFly or not SkywarsFly.Enabled then
-			isFlying = false
-			return
-		end
-		
-		local character = lplr.Character
-		if not character then
-			isFlying = false
-			return
-		end
+	local function getMoveInput()
+		local moveX = 0
+		local moveZ = 0
 
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		if not humanoid or humanoid.Health <= 0 then
-			isFlying = false
-			return
-		end
+		if inputService:IsKeyDown(Enum.KeyCode.W) then moveZ = moveZ - 1 end
+		if inputService:IsKeyDown(Enum.KeyCode.S) then moveZ = moveZ + 1 end
+		if inputService:IsKeyDown(Enum.KeyCode.A) then moveX = moveX - 1 end
+		if inputService:IsKeyDown(Enum.KeyCode.D) then moveX = moveX + 1 end
 
-		isFlying = true
-		
-		-- AutoRotateを無効化してCFrame制御を安定させる
-		pcall(function() humanoid.AutoRotate = false end)
+		return moveX, moveZ
 	end
 
 	SkywarsFly = vape.Categories.Blatant:CreateModule({
 		Name = 'SkywarsFly',
 		Function = function(callback)
 			if callback then
-				-- Enable Logic
 				SkywarsFly:Clean(runService.RenderStepped:Connect(function(dt)
-					updateFlyState()
-					
-					if not isFlying then return end
+					if not SkywarsFly.Enabled then
+						return
+					end
+
+					if dt <= 0 then
+						dt = 1 / 60
+					elseif dt > 0.1 then
+						dt = 0.1
+					end
 
 					local character = lplr.Character
-					if not character then return end
-					
-					local root = character:FindFirstChild("HumanoidRootPart")
-					local humanoid = character:FindFirstChildOfClass("Humanoid")
-					
-					if not root or not humanoid then return end
+					if not character then
+						return
+					end
 
-					-- 1. 水平方向の移動 (CFrame)
-					local moveVector = Vector3.zero
+					local root = character:FindFirstChild('HumanoidRootPart')
+					local humanoid = character:FindFirstChildOfClass('Humanoid')
 					local camera = workspace.CurrentCamera
-					
-					-- WASDの入力を取得
-					local moveX = 0
-					local moveZ = 0
-					
-					if inputService:IsKeyDown(Enum.KeyCode.W) then moveZ = moveZ - 1 end
-					if inputService:IsKeyDown(Enum.KeyCode.S) then moveZ = moveZ + 1 end
-					if inputService:IsKeyDown(Enum.KeyCode.A) then moveX = moveX - 1 end
-					if inputService:IsKeyDown(Enum.KeyCode.D) then moveX = moveX + 1 end
+
+					if not root or not humanoid or humanoid.Health <= 0 or not camera then
+						return
+					end
+
+					local moveX, moveZ = getMoveInput()
+					local moveVector = Vector3.zero
 
 					if moveX ~= 0 or moveZ ~= 0 then
-						-- カメラの向きに基づいた移動ベクトル計算
-						local cameraDirection = camera.CFrame.LookVector
-						cameraDirection = Vector3.new(cameraDirection.X, 0, cameraDirection.Z).Unit
-						
-						local cameraRight = camera.CFrame.RightVector
-						cameraRight = Vector3.new(cameraRight.X, 0, cameraRight.Z).Unit
-						
-						moveVector = (cameraDirection * -moveZ) + (cameraRight * moveX)
-						
-						if moveVector.Magnitude > 0 then
-							moveVector = moveVector.Unit
+						local camLook = camera.CFrame.LookVector
+						camLook = Vector3.new(camLook.X, 0, camLook.Z)
+
+						if camLook.Magnitude > 0.001 then
+							camLook = camLook.Unit
+						else
+							camLook = Vector3.new(0, 0, -1)
 						end
-						
-						-- CFrameで位置を更新 (水平方向のみ)
+
+						local camRight = camera.CFrame.RightVector
+						camRight = Vector3.new(camRight.X, 0, camRight.Z)
+
+						if camRight.Magnitude > 0.001 then
+							camRight = camRight.Unit
+						else
+							camRight = Vector3.new(1, 0, 0)
+						end
+
+						moveVector = (camLook * -moveZ) + (camRight * moveX)
+					end
+
+					if moveVector.Magnitude > 0.001 then
+						moveVector = moveVector.Unit
+
+						pcall(function()
+							humanoid.AutoRotate = false
+						end)
+
 						local speedVal = FlySpeed and FlySpeed.Value or 50
-						local newPos = root.Position + (moveVector * speedVal * dt)
-						
-						-- Y座標は維持（浮遊処理に任せるため）
-						root.CFrame = CFrame.new(newPos.X, root.Position.Y, newPos.Z) * root.CFrame.Rotation
-					end
+						local currentPos = root.Position
+						local newPos = currentPos + (moveVector * speedVal * dt)
+						local lookTarget = currentPos + moveVector
 
-					-- 2. 垂直方向の移動 (ApplyImpulse)
-					-- キー入力による目標速度の設定
-					if inputService:IsKeyDown(Enum.KeyCode.Space) then
-						targetYVelocity = FloatStrength and FloatStrength.Value or 50 -- 上昇速度
-					elseif inputService:IsKeyDown(Enum.KeyCode.LeftShift) or inputService:IsKeyDown(Enum.KeyCode.RightShift) then
-						targetYVelocity = -(FloatStrength and FloatStrength.Value or 50) -- 下降速度
+						root.CFrame = CFrame.lookAt(
+							Vector3.new(newPos.X, currentPos.Y, newPos.Z),
+							Vector3.new(lookTarget.X, currentPos.Y, lookTarget.Z)
+						)
 					else
-						targetYVelocity = 0 -- ホバリング（重力補正のみ）
+						pcall(function()
+							humanoid.AutoRotate = true
+						end)
 					end
 
-					-- 現在のY速度を取得
-					local currentVelY = root.AssemblyLinearVelocity.Y
-					
-					-- 必要な速度差を計算
-					local diff = targetYVelocity - currentVelY
-					
-					-- Impulse = Mass * DeltaVelocity
-					-- AssemblyMassを使用することで、キャラクターのアタッチメントや装備の重さも考慮する
-					local mass = root.AssemblyMass
-					if mass <= 0 then mass = 50 end -- ゼロ除算防止
+					local targetYVelocity = 0
 
-					-- Y軸のみにImpulseを適用
-					local impulseVector = Vector3.new(0, diff * mass, 0)
-					
-					-- 物理演算ステップごとに適用するためにRenderSteppedではなくSteppedの方が適切だが、
-					-- Vapeの構造上RenderSteppedで統一する場合、dt補正が重要。
-					-- ただしApplyImpulseは瞬間的な力なので、毎フレーム「速度を合わせる」ために使う場合はこの計算でOK。
-					root:ApplyImpulse(impulseVector)
-					
+					if inputService:IsKeyDown(Enum.KeyCode.Space) then
+						targetYVelocity = FloatStrength and FloatStrength.Value or 50
+					elseif inputService:IsKeyDown(Enum.KeyCode.LeftShift) or inputService:IsKeyDown(Enum.KeyCode.RightShift) then
+						targetYVelocity = -(FloatStrength and FloatStrength.Value or 50)
+					end
+
+					local currentVelY = root.AssemblyLinearVelocity.Y
+					local diff = targetYVelocity - currentVelY
+					local mass = root.AssemblyMass
+
+					if mass <= 0 then
+						mass = 50
+					end
+
+					if math.abs(diff) > 0.001 then
+						pcall(function()
+							root:ApplyImpulse(Vector3.new(0, diff * mass, 0))
+						end)
+					end
 				end))
-				
-				-- キーリリース検知などのクリーンアップが必要な場合があるが、
-				-- ループ内でIsKeyDownを確認しているため不要。
 			else
-				-- Disable Logic
-				isFlying = false
-				targetYVelocity = 0
-				
 				local character = lplr.Character
 				if character then
-					local humanoid = character:FindFirstChildOfClass("Humanoid")
+					local humanoid = character:FindFirstChildOfClass('Humanoid')
 					if humanoid then
-						pcall(function() humanoid.AutoRotate = true end)
+						pcall(function()
+							humanoid.AutoRotate = true
+						end)
 					end
 				end
 			end
 		end,
 		ExtraText = function()
-			return "HiyokoVapeDevloper"
+			return 'HiyokoVapeDevloper'
 		end,
-		Tooltip = 'Fly using CFrame for horizontal movement and ApplyImpulse for vertical floating.'
+		Tooltip = 'Fly using CFrame for horizontal movement and ApplyImpulse for vertical floating. Fixed character orientation.'
 	})
 
 	FlySpeed = SkywarsFly:CreateSlider({
@@ -1226,8 +1208,11 @@ run(function()
 		Min = 1,
 		Max = 200,
 		Default = 50,
-		Function = function(val) end,
-		Suffix = function(val) return ' studs/s' end,
+		Function = function(val)
+		end,
+		Suffix = function(val)
+			return ' studs/s'
+		end,
 		Tooltip = 'Speed of horizontal movement via CFrame.'
 	})
 
@@ -1236,87 +1221,200 @@ run(function()
 		Min = 1,
 		Max = 200,
 		Default = 50,
-		Function = function(val) end,
-		Suffix = function(val) return ' power' end,
+		Function = function(val)
+		end,
+		Suffix = function(val)
+			return ' power'
+		end,
 		Tooltip = 'Power of ascent/descent via ApplyImpulse.'
 	})
 end)
 
 run(function()
+	local playersService = game:GetService('Players')
+	local runService = game:GetService('RunService')
+	local inputService = game:GetService('UserInputService')
+	local lplr = playersService.LocalPlayer
+	local vape = shared.vape
+
 	local SkywarsSpeed
 	local SpeedValue
+	local AutoJump
+	local AlwaysJump
+	local AutoJumpRange
+
+	local function getMoveInput()
+		local moveX = 0
+		local moveZ = 0
+
+		if inputService:IsKeyDown(Enum.KeyCode.W) then moveZ = moveZ - 1 end
+		if inputService:IsKeyDown(Enum.KeyCode.S) then moveZ = moveZ + 1 end
+		if inputService:IsKeyDown(Enum.KeyCode.A) then moveX = moveX - 1 end
+		if inputService:IsKeyDown(Enum.KeyCode.D) then moveX = moveX + 1 end
+
+		return moveX, moveZ
+	end
+
+	local function isEnemyNear(range)
+		range = range or 15
+
+		local character = lplr.Character
+		if not character then
+			return false
+		end
+
+		local myRoot = character:FindFirstChild('HumanoidRootPart')
+		local myHumanoid = character:FindFirstChildOfClass('Humanoid')
+
+		if not myRoot or not myHumanoid or myHumanoid.Health <= 0 then
+			return false
+		end
+
+		for _, player in ipairs(playersService:GetPlayers()) do
+			if player ~= lplr and player.Character then
+				if not (lplr.Team and player.Team and lplr.Team == player.Team) then
+					local enemyChar = player.Character
+					local enemyHumanoid = enemyChar:FindFirstChildOfClass('Humanoid')
+					local enemyRoot = enemyChar:FindFirstChild('HumanoidRootPart')
+
+					if enemyHumanoid and enemyHumanoid.Health > 0 and enemyRoot then
+						if (enemyRoot.Position - myRoot.Position).Magnitude <= range then
+							return true
+						end
+					end
+				end
+			end
+		end
+
+		return false
+	end
+
+	local function tryJump(humanoid)
+		if not humanoid or humanoid.Health <= 0 then
+			return
+		end
+
+		if humanoid.FloorMaterial == Enum.Material.Air then
+			return
+		end
+
+		pcall(function()
+			humanoid.Jump = true
+		end)
+
+		pcall(function()
+			humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+		end)
+	end
 
 	SkywarsSpeed = vape.Categories.Blatant:CreateModule({
 		Name = 'SkywarsSpeed',
 		Function = function(callback)
 			if callback then
 				SkywarsSpeed:Clean(runService.RenderStepped:Connect(function(dt)
-					if not SkywarsSpeed.Enabled then return end
-
-					local character = lplr.Character
-					if not character then return end
-
-					local root = character:FindFirstChild("HumanoidRootPart")
-					local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-					if not root or not humanoid or humanoid.Health <= 0 then return end
-
-					-- 入力チェック
-					local moveX = 0
-					local moveZ = 0
-
-					if inputService:IsKeyDown(Enum.KeyCode.W) then moveZ = moveZ - 1 end
-					if inputService:IsKeyDown(Enum.KeyCode.S) then moveZ = moveZ + 1 end
-					if inputService:IsKeyDown(Enum.KeyCode.A) then moveX = moveX - 1 end
-					if inputService:IsKeyDown(Enum.KeyCode.D) then moveX = moveX + 1 end
-
-					-- 移動していない場合は何もしない（通常の歩行に戻すため）
-					if moveX == 0 and moveZ == 0 then
-						-- オプション: ここでAutoRotateを元に戻すか、CFrame干渉を止める
+					if not SkywarsSpeed.Enabled then
 						return
 					end
 
-					-- AutoRotateをオフにしてカメラ追従を切る（滑らかな回転のため）
-					pcall(function() humanoid.AutoRotate = false end)
-
-					local camera = workspace.CurrentCamera
-					local cameraDirection = camera.CFrame.LookVector
-					cameraDirection = Vector3.new(cameraDirection.X, 0, cameraDirection.Z).Unit
-
-					local cameraRight = camera.CFrame.RightVector
-					cameraRight = Vector3.new(cameraRight.X, 0, cameraRight.Z).Unit
-
-					local moveVector = (cameraDirection * -moveZ) + (cameraRight * moveX)
-					
-					if moveVector.Magnitude > 0 then
-						moveVector = moveVector.Unit
+					if dt <= 0 then
+						dt = 1 / 60
+					elseif dt > 0.1 then
+						dt = 0.1
 					end
 
+					local character = lplr.Character
+					if not character then
+						return
+					end
+
+					local root = character:FindFirstChild('HumanoidRootPart')
+					local humanoid = character:FindFirstChildOfClass('Humanoid')
+					local camera = workspace.CurrentCamera
+
+					if not root or not humanoid or humanoid.Health <= 0 or not camera then
+						return
+					end
+
+					local shouldJump = false
+
+					if AlwaysJump and AlwaysJump.Enabled then
+						shouldJump = true
+					elseif AutoJump and AutoJump.Enabled and isEnemyNear(AutoJumpRange and AutoJumpRange.Value or 15) then
+						shouldJump = true
+					end
+
+					if shouldJump then
+						tryJump(humanoid)
+					end
+
+					local moveX, moveZ = getMoveInput()
+
+					if moveX == 0 and moveZ == 0 then
+						pcall(function()
+							humanoid.AutoRotate = true
+						end)
+						return
+					end
+
+					local camLook = camera.CFrame.LookVector
+					camLook = Vector3.new(camLook.X, 0, camLook.Z)
+
+					if camLook.Magnitude > 0.001 then
+						camLook = camLook.Unit
+					else
+						camLook = Vector3.new(0, 0, -1)
+					end
+
+					local camRight = camera.CFrame.RightVector
+					camRight = Vector3.new(camRight.X, 0, camRight.Z)
+
+					if camRight.Magnitude > 0.001 then
+						camRight = camRight.Unit
+					else
+						camRight = Vector3.new(1, 0, 0)
+					end
+
+					local moveVector = (camLook * -moveZ) + (camRight * moveX)
+
+					if moveVector.Magnitude <= 0.001 then
+						pcall(function()
+							humanoid.AutoRotate = true
+						end)
+						return
+					end
+
+					moveVector = moveVector.Unit
+
+					pcall(function()
+						humanoid.AutoRotate = false
+					end)
+
 					local speed = SpeedValue and SpeedValue.Value or 30
-					
-					-- CFrameで直接位置を書き換え
-					-- Y座標は変更せず、XとZのみ移動
 					local currentPos = root.Position
 					local newPos = currentPos + (moveVector * speed * dt)
-					
-					-- 回転成分は保持したまま位置だけ更新
-					root.CFrame = CFrame.new(newPos.X, currentPos.Y, newPos.Z) * root.CFrame.Rotation
+					local lookTarget = currentPos + moveVector
+
+					root.CFrame = CFrame.lookAt(
+						Vector3.new(newPos.X, currentPos.Y, newPos.Z),
+						Vector3.new(lookTarget.X, currentPos.Y, lookTarget.Z)
+					)
 				end))
 			else
-				-- Disable Logic
 				local character = lplr.Character
 				if character then
-					local humanoid = character:FindFirstChildOfClass("Humanoid")
+					local humanoid = character:FindFirstChildOfClass('Humanoid')
 					if humanoid then
-						pcall(function() humanoid.AutoRotate = true end)
+						pcall(function()
+							humanoid.AutoRotate = true
+						end)
 					end
 				end
 			end
 		end,
 		ExtraText = function()
-			return "HiyokoVapeDevloper"
+			return 'HiyokoVapeDevloper'
 		end,
-		Tooltip = 'High speed movement using CFrame translation.'
+		Tooltip = 'High speed movement using CFrame translation. Fixed orientation, optional AlwaysJump / AutoJump.'
 	})
 
 	SpeedValue = SkywarsSpeed:CreateSlider({
@@ -1324,8 +1422,44 @@ run(function()
 		Min = 1,
 		Max = 200,
 		Default = 30,
-		Function = function(val) end,
-		Suffix = function(val) return ' studs/s' end,
+		Function = function(val)
+		end,
+		Suffix = function(val)
+			return ' studs/s'
+		end,
 		Tooltip = 'Movement speed when keys are pressed.'
+	})
+
+	AutoJump = SkywarsSpeed:CreateToggle({
+		Name = 'AutoJump',
+		Function = function(callback)
+			if AutoJumpRange and AutoJumpRange.Object then
+				pcall(function()
+					AutoJumpRange.Object.Visible = callback
+				end)
+			end
+		end,
+		Tooltip = 'Jump automatically when an enemy is near.'
+	})
+
+	AutoJumpRange = SkywarsSpeed:CreateSlider({
+		Name = 'AutoJump Range',
+		Min = 1,
+		Max = 100,
+		Default = 15,
+		Function = function(val)
+		end,
+		Suffix = function(val)
+			return val == 1 and ' stud' or ' studs'
+		end,
+		Tooltip = 'Distance used by AutoJump to detect nearby enemies.',
+		Visible = false
+	})
+
+	AlwaysJump = SkywarsSpeed:CreateToggle({
+		Name = 'AlwaysJump',
+		Function = function(callback)
+		end,
+		Tooltip = 'Always jump while grounded.'
 	})
 end)
