@@ -127,7 +127,11 @@ run(function()
 										return Vector3.new(0, 0, 0)
 									end
 									dbg('ClientControl successfully hooked for tool: ' .. tool.Name)
-									notif('SkywarsProjAim', 'Hooked Bow: ' .. tool.Name, 3)
+									
+									
+									if debugMode then
+										notif('SkywarsProjAim', 'Hooked Bow: ' .. tool.Name, 3)
+									end
 									
 									-- フック完了後はツールが外されるまで待機
 									while SkywarsProjAim.Enabled and tool.Parent == character do
@@ -260,3 +264,4 @@ run(function()
 		Visible = false
 	})
 end)
+
