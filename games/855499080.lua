@@ -580,3 +580,422 @@ run(function()
 		Visible = false
 	})
 end)
+
+
+run(function()
+	local SilentAura
+	local Speed
+	local MaxAngle
+	local Range
+	local LimitedItem
+	local WallCheck
+	local IgnorePlayer
+
+	local function contains(text, sub)
+		return tostring(text):lower():find(tostring(sub):lower(), 1, true) ~= nil
+	end
+
+	local function isAllowedItem(limit)
+		if not limit or limit == 'Off' then
+			return true
+		end
+
+		if not lplr then
+			return false
+		end
+
+		local character = lplr.Character
+		if not character then
+			return false
+		end
+
+		local tool = character:FindFirstChildOfClass('Tool')
+		if not tool then
+			return false
+		end
+
+		if limit == 'Any Tool' then
+			return true
+		end
+
+		local name = tool.Name
+
+		if limit == 'Sword' then
+			return contains(name, 'sword')
+				or contains(name, 'blade')
+				or contains(name, 'katana')
+				or contains(name, 'dagger')
+				or contains(name, 'knife')
+		elseif limit == 'Bow' then
+			return contains(name, 'bow')
+		elseif limit == 'Axe' then
+			return contains(name, 'axe')
+		elseif limit == 'Pickaxe' then
+			return contains(name, 'pick')
+		end
+
+		return true
+	end
+
+	local function getRaycastFilterType()
+		local ok, value = pcall(function()
+			return Enum.RaycastFilterType.Exclude
+		end)
+
+		if ok then
+			return value
+		end
+
+		ok, value = pcall(function()
+			return Enum.RaycastFilterType.Blacklist
+		end)
+
+		if ok then
+			return value
+		end
+
+		return nil
+	end
+
+	local function buildWallCheckParams(ignorePlayers)
+		local params = RaycastParams.new()
+
+		local filterType = getRaycastFilterType()
+		if filterType then
+			params.FilterType = filterType
+		end
+
+		local filter = {}
+
+		if ignorePlayers then
+			-- WallCheckでプレイヤー全員を無視する
+			for _, player in ipairs(playersService:GetPlayers()) do
+				if player.Character then
+					table.insert(filter, player.Character)
+				end
+			end
+		else
+			-- 自分だけ無視する（他のプレイヤーは壁扱いでブロックしうる）
+			if lplr and lplr.Character then
+				table.insert(filter, lplr.Character)
+			end
+		end
+
+		params.FilterDescendantsInstances = filter
+		params.IgnoreWater = true
+
+		pcall(function()
+			params.RespectCanCollide = false
+		end)
+
+		return params
+	end
+
+	local function isPositionVisible(originPosition, targetPosition, params)
+		local direction = targetPosition - originPosition
+		local distance = direction.Magnitude
+
+		if distance < 0.001 then
+			return true
+		end
+
+		local ok, result = pcall(function()
+			return workspace:Raycast(originPosition, direction, params)
+		end)
+
+		if not ok then
+			return true
+		end
+
+		-- 何も当たらなければ見える扱い
+		if not result then
+			return true
+		end
+
+		-- 目標より手前に当たっているなら壁越し扱い
+		return result.Distance >= distance - 0.5
+	end
+
+	-- MaxAngleは合計角度
+	-- 例: 120 -> 左右60度ずつ
+	local function isWithinMaxAngle(root, targetPosition, maxAngle)
+		if not maxAngle or maxAngle >= 360 then
+			return true
+		end
+
+		local rootPos = root.Position
+
+		local look = Vector3.new(root.LookVector.X, 0, root.LookVector.Z)
+		if look.Magnitude < 0.001 then
+			return true
+		end
+		look = look.Unit
+
+		local dir = Vector3.new(targetPosition.X - rootPos.X, 0, targetPosition.Z - rootPos.Z)
+		if dir.Magnitude < 0.001 then
+			return true
+		end
+		dir = dir.Unit
+
+		local dot = math.clamp(look:Dot(dir), -1, 1)
+		local angle = math.deg(math.acos(dot))
+
+		return angle <= (maxAngle / 2)
+	end
+
+	-- 体をゆっくり向ける
+	-- Speedは degrees/second
+	local function rotateTowards(root, targetPosition, speed, dt)
+		if not root or speed <= 0 then
+			return
+		end
+
+		-- 上下は向かせず、左右だけ向かせる
+		local flatTarget = Vector3.new(targetPosition.X, root.Position.Y, targetPosition.Z)
+
+		if (flatTarget - root.Position).Magnitude < 0.001 then
+			return
+		end
+
+		local targetCFrame = CFrame.new(root.Position, flatTarget)
+
+		local currentLook = Vector3.new(root.LookVector.X, 0, root.LookVector.Z)
+		local targetLook = Vector3.new(targetCFrame.LookVector.X, 0, targetCFrame.LookVector.Z)
+
+		if currentLook.Magnitude < 0.001 or targetLook.Magnitude < 0.001 then
+			pcall(function()
+				root.CFrame = targetCFrame
+			end)
+			return
+		end
+
+		currentLook = currentLook.Unit
+		targetLook = targetLook.Unit
+
+		local dot = math.clamp(currentLook:Dot(targetLook), -1, 1)
+		local angleDiff = math.acos(dot)
+
+		if angleDiff < 0.0001 then
+			return
+		end
+
+		local maxStep = math.rad(speed) * dt
+		local alpha = 1
+
+		if maxStep < angleDiff then
+			alpha = maxStep / angleDiff
+		end
+
+		alpha = math.clamp(alpha, 0, 1)
+
+		pcall(function()
+			root.CFrame = root.CFrame:Lerp(targetCFrame, alpha)
+		end)
+	end
+
+	local function getSilentAuraTarget(options)
+		options = options or {}
+
+		if not lplr then
+			return nil
+		end
+
+		local character = lplr.Character
+		if not character then
+			return nil
+		end
+
+		local myRoot = character:FindFirstChild('HumanoidRootPart')
+		if not myRoot then
+			return nil
+		end
+
+		local myHumanoid = character:FindFirstChildOfClass('Humanoid')
+		if not myHumanoid or myHumanoid.Health <= 0 then
+			return nil
+		end
+
+		if not isAllowedItem(options.LimitedItem) then
+			return nil
+		end
+
+		local wallParams = nil
+		local originPosition = nil
+
+		if options.WallCheck then
+			local originPart = character:FindFirstChild('Head') or myRoot
+			originPosition = originPart.Position
+			wallParams = buildWallCheckParams(options.IgnorePlayer)
+		end
+
+		local bestRoot = nil
+		local bestDistance = math.huge
+
+		for _, player in ipairs(playersService:GetPlayers()) do
+			if player ~= lplr and player.Character then
+				local enemyChar = player.Character
+				local enemyHumanoid = enemyChar:FindFirstChildOfClass('Humanoid')
+				local enemyRoot = enemyChar:FindFirstChild('HumanoidRootPart')
+
+				if enemyHumanoid and enemyHumanoid.Health > 0 and enemyRoot then
+					local distance = (myRoot.Position - enemyRoot.Position).Magnitude
+
+					if distance <= options.Range then
+						if isWithinMaxAngle(myRoot, enemyRoot.Position, options.MaxAngle) then
+							local passesWallCheck = true
+
+							if options.WallCheck and wallParams and originPosition then
+								local checkPart = enemyChar:FindFirstChild('Head') or enemyRoot
+								passesWallCheck = isPositionVisible(originPosition, checkPart.Position, wallParams)
+							end
+
+							if passesWallCheck and distance < bestDistance then
+								bestDistance = distance
+								bestRoot = enemyRoot
+							end
+						end
+					end
+				end
+			end
+		end
+
+		return bestRoot
+	end
+
+	SilentAura = vape.Categories.Combat:CreateModule({
+		Name = 'SilentAura',
+		Function = function(callback)
+			if callback then
+				SilentAura:Clean(runService.RenderStepped:Connect(function(dt)
+					if not SilentAura.Enabled then
+						return
+					end
+
+					local character = lplr.Character
+					if not character then
+						return
+					end
+
+					local myRoot = character:FindFirstChild('HumanoidRootPart')
+					local myHumanoid = character:FindFirstChildOfClass('Humanoid')
+
+					if not myRoot or not myHumanoid or myHumanoid.Health <= 0 then
+						return
+					end
+
+					local targetRoot = getSilentAuraTarget({
+						Range = Range and Range.Value or 15,
+						MaxAngle = MaxAngle and MaxAngle.Value or 120,
+						WallCheck = WallCheck and WallCheck.Enabled or false,
+						IgnorePlayer = IgnorePlayer and IgnorePlayer.Enabled or false,
+						LimitedItem = LimitedItem and LimitedItem.Value or 'Off',
+					})
+
+					if targetRoot then
+						-- ターゲットがいるときだけAutoRotateを切って体を制御
+						pcall(function()
+							myHumanoid.AutoRotate = false
+						end)
+
+						rotateTowards(myRoot, targetRoot.Position, Speed and Speed.Value or 360, dt or 1 / 60)
+					else
+						-- ターゲットがいないときは通常操作に戻す
+						pcall(function()
+							myHumanoid.AutoRotate = true
+						end)
+					end
+				end))
+			else
+				-- 無効化したらAutoRotateを戻す
+				pcall(function()
+					local character = lplr.Character
+					if character then
+						local myHumanoid = character:FindFirstChildOfClass('Humanoid')
+						if myHumanoid then
+							myHumanoid.AutoRotate = true
+						end
+					end
+				end)
+			end
+		end,
+		ExtraText = function()
+			local angleText = MaxAngle and tostring(MaxAngle.Value) or '?'
+			local rangeText = Range and tostring(Range.Value) or '?'
+			return angleText .. '° / ' .. rangeText
+		end,
+		Tooltip = 'Silently rotates your body toward valid targets. Does not touch the camera.'
+	})
+
+	Speed = SilentAura:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 1080,
+		Default = 360,
+		Function = function(val)
+			-- 次フレームから反映
+		end,
+		Suffix = function(val)
+			return '°/s'
+		end,
+		Tooltip = 'Body rotation speed in degrees per second.'
+	})
+
+	MaxAngle = SilentAura:CreateSlider({
+		Name = 'MaxAngle',
+		Min = 1,
+		Max = 360,
+		Default = 120,
+		Function = function(val)
+			-- 次フレームから反映
+		end,
+		Suffix = function(val)
+			return '°'
+		end,
+		Tooltip = '360 = all directions. 120 = right 60° and left 60° from your facing direction.'
+	})
+
+	Range = SilentAura:CreateSlider({
+		Name = 'Range',
+		Min = 1,
+		Max = 500,
+		Default = 15,
+		Function = function(val)
+			-- 次フレームから反映
+		end,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end,
+		Tooltip = 'Maximum distance for target selection.'
+	})
+
+	LimitedItem = SilentAura:CreateDropdown({
+		Name = 'LimitedItem',
+		List = {'Off', 'Any Tool', 'Sword', 'Bow', 'Axe', 'Pickaxe'},
+		Function = function(val)
+			-- 次フレームから反映
+		end,
+		Tooltip = 'Only activate when holding a matching tool. Detection is by tool name.'
+	})
+
+	WallCheck = SilentAura:CreateToggle({
+		Name = 'WallCheck',
+		Function = function(callback)
+			if IgnorePlayer and IgnorePlayer.Object then
+				pcall(function()
+					IgnorePlayer.Object.Visible = callback
+				end)
+			end
+		end,
+		Tooltip = 'Only rotate toward targets that are visible by raycast.'
+	})
+
+	IgnorePlayer = SilentAura:CreateToggle({
+		Name = 'IgnorePlayer',
+		Default = true,
+		Function = function(callback)
+			-- 次フレームから反映
+		end,
+		Tooltip = 'When WallCheck is enabled, raycast ignores player characters. If disabled, players can block.',
+		Visible = false
+	})
+end)
