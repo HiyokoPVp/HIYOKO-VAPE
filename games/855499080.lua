@@ -590,6 +590,9 @@ run(function()
 	local LimitedItem
 	local WallCheck
 	local IgnorePlayer
+	local ShowTarget
+
+	local targetHighlight = nil
 
 	local function contains(text, sub)
 		return tostring(text):lower():find(tostring(sub):lower(), 1, true) ~= nil
@@ -668,14 +671,12 @@ run(function()
 		local filter = {}
 
 		if ignorePlayers then
-			-- WallCheckでプレイヤー全員を無視する
 			for _, player in ipairs(playersService:GetPlayers()) do
 				if player.Character then
 					table.insert(filter, player.Character)
 				end
 			end
 		else
-			-- 自分だけ無視する（他のプレイヤーは壁扱いでブロックしうる）
 			if lplr and lplr.Character then
 				table.insert(filter, lplr.Character)
 			end
@@ -707,17 +708,15 @@ run(function()
 			return true
 		end
 
-		-- 何も当たらなければ見える扱い
 		if not result then
 			return true
 		end
 
-		-- 目標より手前に当たっているなら壁越し扱い
 		return result.Distance >= distance - 0.5
 	end
 
 	-- MaxAngleは合計角度
-	-- 例: 120 -> 左右60度ずつ
+	-- 例: 120 -> 右60° / 左60°
 	local function isWithinMaxAngle(root, targetPosition, maxAngle)
 		if not maxAngle or maxAngle >= 360 then
 			return true
@@ -741,56 +740,6 @@ run(function()
 		local angle = math.deg(math.acos(dot))
 
 		return angle <= (maxAngle / 2)
-	end
-
-	-- 体をゆっくり向ける
-	-- Speedは degrees/second
-	local function rotateTowards(root, targetPosition, speed, dt)
-		if not root or speed <= 0 then
-			return
-		end
-
-		-- 上下は向かせず、左右だけ向かせる
-		local flatTarget = Vector3.new(targetPosition.X, root.Position.Y, targetPosition.Z)
-
-		if (flatTarget - root.Position).Magnitude < 0.001 then
-			return
-		end
-
-		local targetCFrame = CFrame.new(root.Position, flatTarget)
-
-		local currentLook = Vector3.new(root.LookVector.X, 0, root.LookVector.Z)
-		local targetLook = Vector3.new(targetCFrame.LookVector.X, 0, targetCFrame.LookVector.Z)
-
-		if currentLook.Magnitude < 0.001 or targetLook.Magnitude < 0.001 then
-			pcall(function()
-				root.CFrame = targetCFrame
-			end)
-			return
-		end
-
-		currentLook = currentLook.Unit
-		targetLook = targetLook.Unit
-
-		local dot = math.clamp(currentLook:Dot(targetLook), -1, 1)
-		local angleDiff = math.acos(dot)
-
-		if angleDiff < 0.0001 then
-			return
-		end
-
-		local maxStep = math.rad(speed) * dt
-		local alpha = 1
-
-		if maxStep < angleDiff then
-			alpha = maxStep / angleDiff
-		end
-
-		alpha = math.clamp(alpha, 0, 1)
-
-		pcall(function()
-			root.CFrame = root.CFrame:Lerp(targetCFrame, alpha)
-		end)
 	end
 
 	local function getSilentAuraTarget(options)
@@ -862,6 +811,120 @@ run(function()
 		return bestRoot
 	end
 
+	local function clearTargetHighlight()
+		pcall(function()
+			if targetHighlight then
+				targetHighlight.Enabled = false
+			end
+		end)
+
+		pcall(function()
+			if targetHighlight then
+				targetHighlight:Destroy()
+			end
+		end)
+
+		targetHighlight = nil
+	end
+
+	local function tryParentHighlight(highlight, targetRoot)
+		local candidates = {}
+
+		local ok, hui = pcall(function()
+			return gethui()
+		end)
+		if ok and hui then
+			table.insert(candidates, hui)
+		end
+
+		local playerGui = nil
+		pcall(function()
+			if lplr then
+				playerGui = lplr:FindFirstChildOfClass('PlayerGui')
+			end
+		end)
+		if playerGui then
+			table.insert(candidates, playerGui)
+		end
+
+		ok, coreGui = pcall(function()
+			return game:GetService('CoreGui')
+		end)
+		if ok and coreGui then
+			table.insert(candidates, coreGui)
+		end
+
+		table.insert(candidates, game:GetService('Lighting'))
+
+		if targetRoot and targetRoot.Parent then
+			table.insert(candidates, targetRoot.Parent)
+		end
+
+		if targetRoot then
+			table.insert(candidates, targetRoot)
+		end
+
+		table.insert(candidates, workspace)
+
+		for _, parent in ipairs(candidates) do
+			local success = pcall(function()
+				highlight.Parent = parent
+			end)
+			if success then
+				return true
+			end
+		end
+
+		return false
+	end
+
+	local function updateTargetHighlight(targetRoot)
+		local shouldShow = ShowTarget and ShowTarget.Enabled and targetRoot ~= nil
+
+		if not shouldShow then
+			clearTargetHighlight()
+			return
+		end
+
+		local valid = false
+		pcall(function()
+			valid = targetHighlight ~= nil and targetHighlight.Parent ~= nil
+		end)
+
+		if not valid then
+			pcall(function()
+				if targetHighlight then
+					targetHighlight:Destroy()
+				end
+			end)
+			targetHighlight = nil
+
+			pcall(function()
+				targetHighlight = Instance.new('Highlight')
+				targetHighlight.Name = 'SilentAuraTargetHighlight'
+				targetHighlight.FillColor = Color3.fromRGB(0, 255, 0)
+				targetHighlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+				targetHighlight.FillTransparency = 0.4
+				targetHighlight.OutlineTransparency = 0
+
+				pcall(function()
+					targetHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				end)
+
+				tryParentHighlight(targetHighlight, targetRoot)
+			end)
+		end
+
+		if targetHighlight then
+			pcall(function()
+				targetHighlight.Adornee = targetRoot
+				targetHighlight.Enabled = true
+				targetHighlight.FillColor = Color3.fromRGB(0, 255, 0)
+				targetHighlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+			end)
+		end
+	end
+
 	SilentAura = vape.Categories.Combat:CreateModule({
 		Name = 'SilentAura',
 		Function = function(callback)
@@ -873,6 +936,7 @@ run(function()
 
 					local character = lplr.Character
 					if not character then
+						updateTargetHighlight(nil)
 						return
 					end
 
@@ -880,6 +944,7 @@ run(function()
 					local myHumanoid = character:FindFirstChildOfClass('Humanoid')
 
 					if not myRoot or not myHumanoid or myHumanoid.Health <= 0 then
+						updateTargetHighlight(nil)
 						return
 					end
 
@@ -891,22 +956,47 @@ run(function()
 						LimitedItem = LimitedItem and LimitedItem.Value or 'Off',
 					})
 
+					updateTargetHighlight(targetRoot)
+
 					if targetRoot then
-						-- ターゲットがいるときだけAutoRotateを切って体を制御
 						pcall(function()
 							myHumanoid.AutoRotate = false
 						end)
 
-						rotateTowards(myRoot, targetRoot.Position, Speed and Speed.Value or 360, dt or 1 / 60)
+						local speed = Speed and Speed.Value or 5
+						local alpha = (speed + 2) * (dt or 1 / 60)
+
+						-- 念のため1を超えないようにだけクランプ
+						if alpha > 1 then
+							alpha = 1
+						end
+
+						local lookTarget = Vector3.new(
+							targetRoot.Position.X,
+							myRoot.Position.Y,
+							targetRoot.Position.Z
+						)
+
+						if (lookTarget - myRoot.Position).Magnitude > 0.001 then
+							pcall(function()
+								myRoot.CFrame = myRoot.CFrame:Lerp(
+									CFrame.lookAt(
+										myRoot.Position,
+										lookTarget
+									),
+									alpha
+								)
+							end)
+						end
 					else
-						-- ターゲットがいないときは通常操作に戻す
 						pcall(function()
 							myHumanoid.AutoRotate = true
 						end)
 					end
 				end))
 			else
-				-- 無効化したらAutoRotateを戻す
+				clearTargetHighlight()
+
 				pcall(function()
 					local character = lplr.Character
 					if character then
@@ -923,21 +1013,18 @@ run(function()
 			local rangeText = Range and tostring(Range.Value) or '?'
 			return angleText .. '° / ' .. rangeText
 		end,
-		Tooltip = 'Silently rotates your body toward valid targets. Does not touch the camera.'
+		Tooltip = 'Silently rotates your body toward valid targets using Lerp. Does not touch the camera.'
 	})
 
 	Speed = SilentAura:CreateSlider({
 		Name = 'Speed',
 		Min = 1,
-		Max = 1080,
-		Default = 360,
+		Max = 10,
+		Default = 5,
 		Function = function(val)
 			-- 次フレームから反映
 		end,
-		Suffix = function(val)
-			return '°/s'
-		end,
-		Tooltip = 'Body rotation speed in degrees per second.'
+		Tooltip = 'Lerp speed. Higher = faster body rotation.'
 	})
 
 	MaxAngle = SilentAura:CreateSlider({
@@ -997,5 +1084,15 @@ run(function()
 		end,
 		Tooltip = 'When WallCheck is enabled, raycast ignores player characters. If disabled, players can block.',
 		Visible = false
+	})
+
+	ShowTarget = SilentAura:CreateToggle({
+		Name = 'ShowTarget',
+		Function = function(callback)
+			if not callback then
+				clearTargetHighlight()
+			end
+		end,
+		Tooltip = 'Highlights the current target RootPart in green.'
 	})
 end)
