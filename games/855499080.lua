@@ -1065,3 +1065,267 @@ run(function()
 	})
 end)
 
+--[[
+    SkywarsFly (Impulse Float + CFrame Horizontal)
+    SkywarsSpeed (CFrame Speed)
+]]
+
+-- 既存の環境変数が既に定義されている前提で続行します
+-- local run, cloneref, vape, etc. are assumed to be available from the previous context
+
+run(function()
+	local SkywarsFly
+	local FlySpeed
+	local FloatHeight
+	local FloatStrength
+	local EnabledToggle
+	
+	-- 状態管理用
+	local isFlying = false
+	local targetYVelocity = 0
+	local lastPos = Vector3.zero
+	
+	-- キー入力状態
+	local keys = {
+		Jump = false,
+		Crouch = false -- Shift usually
+	}
+
+	local function updateFlyState()
+		if not SkywarsFly or not SkywarsFly.Enabled then
+			isFlying = false
+			return
+		end
+		
+		local character = lplr.Character
+		if not character then
+			isFlying = false
+			return
+		end
+
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if not humanoid or humanoid.Health <= 0 then
+			isFlying = false
+			return
+		end
+
+		isFlying = true
+		
+		-- AutoRotateを無効化してCFrame制御を安定させる
+		pcall(function() humanoid.AutoRotate = false end)
+	end
+
+	SkywarsFly = vape.Categories.Movement:CreateModule({
+		Name = 'SkywarsFly',
+		Function = function(callback)
+			if callback then
+				-- Enable Logic
+				SkywarsFly:Clean(runService.RenderStepped:Connect(function(dt)
+					updateFlyState()
+					
+					if not isFlying then return end
+
+					local character = lplr.Character
+					if not character then return end
+					
+					local root = character:FindFirstChild("HumanoidRootPart")
+					local humanoid = character:FindFirstChildOfClass("Humanoid")
+					
+					if not root or not humanoid then return end
+
+					-- 1. 水平方向の移動 (CFrame)
+					local moveVector = Vector3.zero
+					local camera = workspace.CurrentCamera
+					
+					-- WASDの入力を取得
+					local moveX = 0
+					local moveZ = 0
+					
+					if inputService:IsKeyDown(Enum.KeyCode.W) then moveZ = moveZ - 1 end
+					if inputService:IsKeyDown(Enum.KeyCode.S) then moveZ = moveZ + 1 end
+					if inputService:IsKeyDown(Enum.KeyCode.A) then moveX = moveX - 1 end
+					if inputService:IsKeyDown(Enum.KeyCode.D) then moveX = moveX + 1 end
+
+					if moveX ~= 0 or moveZ ~= 0 then
+						-- カメラの向きに基づいた移動ベクトル計算
+						local cameraDirection = camera.CFrame.LookVector
+						cameraDirection = Vector3.new(cameraDirection.X, 0, cameraDirection.Z).Unit
+						
+						local cameraRight = camera.CFrame.RightVector
+						cameraRight = Vector3.new(cameraRight.X, 0, cameraRight.Z).Unit
+						
+						moveVector = (cameraDirection * -moveZ) + (cameraRight * moveX)
+						
+						if moveVector.Magnitude > 0 then
+							moveVector = moveVector.Unit
+						end
+						
+						-- CFrameで位置を更新 (水平方向のみ)
+						local speedVal = FlySpeed and FlySpeed.Value or 50
+						local newPos = root.Position + (moveVector * speedVal * dt)
+						
+						-- Y座標は維持（浮遊処理に任せるため）
+						root.CFrame = CFrame.new(newPos.X, root.Position.Y, newPos.Z) * root.CFrame.Rotation
+					end
+
+					-- 2. 垂直方向の移動 (ApplyImpulse)
+					-- キー入力による目標速度の設定
+					if inputService:IsKeyDown(Enum.KeyCode.Space) then
+						targetYVelocity = FloatStrength and FloatStrength.Value or 50 -- 上昇速度
+					elseif inputService:IsKeyDown(Enum.KeyCode.LeftShift) or inputService:IsKeyDown(Enum.KeyCode.RightShift) then
+						targetYVelocity = -(FloatStrength and FloatStrength.Value or 50) -- 下降速度
+					else
+						targetYVelocity = 0 -- ホバリング（重力補正のみ）
+					end
+
+					-- 現在のY速度を取得
+					local currentVelY = root.AssemblyLinearVelocity.Y
+					
+					-- 必要な速度差を計算
+					local diff = targetYVelocity - currentVelY
+					
+					-- Impulse = Mass * DeltaVelocity
+					-- AssemblyMassを使用することで、キャラクターのアタッチメントや装備の重さも考慮する
+					local mass = root.AssemblyMass
+					if mass <= 0 then mass = 50 end -- ゼロ除算防止
+
+					-- Y軸のみにImpulseを適用
+					local impulseVector = Vector3.new(0, diff * mass, 0)
+					
+					-- 物理演算ステップごとに適用するためにRenderSteppedではなくSteppedの方が適切だが、
+					-- Vapeの構造上RenderSteppedで統一する場合、dt補正が重要。
+					-- ただしApplyImpulseは瞬間的な力なので、毎フレーム「速度を合わせる」ために使う場合はこの計算でOK。
+					root:ApplyImpulse(impulseVector)
+					
+				end))
+				
+				-- キーリリース検知などのクリーンアップが必要な場合があるが、
+				-- ループ内でIsKeyDownを確認しているため不要。
+			else
+				-- Disable Logic
+				isFlying = false
+				targetYVelocity = 0
+				
+				local character = lplr.Character
+				if character then
+					local humanoid = character:FindFirstChildOfClass("Humanoid")
+					if humanoid then
+						pcall(function() humanoid.AutoRotate = true end)
+					end
+				end
+			end
+		end,
+		ExtraText = function()
+			return "HiyokoVapeDevloper"
+		end,
+		Tooltip = 'Fly using CFrame for horizontal movement and ApplyImpulse for vertical floating.'
+	})
+
+	FlySpeed = SkywarsFly:CreateSlider({
+		Name = 'Horizontal Speed',
+		Min = 1,
+		Max = 200,
+		Default = 50,
+		Function = function(val) end,
+		Suffix = function(val) return ' studs/s' end,
+		Tooltip = 'Speed of horizontal movement via CFrame.'
+	})
+
+	FloatStrength = SkywarsFly:CreateSlider({
+		Name = 'Vertical Power',
+		Min = 1,
+		Max = 200,
+		Default = 50,
+		Function = function(val) end,
+		Suffix = function(val) return ' power' end,
+		Tooltip = 'Power of ascent/descent via ApplyImpulse.'
+	})
+end)
+
+run(function()
+	local SkywarsSpeed
+	local SpeedValue
+
+	SkywarsSpeed = vape.Categories.Movement:CreateModule({
+		Name = 'SkywarsSpeed',
+		Function = function(callback)
+			if callback then
+				SkywarsSpeed:Clean(runService.RenderStepped:Connect(function(dt)
+					if not SkywarsSpeed.Enabled then return end
+
+					local character = lplr.Character
+					if not character then return end
+
+					local root = character:FindFirstChild("HumanoidRootPart")
+					local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+					if not root or not humanoid or humanoid.Health <= 0 then return end
+
+					-- 入力チェック
+					local moveX = 0
+					local moveZ = 0
+
+					if inputService:IsKeyDown(Enum.KeyCode.W) then moveZ = moveZ - 1 end
+					if inputService:IsKeyDown(Enum.KeyCode.S) then moveZ = moveZ + 1 end
+					if inputService:IsKeyDown(Enum.KeyCode.A) then moveX = moveX - 1 end
+					if inputService:IsKeyDown(Enum.KeyCode.D) then moveX = moveX + 1 end
+
+					-- 移動していない場合は何もしない（通常の歩行に戻すため）
+					if moveX == 0 and moveZ == 0 then
+						-- オプション: ここでAutoRotateを元に戻すか、CFrame干渉を止める
+						return
+					end
+
+					-- AutoRotateをオフにしてカメラ追従を切る（滑らかな回転のため）
+					pcall(function() humanoid.AutoRotate = false end)
+
+					local camera = workspace.CurrentCamera
+					local cameraDirection = camera.CFrame.LookVector
+					cameraDirection = Vector3.new(cameraDirection.X, 0, cameraDirection.Z).Unit
+
+					local cameraRight = camera.CFrame.RightVector
+					cameraRight = Vector3.new(cameraRight.X, 0, cameraRight.Z).Unit
+
+					local moveVector = (cameraDirection * -moveZ) + (cameraRight * moveX)
+					
+					if moveVector.Magnitude > 0 then
+						moveVector = moveVector.Unit
+					end
+
+					local speed = SpeedValue and SpeedValue.Value or 30
+					
+					-- CFrameで直接位置を書き換え
+					-- Y座標は変更せず、XとZのみ移動
+					local currentPos = root.Position
+					local newPos = currentPos + (moveVector * speed * dt)
+					
+					-- 回転成分は保持したまま位置だけ更新
+					root.CFrame = CFrame.new(newPos.X, currentPos.Y, newPos.Z) * root.CFrame.Rotation
+				end))
+			else
+				-- Disable Logic
+				local character = lplr.Character
+				if character then
+					local humanoid = character:FindFirstChildOfClass("Humanoid")
+					if humanoid then
+						pcall(function() humanoid.AutoRotate = true end)
+					end
+				end
+			end
+		end,
+		ExtraText = function()
+			return "HiyokoVapeDevloper"
+		end,
+		Tooltip = 'High speed movement using CFrame translation.'
+	})
+
+	SpeedValue = SkywarsSpeed:CreateSlider({
+		Name = 'Speed',
+		Min = 1,
+		Max = 200,
+		Default = 30,
+		Function = function(val) end,
+		Suffix = function(val) return ' studs/s' end,
+		Tooltip = 'Movement speed when keys are pressed.'
+	})
+end)
