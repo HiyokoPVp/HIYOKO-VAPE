@@ -162,8 +162,6 @@ run(function()
 		Tooltip = 'Automatically aims projectiles by hooking ClientControl.OnClientInvoke directly.'
 	})
 
-	Targets = SkywarsProjAim:CreateTargets({Players = true})
-
 	Mode = SkywarsProjAim:CreateDropdown({
 		Name = 'Mode',
 		List = {'Mouse', 'Position'},
