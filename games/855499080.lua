@@ -1,6 +1,6 @@
 --[[
     SkywarsProjAim (Fixed & Optimized + Mouse FOV + WallCheck + Target Part)
-    SilentAura (BoxHandleAdornment Visualization)
+    SilentAura (BoxHandleAdornment Visualization + Fixed MaxAngle)
 ]]
 local run = function(func)
 	func()
@@ -744,27 +744,33 @@ run(function()
 	-- MaxAngleは合計角度
 	-- 例: 120 -> 右60° / 左60°
 	local function isWithinMaxAngle(root, targetPosition, maxAngle)
+		-- 360度の場合は常にtrueを返す（全方向許可）
 		if not maxAngle or maxAngle >= 360 then
 			return true
 		end
 
 		local rootPos = root.Position
+		local rootCFrame = root.CFrame
 
-		local look = Vector3.new(root.LookVector.X, 0, root.LookVector.Z)
-		if look.Magnitude < 0.001 then
+		-- Y軸を無視した水平方向のベクトルを計算
+		local lookVector = Vector3.new(rootCFrame.LookVector.X, 0, rootCFrame.LookVector.Z)
+		if lookVector.Magnitude < 0.001 then
 			return true
 		end
-		look = look.Unit
+		lookVector = lookVector.Unit
 
-		local dir = Vector3.new(targetPosition.X - rootPos.X, 0, targetPosition.Z - rootPos.Z)
-		if dir.Magnitude < 0.001 then
+		local toTarget = Vector3.new(targetPosition.X - rootPos.X, 0, targetPosition.Z - rootPos.Z)
+		if toTarget.Magnitude < 0.001 then
 			return true
 		end
-		dir = dir.Unit
+		toTarget = toTarget.Unit
 
-		local dot = math.clamp(look:Dot(dir), -1, 1)
-		local angle = math.deg(math.acos(dot))
+		-- 内積を使って角度を計算
+		local dotProduct = lookVector:Dot(toTarget)
+		-- math.acosの結果はラジアンなので、degで度に変換
+		local angle = math.deg(math.acos(math.clamp(dotProduct, -1, 1)))
 
+		-- MaxAngleは「左右合計」の角度なので、半分ずつ許容する
 		return angle <= (maxAngle / 2)
 	end
 
@@ -816,6 +822,7 @@ run(function()
 					local distance = (myRoot.Position - enemyRoot.Position).Magnitude
 
 					if distance <= options.Range then
+						-- MaxAngleチェックを追加
 						if isWithinMaxAngle(myRoot, enemyRoot.Position, options.MaxAngle) then
 							local passesWallCheck = true
 
