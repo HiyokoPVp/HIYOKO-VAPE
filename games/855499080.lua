@@ -1239,9 +1239,12 @@ run(function()
 
 	local SkywarsSpeed
 	local SpeedValue
+	local TPFrequency
 	local AutoJump
 	local AlwaysJump
 	local AutoJumpRange
+
+	local accumulator = 0
 
 	local function getMoveInput()
 		local moveX = 0
@@ -1319,7 +1322,9 @@ run(function()
 		Name = 'SkywarsSpeed',
 		Function = function(callback)
 			if callback then
-				SkywarsSpeed:Clean(runService.Heartbeat:Connect(function(dt)
+				accumulator = 0
+
+				SkywarsSpeed:Clean(runService.RenderStepped:Connect(function(dt)
 					if not SkywarsSpeed.Enabled then
 						return
 					end
@@ -1332,6 +1337,7 @@ run(function()
 
 					local character = lplr.Character
 					if not character then
+						accumulator = 0
 						return
 					end
 
@@ -1340,6 +1346,7 @@ run(function()
 					local camera = workspace.CurrentCamera
 
 					if not root or not humanoid or humanoid.Health <= 0 or not camera then
+						accumulator = 0
 						return
 					end
 
@@ -1387,50 +1394,64 @@ run(function()
 							humanoid.AutoRotate = false
 						end)
 
-						local lookTarget = root.Position + moveVector
-
 						pcall(function()
 							root.CFrame = CFrame.lookAt(
 								root.Position,
-								Vector3.new(lookTarget.X, root.Position.Y, lookTarget.Z)
+								Vector3.new(
+									root.Position.X + moveVector.X,
+									root.Position.Y,
+									root.Position.Z + moveVector.Z
+								)
 							)
 						end)
+
+						local freq = TPFrequency and TPFrequency.Value or 20
+						if freq < 1 then
+							freq = 1
+						end
+
+						local speed = SpeedValue and SpeedValue.Value or 30
+						local interval = 1 / freq
+						local stepDistance = speed / freq
+
+						accumulator = accumulator + dt
+
+						local maxSteps = math.clamp(math.ceil(freq * dt) + 2, 1, 10)
+						local steps = 0
+
+						while accumulator >= interval and steps < maxSteps do
+							accumulator = accumulator - interval
+							steps = steps + 1
+
+							local currentPos = root.Position
+							local newPos = currentPos + (moveVector * stepDistance)
+
+							pcall(function()
+								root.CFrame = CFrame.lookAt(
+									newPos,
+									Vector3.new(
+										newPos.X + moveVector.X,
+										newPos.Y,
+										newPos.Z + moveVector.Z
+									)
+								)
+							end)
+						end
+
+						if accumulator > interval then
+							accumulator = interval
+						end
 					else
+						accumulator = 0
+
 						pcall(function()
 							humanoid.AutoRotate = true
 						end)
 					end
-
-					local speed = SpeedValue and SpeedValue.Value or 30
-					local desiredVelocity = moveVector * speed
-
-					local currentVel = Vector3.zero
-					pcall(function()
-						currentVel = root.AssemblyLinearVelocity
-					end)
-
-					local currentHorizontal = Vector3.new(currentVel.X, 0, currentVel.Z)
-					local diff = desiredVelocity - currentHorizontal
-
-					local mass = 50
-					pcall(function()
-						mass = root.AssemblyMass
-					end)
-
-					if mass <= 0 then
-						mass = 50
-					end
-
-					local alpha = math.clamp(dt * 25, 0, 1)
-					local impulse = Vector3.new(diff.X, 0, diff.Z) * mass * alpha
-
-					if impulse.Magnitude > 0.001 then
-						pcall(function()
-							root:ApplyImpulse(impulse)
-						end)
-					end
 				end))
 			else
+				accumulator = 0
+
 				local character = lplr.Character
 				if character then
 					local humanoid = character:FindFirstChildOfClass('Humanoid')
@@ -1445,7 +1466,7 @@ run(function()
 		ExtraText = function()
 			return 'HiyokoVapeDevloper'
 		end,
-		Tooltip = 'ApplyImpulse-based speed. Fixed character orientation, optional AlwaysJump / AutoJump.'
+		Tooltip = 'TP Walk speed. Character orientation is fixed, optional AlwaysJump / AutoJump and TP Frequency.'
 	})
 
 	SpeedValue = SkywarsSpeed:CreateSlider({
@@ -1458,7 +1479,20 @@ run(function()
 		Suffix = function(val)
 			return ' studs/s'
 		end,
-		Tooltip = 'Target horizontal speed when keys are pressed.'
+		Tooltip = 'Movement speed for TP Walk.'
+	})
+
+	TPFrequency = SkywarsSpeed:CreateSlider({
+		Name = 'TP Frequency',
+		Min = 1,
+		Max = 100,
+		Default = 20,
+		Function = function(val)
+		end,
+		Suffix = function(val)
+			return 'Hz'
+		end,
+		Tooltip = 'How many teleports per second TP Walk performs. Higher is smoother.'
 	})
 
 	AutoJump = SkywarsSpeed:CreateToggle({
