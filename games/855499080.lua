@@ -1231,11 +1231,11 @@ run(function()
 end)
 
 run(function()
-	local playersService = game:GetService('Players')
-	local runService = game:GetService('RunService')
-	local inputService = game:GetService('UserInputService')
+	local playersService = cloneref and cloneref(game:GetService('Players')) or game:GetService('Players')
+	local runService = cloneref and cloneref(game:GetService('RunService')) or game:GetService('RunService')
+	local inputService = cloneref and cloneref(game:GetService('UserInputService')) or game:GetService('UserInputService')
 	local lplr = playersService.LocalPlayer
-	local vape = shared.vape
+	local vape = shared.vape or vape
 
 	local SkywarsSpeed
 	local SpeedValue
@@ -1298,6 +1298,14 @@ run(function()
 			return
 		end
 
+		local ok, state = pcall(function()
+			return humanoid:GetState()
+		end)
+
+		if ok and (state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping) then
+			return
+		end
+
 		pcall(function()
 			humanoid.Jump = true
 		end)
@@ -1311,7 +1319,7 @@ run(function()
 		Name = 'SkywarsSpeed',
 		Function = function(callback)
 			if callback then
-				SkywarsSpeed:Clean(runService.RenderStepped:Connect(function(dt)
+				SkywarsSpeed:Clean(runService.Heartbeat:Connect(function(dt)
 					if not SkywarsSpeed.Enabled then
 						return
 					end
@@ -1348,56 +1356,79 @@ run(function()
 					end
 
 					local moveX, moveZ = getMoveInput()
+					local moveVector = Vector3.zero
 
-					if moveX == 0 and moveZ == 0 then
+					if moveX ~= 0 or moveZ ~= 0 then
+						local camLook = camera.CFrame.LookVector
+						camLook = Vector3.new(camLook.X, 0, camLook.Z)
+
+						if camLook.Magnitude > 0.001 then
+							camLook = camLook.Unit
+						else
+							camLook = Vector3.new(0, 0, -1)
+						end
+
+						local camRight = camera.CFrame.RightVector
+						camRight = Vector3.new(camRight.X, 0, camRight.Z)
+
+						if camRight.Magnitude > 0.001 then
+							camRight = camRight.Unit
+						else
+							camRight = Vector3.new(1, 0, 0)
+						end
+
+						moveVector = (camLook * -moveZ) + (camRight * moveX)
+					end
+
+					if moveVector.Magnitude > 0.001 then
+						moveVector = moveVector.Unit
+
+						pcall(function()
+							humanoid.AutoRotate = false
+						end)
+
+						local lookTarget = root.Position + moveVector
+
+						pcall(function()
+							root.CFrame = CFrame.lookAt(
+								root.Position,
+								Vector3.new(lookTarget.X, root.Position.Y, lookTarget.Z)
+							)
+						end)
+					else
 						pcall(function()
 							humanoid.AutoRotate = true
 						end)
-						return
 					end
-
-					local camLook = camera.CFrame.LookVector
-					camLook = Vector3.new(camLook.X, 0, camLook.Z)
-
-					if camLook.Magnitude > 0.001 then
-						camLook = camLook.Unit
-					else
-						camLook = Vector3.new(0, 0, -1)
-					end
-
-					local camRight = camera.CFrame.RightVector
-					camRight = Vector3.new(camRight.X, 0, camRight.Z)
-
-					if camRight.Magnitude > 0.001 then
-						camRight = camRight.Unit
-					else
-						camRight = Vector3.new(1, 0, 0)
-					end
-
-					local moveVector = (camLook * -moveZ) + (camRight * moveX)
-
-					if moveVector.Magnitude <= 0.001 then
-						pcall(function()
-							humanoid.AutoRotate = true
-						end)
-						return
-					end
-
-					moveVector = moveVector.Unit
-
-					pcall(function()
-						humanoid.AutoRotate = false
-					end)
 
 					local speed = SpeedValue and SpeedValue.Value or 30
-					local currentPos = root.Position
-					local newPos = currentPos + (moveVector * speed * dt)
-					local lookTarget = currentPos + moveVector
+					local desiredVelocity = moveVector * speed
 
-					root.CFrame = CFrame.lookAt(
-						Vector3.new(newPos.X, currentPos.Y, newPos.Z),
-						Vector3.new(lookTarget.X, currentPos.Y, lookTarget.Z)
-					)
+					local currentVel = Vector3.zero
+					pcall(function()
+						currentVel = root.AssemblyLinearVelocity
+					end)
+
+					local currentHorizontal = Vector3.new(currentVel.X, 0, currentVel.Z)
+					local diff = desiredVelocity - currentHorizontal
+
+					local mass = 50
+					pcall(function()
+						mass = root.AssemblyMass
+					end)
+
+					if mass <= 0 then
+						mass = 50
+					end
+
+					local alpha = math.clamp(dt * 25, 0, 1)
+					local impulse = Vector3.new(diff.X, 0, diff.Z) * mass * alpha
+
+					if impulse.Magnitude > 0.001 then
+						pcall(function()
+							root:ApplyImpulse(impulse)
+						end)
+					end
 				end))
 			else
 				local character = lplr.Character
@@ -1414,7 +1445,7 @@ run(function()
 		ExtraText = function()
 			return 'HiyokoVapeDevloper'
 		end,
-		Tooltip = 'High speed movement using CFrame translation. Fixed orientation, optional AlwaysJump / AutoJump.'
+		Tooltip = 'ApplyImpulse-based speed. Fixed character orientation, optional AlwaysJump / AutoJump.'
 	})
 
 	SpeedValue = SkywarsSpeed:CreateSlider({
@@ -1427,7 +1458,7 @@ run(function()
 		Suffix = function(val)
 			return ' studs/s'
 		end,
-		Tooltip = 'Movement speed when keys are pressed.'
+		Tooltip = 'Target horizontal speed when keys are pressed.'
 	})
 
 	AutoJump = SkywarsSpeed:CreateToggle({
