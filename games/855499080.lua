@@ -1115,7 +1115,7 @@ run(function()
 		pcall(function() humanoid.AutoRotate = false end)
 	end
 
-	SkywarsFly = vape.Categories.Movement:CreateModule({
+	SkywarsFly = vape.Categories.Blatant:CreateModule({
 		Name = 'SkywarsFly',
 		Function = function(callback)
 			if callback then
@@ -1246,7 +1246,7 @@ run(function()
 	local SkywarsSpeed
 	local SpeedValue
 
-	SkywarsSpeed = vape.Categories.Movement:CreateModule({
+	SkywarsSpeed = vape.Categories.Blatant:CreateModule({
 		Name = 'SkywarsSpeed',
 		Function = function(callback)
 			if callback then
