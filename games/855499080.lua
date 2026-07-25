@@ -163,13 +163,14 @@ local function gettoolbyname(name)
     return nil
 end
 
-local function getcharactertool()
+-- Character内のBowのみを取得（Backpackは無視）
+local function getCharacterBow()
     if not lplr or not lplr.Character then
         return nil
     end
 
     for _, v in ipairs(lplr.Character:GetChildren()) do
-        if v:IsA("Tool") then
+        if v:IsA("Tool") and v.Name == "Bow" then
             return v
         end
     end
@@ -215,8 +216,16 @@ run(function()
     local CircleFilled
     local CircleObject
     local ShowTarget
+    local DebugMode
     local oldInvoke
     local isInRound = false
+    local debugMode = false
+
+    local function dbg(msg)
+        if debugMode then
+            print('[SkywarsProjAim] ' .. tostring(msg))
+        end
+    end
 
     SkywarsProjAim = vape.Categories.Combat:CreateModule({
         Name = 'SkywarsProjAim',
@@ -227,37 +236,74 @@ run(function()
             if callback then
                 isInRound = false
                 oldInvoke = nil
+                debugMode = DebugMode.Enabled
+
+                dbg('Module ENABLED')
+                dbg('debugMode = ' .. tostring(debugMode))
+                dbg('Mode = ' .. Mode.Value)
+                dbg('Range = ' .. Range.Value)
 
                 -- 試合開始待機 + フックスレッド
                 SkywarsProjAim:Clean(task.spawn(function()
                     -- ① 試合開始（ツール配布）を待機
+                    dbg('--- Phase 1: Waiting for round to start ---')
                     notif('SkywarsProjAim', 'Waiting for round to start...', 3)
                     while SkywarsProjAim.Enabled do
                         if inround() then
                             isInRound = true
-                            notif('SkywarsProjAim', 'Round started! Looking for tool...', 3)
+                            dbg('Round started! Tools detected in Backpack/Character.')
+                            notif('SkywarsProjAim', 'Round started! Looking for Bow in Character...', 3)
                             break
                         end
+                        dbg('No tools found yet... waiting.')
                         task.wait(0.5)
                     end
 
-                    if not SkywarsProjAim.Enabled then return end
+                    if not SkywarsProjAim.Enabled then
+                        dbg('Module disabled during Phase 1. Exiting.')
+                        return
+                    end
 
-                    -- ② ClientControl付きツールを待機してフック
+                    -- ② Character内にBowが装備されるまで待機
+                    dbg('--- Phase 2: Waiting for Bow in Character ---')
                     while SkywarsProjAim.Enabled do
-                        local tool = getTool()
-                        if tool then
-                            local clientControl = tool:FindFirstChild('ClientControl')
+                        local bow = getCharacterBow()
+                        if bow then
+                            dbg('Bow found in Character: ' .. bow.Name)
+                            notif('SkywarsProjAim', 'Bow equipped! Looking for ClientControl...', 3)
+                            break
+                        end
+                        dbg('Bow not in Character yet... (Backpack does not count)')
+                        task.wait(0.5)
+                    end
+
+                    if not SkywarsProjAim.Enabled then
+                        dbg('Module disabled during Phase 2. Exiting.')
+                        return
+                    end
+
+                    -- ③ ClientControlを待機してフック
+                    dbg('--- Phase 3: Hooking ClientControl ---')
+                    while SkywarsProjAim.Enabled do
+                        local bow = getCharacterBow()
+                        if bow then
+                            local clientControl = bow:FindFirstChild('ClientControl')
                             if clientControl then
+                                dbg('ClientControl found! ClassName: ' .. tostring(clientControl.ClassName))
                                 oldInvoke = clientControl.OnClientInvoke
+                                dbg('oldInvoke saved: ' .. tostring(oldInvoke))
 
                                 clientControl.OnClientInvoke = function(...)
                                     if not SkywarsProjAim.Enabled then
+                                        dbg('OnClientInvoke called but module disabled. Returning oldInvoke.')
                                         return oldInvoke and oldInvoke(...) or Vector3.zero
                                     end
 
                                     local targetPart = 'Head'
                                     local ent
+
+                                    dbg('OnClientInvoke triggered! Searching for target...')
+                                    dbg('Mode: ' .. Mode.Value .. ' | Range: ' .. Range.Value .. ' | Wallcheck: ' .. tostring(Targets.Walls.Enabled))
 
                                     if Mode.Value == 'Mouse' then
                                         ent = entitylib.EntityMouse({
@@ -280,36 +326,64 @@ run(function()
                                     end
 
                                     if ent and ent[targetPart] then
+                                        dbg('TARGET LOCKED: ' .. tostring(ent.Player and ent.Player.Name or ent.Character.Name) .. ' | Part: ' .. targetPart .. ' | Pos: ' .. tostring(ent[targetPart].Position))
                                         if ShowTarget.Enabled then
                                             targetinfo.Targets[ent] = tick() + 1
                                         end
                                         return ent[targetPart].Position
                                     end
 
+                                    dbg('No target found. Returning oldInvoke or Vector3.zero.')
                                     if oldInvoke then
                                         return oldInvoke(...)
                                     end
                                     return Vector3.new(0, 0, 0)
                                 end
 
-                                notif('SkywarsProjAim', 'Hooked: '..tool.Name, 3)
+                                dbg('OnClientInvoke HOOKED successfully!')
+                                notif('SkywarsProjAim', 'Hooked: ' .. bow.Name, 3)
                                 break
+                            else
+                                dbg('Bow found but no ClientControl yet... waiting.')
                             end
+                        else
+                            dbg('Bow removed from Character! Waiting for re-equip...')
                         end
                         task.wait(0.5)
                     end
 
-                    -- ③ ツール切り替え監視（持ち替えたら再フック）
+                    if not SkywarsProjAim.Enabled then
+                        dbg('Module disabled during Phase 3. Exiting.')
+                        return
+                    end
+
+                    -- ④ 監視ループ（ツール切り替え・試合終了検知・再フック）
+                    dbg('--- Phase 4: Monitoring loop started ---')
                     while SkywarsProjAim.Enabled do
                         task.wait(1)
+
+                        -- 試合終了チェック
                         if not inround() then
-                            -- 試合終了 → 次ラウンド待機
                             isInRound = false
                             oldInvoke = nil
+                            dbg('Round ended! Tools gone. Waiting for next round...')
                             notif('SkywarsProjAim', 'Round ended. Waiting for next round...', 3)
+
                             while SkywarsProjAim.Enabled do
                                 if inround() then
                                     isInRound = true
+                                    dbg('New round started!')
+                                    break
+                                end
+                                task.wait(0.5)
+                            end
+                            if not SkywarsProjAim.Enabled then break end
+
+                            -- 次ラウンドのBow待機
+                            dbg('Waiting for Bow in Character (new round)...')
+                            while SkywarsProjAim.Enabled do
+                                if getCharacterBow() then
+                                    dbg('Bow found in Character (new round).')
                                     break
                                 end
                                 task.wait(0.5)
@@ -317,11 +391,12 @@ run(function()
                             if not SkywarsProjAim.Enabled then break end
                         end
 
-                        -- 新しいツールにClientControlがあれば再フック
-                        local tool = getTool()
-                        if tool then
-                            local clientControl = tool:FindFirstChild('ClientControl')
+                        -- 再フックチェック
+                        local bow = getCharacterBow()
+                        if bow then
+                            local clientControl = bow:FindFirstChild('ClientControl')
                             if clientControl and clientControl.OnClientInvoke ~= oldInvoke then
+                                dbg('New ClientControl detected! Re-hooking...')
                                 oldInvoke = clientControl.OnClientInvoke
 
                                 clientControl.OnClientInvoke = function(...)
@@ -353,6 +428,7 @@ run(function()
                                     end
 
                                     if ent and ent[targetPart] then
+                                        dbg('RE-HOOK TARGET: ' .. tostring(ent.Player and ent.Player.Name or ent.Character.Name))
                                         if ShowTarget.Enabled then
                                             targetinfo.Targets[ent] = tick() + 1
                                         end
@@ -365,10 +441,15 @@ run(function()
                                     return Vector3.new(0, 0, 0)
                                 end
 
-                                notif('SkywarsProjAim', 'Re-hooked: '..tool.Name, 3)
+                                dbg('Re-hook complete!')
+                                notif('SkywarsProjAim', 'Re-hooked: ' .. bow.Name, 3)
                             end
+                        else
+                            dbg('Bow not in Character. Waiting...')
                         end
                     end
+
+                    dbg('Monitoring loop ended.')
                 end))
 
                 -- FOV Circle更新ループ
@@ -379,14 +460,17 @@ run(function()
                 end))
 
             else
-                -- 無効化時: 元のOnClientInvokeを復元
+                -- 無効化時
+                dbg('Module DISABLED')
                 isInRound = false
+                debugMode = false
                 if oldInvoke then
-                    local tool = getTool()
-                    if tool then
-                        local clientControl = tool:FindFirstChild('ClientControl')
+                    local bow = getCharacterBow()
+                    if bow then
+                        local clientControl = bow:FindFirstChild('ClientControl')
                         if clientControl then
                             clientControl.OnClientInvoke = oldInvoke
+                            dbg('OnClientInvoke restored to original.')
                         end
                     end
                     oldInvoke = nil
@@ -399,7 +483,7 @@ run(function()
             end
             return Mode.Value
         end,
-        Tooltip = 'Automatically aims projectiles in Skywars\nby hooking ClientControl.OnClientInvoke\nWaits for round to start before hooking.'
+        Tooltip = 'Automatically aims projectiles in Skywars\nby hooking ClientControl.OnClientInvoke\nWaits for Bow in Character before hooking.'
     })
 
     Targets = SkywarsProjAim:CreateTargets({Players = true})
@@ -432,6 +516,31 @@ run(function()
 
     ShowTarget = SkywarsProjAim:CreateToggle({
         Name = 'Show target info'
+    })
+
+    DebugMode = SkywarsProjAim:CreateToggle({
+        Name = 'Debug Mode',
+        Function = function(callback)
+            debugMode = callback
+            if callback then
+                print('[SkywarsProjAim] === DEBUG MODE ENABLED ===')
+                print('[SkywarsProjAim] Module Enabled: ' .. tostring(SkywarsProjAim.Enabled))
+                print('[SkywarsProjAim] isInRound: ' .. tostring(isInRound))
+                print('[SkywarsProjAim] Mode: ' .. Mode.Value)
+                print('[SkywarsProjAim] Range: ' .. Range.Value)
+                print('[SkywarsProjAim] Wallcheck: ' .. tostring(Targets.Walls.Enabled))
+                print('[SkywarsProjAim] oldInvoke: ' .. tostring(oldInvoke))
+                local bow = getCharacterBow()
+                print('[SkywarsProjAim] Bow in Character: ' .. tostring(bow))
+                if bow then
+                    print('[SkywarsProjAim] ClientControl: ' .. tostring(bow:FindFirstChild('ClientControl')))
+                end
+                print('[SkywarsProjAim] ============================')
+            else
+                print('[SkywarsProjAim] === DEBUG MODE DISABLED ===')
+            end
+        end,
+        Tooltip = 'Prints all internal state and events to the console'
     })
 
     -- Range Circle (Mouse FOV)
