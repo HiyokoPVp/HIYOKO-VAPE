@@ -1060,3 +1060,228 @@ run(function()
 		Tooltip = 'Shows a green box around the current target RootPart.'
 	})
 end)
+
+run(function()
+    local ImpulseFly
+    local Speed
+    local VerticalSpeed
+    local WallCheck
+    local rayCheck = RaycastParams.new()
+    rayCheck.RespectCanCollide = true
+    local up, down = 0, 0
+
+    ImpulseFly = vape.Categories.Blatant:CreateModule({
+        Name = 'Impulse Fly',
+        Function = function(callback)
+            frictionTable.ImpulseFly = callback or nil
+            updateVelocity()
+            if callback then
+                ImpulseFly:Clean(runService.PreSimulation:Connect(function(dt)
+                    if entitylib.isAlive and isnetworkowner(entitylib.character.RootPart) then
+                        local root = entitylib.character.RootPart
+                        local moveDirection = entitylib.character.Humanoid.MoveDirection
+                        local velo = getSpeed()
+
+                        -- 水平移動: 目標速度との差分をImpulseで補正
+                        local targetVel = moveDirection * Speed.Value
+                        local currentVel = root.AssemblyLinearVelocity * Vector3.new(1, 0, 1)
+                        local deltaVel = targetVel - currentVel
+                        if deltaVel.Magnitude > 0.1 then
+                            root:ApplyImpulse(deltaVel * root.AssemblyMass)
+                        end
+
+                        -- 垂直移動
+                        local verticalVel = (up + down) * VerticalSpeed.Value
+                        if verticalVel ~= 0 then
+                            root.AssemblyLinearVelocity = Vector3.new(
+                                root.AssemblyLinearVelocity.X,
+                                verticalVel,
+                                root.AssemblyLinearVelocity.Z
+                            )
+                        else
+                            -- 空中で静止（重力相殺）
+                            if entitylib.character.Humanoid.FloorMaterial == Enum.Material.Air then
+                                root.AssemblyLinearVelocity = Vector3.new(
+                                    root.AssemblyLinearVelocity.X,
+                                    0,
+                                    root.AssemblyLinearVelocity.Z
+                                )
+                            end
+                        end
+
+                        -- 壁チェック
+                        if WallCheck.Enabled then
+                            rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera, AntiFallPart}
+                            rayCheck.CollisionGroup = root.CollisionGroup
+                            local destination = moveDirection * Speed.Value * dt
+                            local ray = workspace:Raycast(root.Position, destination, rayCheck)
+                            if ray then
+                                root.AssemblyLinearVelocity = Vector3.new(
+                                    root.AssemblyLinearVelocity.X * (1 - math.abs(ray.Normal.X)),
+                                    root.AssemblyLinearVelocity.Y,
+                                    root.AssemblyLinearVelocity.Z * (1 - math.abs(ray.Normal.Z))
+                                )
+                            end
+                        end
+                    end
+                end))
+
+                ImpulseFly:Clean(inputService.InputBegan:Connect(function(input)
+                    if not inputService:GetFocusedTextBox() then
+                        if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
+                            up = 1
+                        elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL2 then
+                            down = -1
+                        end
+                    end
+                end))
+                ImpulseFly:Clean(inputService.InputEnded:Connect(function(input)
+                    if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
+                        up = 0
+                    elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL2 then
+                        down = 0
+                    end
+                end))
+
+                if inputService.TouchEnabled then
+                    pcall(function()
+                        local jumpButton = lplr.PlayerGui.TouchGui.TouchControlFrame.JumpButton
+                        ImpulseFly:Clean(jumpButton:GetPropertyChangedSignal('ImageRectOffset'):Connect(function()
+                            up = jumpButton.ImageRectOffset.X == 146 and 1 or 0
+                        end))
+                    end)
+                end
+            else
+                up, down = 0, 0
+            end
+        end,
+        ExtraText = function()
+            return 'Skywars'
+        end,
+        Tooltip = 'Impulse-based flight. Uses ApplyImpulse for smooth movement.'
+    })
+
+    Speed = ImpulseFly:CreateSlider({
+        Name = 'Speed',
+        Min = 1,
+        Max = 50,
+        Default = 23,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+    VerticalSpeed = ImpulseFly:CreateSlider({
+        Name = 'Vertical Speed',
+        Min = 1,
+        Max = 100,
+        Default = 30,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+    WallCheck = ImpulseFly:CreateToggle({
+        Name = 'Wall Check',
+        Default = true
+    })
+end)
+
+run(function()
+    local ImpulseSpeed
+    local Value
+    local WallCheck
+    local AutoJump
+    local AlwaysJump
+    local rayCheck = RaycastParams.new()
+    rayCheck.RespectCanCollide = true
+
+    ImpulseSpeed = vape.Categories.Blatant:CreateModule({
+        Name = 'Impulse Speed',
+        Function = function(callback)
+            frictionTable.ImpulseSpeed = callback or nil
+            updateVelocity()
+            if callback then
+                ImpulseSpeed:Clean(runService.PreSimulation:Connect(function(dt)
+                    bedwars.StatefulEntityKnockbackController.lastImpulseTime = callback and math.huge or time()
+                    if entitylib.isAlive and not Fly.Enabled and not InfiniteFly.Enabled and not LongJump.Enabled and not ImpulseFly.Enabled and isnetworkowner(entitylib.character.RootPart) then
+                        local state = entitylib.character.Humanoid:GetState()
+                        if state == Enum.HumanoidStateType.Climbing then return end
+
+                        local root = entitylib.character.RootPart
+                        local moveDirection = AntiFallDirection or entitylib.character.Humanoid.MoveDirection
+                        local velo = getSpeed()
+
+                        -- Impulse方式: 目標速度との差分を質量×加速度で補正
+                        local targetSpeed = math.max(Value.Value, velo)
+                        local targetVel = moveDirection * targetSpeed
+                        local currentVel = root.AssemblyLinearVelocity * Vector3.new(1, 0, 1)
+                        local deltaVel = targetVel - currentVel
+
+                        if deltaVel.Magnitude > 0.1 then
+                            -- 壁チェック
+                            if WallCheck.Enabled then
+                                rayCheck.FilterDescendantsInstances = {lplr.Character, gameCamera}
+                                rayCheck.CollisionGroup = root.CollisionGroup
+                                local ray = workspace:Raycast(root.Position, moveDirection * 3, rayCheck)
+                                if ray then
+                                    -- 壁の法線方向の速度成分を除去
+                                    local normalFlat = Vector3.new(ray.Normal.X, 0, ray.Normal.Z)
+                                    if normalFlat.Magnitude > 0.1 then
+                                        normalFlat = normalFlat.Unit
+                                        deltaVel = deltaVel - normalFlat * deltaVel:Dot(normalFlat)
+                                    end
+                                end
+                            end
+                            root:ApplyImpulse(deltaVel * root.AssemblyMass)
+                        end
+
+                        -- 垂直速度は維持（重力・ジャンプ干渉しない）
+                        -- 地面にいる場合のみY速度を0に近づける（安定化）
+                        if state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.Landed then
+                            if math.abs(root.AssemblyLinearVelocity.Y) < 5 then
+                                root.AssemblyLinearVelocity = Vector3.new(
+                                    root.AssemblyLinearVelocity.X,
+                                    0,
+                                    root.AssemblyLinearVelocity.Z
+                                )
+                            end
+                        end
+
+                        -- AutoJump
+                        if AutoJump.Enabled and (state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.Landed) and moveDirection ~= Vector3.zero and (Attacking or AlwaysJump.Enabled) then
+                            entitylib.character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                        end
+                    end
+                end))
+            end
+        end,
+        ExtraText = function()
+            return 'Skywars'
+        end,
+        Tooltip = 'Impulse-based speed. Uses ApplyImpulse for physics-friendly acceleration.'
+    })
+
+    Value = ImpulseSpeed:CreateSlider({
+        Name = 'Speed',
+        Min = 1,
+        Max = 50,
+        Default = 23,
+        Suffix = function(val)
+            return val == 1 and 'stud' or 'studs'
+        end
+    })
+    WallCheck = ImpulseSpeed:CreateToggle({
+        Name = 'Wall Check',
+        Default = true
+    })
+    AutoJump = ImpulseSpeed:CreateToggle({
+        Name = 'AutoJump',
+        Function = function(callback)
+            AlwaysJump.Object.Visible = callback
+        end
+    })
+    AlwaysJump = ImpulseSpeed:CreateToggle({
+        Name = 'Always Jump',
+        Visible = false,
+        Darker = true
+    })
+end)
