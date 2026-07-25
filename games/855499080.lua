@@ -1,5 +1,6 @@
 --[[
     SkywarsProjAim (Fixed & Optimized + Mouse FOV + WallCheck + Target Part)
+    SilentAura (BoxHandleAdornment Visualization)
 ]]
 local run = function(func)
 	func()
@@ -309,15 +310,21 @@ run(function()
 
 				-- フックおよび動作スレッド
 				SkywarsProjAim:Clean(task.spawn(function()
+					local lastTool = nil
+					local hookedFunction = nil
+
 					while SkywarsProjAim.Enabled do
 						local character = lplr.Character
 						if character then
 							local tool = character:FindFirstChild("Bow") or character:FindFirstChildOfClass("Tool")
-							if tool then
+							
+							-- ツールが変わった場合、または新しいツールが見つかった場合にフック処理を行う
+							if tool and tool ~= lastTool then
+								lastTool = tool
 								local clientControl = tool:FindFirstChild("ClientControl")
+								
 								if clientControl and clientControl:IsA("RemoteFunction") then
-									local hookedFunction
-
+									-- 既存のフック関数を定義
 									hookedFunction = function(...)
 										if not SkywarsProjAim.Enabled then
 											return Vector3.new(0, 0, 0)
@@ -356,20 +363,41 @@ run(function()
 									if debugMode then
 										notif('SkywarsProjAim', 'Hooked Bow: ' .. tool.Name, 3)
 									end
-
-									-- 他スクリプトに上書きされたら再度フック
-									while SkywarsProjAim.Enabled and tool.Parent == character do
-										pcall(function()
-											if clientControl.OnClientInvoke ~= hookedFunction then
-												clientControl.OnClientInvoke = hookedFunction
-											end
-										end)
-										task.wait(0.25)
-									end
 								end
 							end
+
+							-- 既にフック済みのツールの場合、他スクリプトによる上書きを検知して復元
+							if lastTool and hookedFunction then
+								local clientControl = lastTool:FindFirstChild("ClientControl")
+								if clientControl then
+									pcall(function()
+										if clientControl.OnClientInvoke ~= hookedFunction then
+											clientControl.OnClientInvoke = hookedFunction
+										end
+									end)
+								end
+							end
+						else
+							-- キャラクターがない場合はリセット
+							lastTool = nil
+							hookedFunction = nil
 						end
-						task.wait(0.5)
+						
+						task.wait(0.1) -- チェック頻度を上げて反応速度を向上
+					end
+					
+					-- ループ終了時（モジュールオフ時）にフックを解除
+					if lastTool then
+						local clientControl = lastTool:FindFirstChild("ClientControl")
+						if clientControl then
+							pcall(function()
+								-- 元の関数に戻すことは難しいため、nilまたは空の関数にすることで無効化
+								-- ただし、Robloxの仕様上、OnClientInvokeをnilにするとエラーになる場合があるため
+								-- モジュールがオフであることを示すダミー関数を残すか、そのままにする
+								-- ここでは安全のため、オフ時は0ベクトルを返す関数にしておく
+								clientControl.OnClientInvoke = function() return Vector3.new(0,0,0) end
+							end)
+						end
 					end
 				end))
 
@@ -590,7 +618,7 @@ run(function()
 	local IgnorePlayer
 	local ShowTarget
 
-	local targetHighlight = nil
+	local targetBox = nil
 
 	local function contains(text, sub)
 		return tostring(text):lower():find(tostring(sub):lower(), 1, true) ~= nil
@@ -809,116 +837,47 @@ run(function()
 		return bestRoot
 	end
 
-	local function clearTargetHighlight()
+	local function clearTargetBox()
 		pcall(function()
-			if targetHighlight then
-				targetHighlight.Enabled = false
+			if targetBox then
+				targetBox:Destroy()
 			end
 		end)
-
-		pcall(function()
-			if targetHighlight then
-				targetHighlight:Destroy()
-			end
-		end)
-
-		targetHighlight = nil
+		targetBox = nil
 	end
 
-	local function tryParentHighlight(highlight, targetRoot)
-		local candidates = {}
-
-		local ok, hui = pcall(function()
-			return gethui()
-		end)
-		if ok and hui then
-			table.insert(candidates, hui)
-		end
-
-		local playerGui = nil
-		pcall(function()
-			if lplr then
-				playerGui = lplr:FindFirstChildOfClass('PlayerGui')
-			end
-		end)
-		if playerGui then
-			table.insert(candidates, playerGui)
-		end
-
-		ok, coreGui = pcall(function()
-			return game:GetService('CoreGui')
-		end)
-		if ok and coreGui then
-			table.insert(candidates, coreGui)
-		end
-
-		table.insert(candidates, game:GetService('Lighting'))
-
-		if targetRoot and targetRoot.Parent then
-			table.insert(candidates, targetRoot.Parent)
-		end
-
-		if targetRoot then
-			table.insert(candidates, targetRoot)
-		end
-
-		table.insert(candidates, workspace)
-
-		for _, parent in ipairs(candidates) do
-			local success = pcall(function()
-				highlight.Parent = parent
-			end)
-			if success then
-				return true
-			end
-		end
-
-		return false
-	end
-
-	local function updateTargetHighlight(targetRoot)
+	local function updateTargetBox(targetRoot)
 		local shouldShow = ShowTarget and ShowTarget.Enabled and targetRoot ~= nil
 
 		if not shouldShow then
-			clearTargetHighlight()
+			clearTargetBox()
 			return
 		end
 
-		local valid = false
-		pcall(function()
-			valid = targetHighlight ~= nil and targetHighlight.Parent ~= nil
-		end)
-
-		if not valid then
+		-- ターゲットが変わった場合、またはボックスが存在しない場合は新規作成
+		if not targetBox or targetBox.Adornee ~= targetRoot then
+			clearTargetBox()
+			
 			pcall(function()
-				if targetHighlight then
-					targetHighlight:Destroy()
-				end
-			end)
-			targetHighlight = nil
-
-			pcall(function()
-				targetHighlight = Instance.new('Highlight')
-				targetHighlight.Name = 'SilentAuraTargetHighlight'
-				targetHighlight.FillColor = Color3.fromRGB(0, 255, 0)
-				targetHighlight.OutlineColor = Color3.fromRGB(0, 255, 0)
-				targetHighlight.FillTransparency = 0.4
-				targetHighlight.OutlineTransparency = 0
-
-				pcall(function()
-					targetHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-				end)
-
-				tryParentHighlight(targetHighlight, targetRoot)
+				targetBox = Instance.new('BoxHandleAdornment')
+				targetBox.Name = 'SilentAuraTargetBox'
+				targetBox.Size = Vector3.new(2, 2, 2) -- デフォルトサイズ、後で調整
+				targetBox.Color3 = Color3.fromRGB(0, 255, 0)
+				targetBox.Transparency = 0.5
+				targetBox.AlwaysOnTop = true
+				targetBox.Adornee = targetRoot
+				targetBox.Parent = targetRoot
 			end)
 		end
 
-		if targetHighlight then
+		-- ボックスが存在し、正しいターゲットを指している場合、サイズを更新
+		if targetBox then
 			pcall(function()
-				targetHighlight.Adornee = targetRoot
-				targetHighlight.Enabled = true
-				targetHighlight.FillColor = Color3.fromRGB(0, 255, 0)
-				targetHighlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+				-- HumanoidRootPartのサイズに合わせてBoxを調整（通常は1x1x1程度だが、視認性のため少し大きくしてもよい）
+				-- ここではRootPartそのもののSizeを取得して使用
+				targetBox.Size = targetRoot.Size
+				targetBox.Adornee = targetRoot
+				targetBox.Visible = true
 			end)
 		end
 	end
@@ -934,7 +893,7 @@ run(function()
 
 					local character = lplr.Character
 					if not character then
-						updateTargetHighlight(nil)
+						updateTargetBox(nil)
 						return
 					end
 
@@ -942,7 +901,7 @@ run(function()
 					local myHumanoid = character:FindFirstChildOfClass('Humanoid')
 
 					if not myRoot or not myHumanoid or myHumanoid.Health <= 0 then
-						updateTargetHighlight(nil)
+						updateTargetBox(nil)
 						return
 					end
 
@@ -954,7 +913,7 @@ run(function()
 						LimitedItem = LimitedItem and LimitedItem.Value or 'Off',
 					})
 
-					updateTargetHighlight(targetRoot)
+					updateTargetBox(targetRoot)
 
 					if targetRoot then
 						pcall(function()
@@ -993,7 +952,7 @@ run(function()
 					end
 				end))
 			else
-				clearTargetHighlight()
+				clearTargetBox()
 
 				pcall(function()
 					local character = lplr.Character
@@ -1088,9 +1047,9 @@ run(function()
 		Name = 'ShowTarget',
 		Function = function(callback)
 			if not callback then
-				clearTargetHighlight()
+				clearTargetBox()
 			end
 		end,
-		Tooltip = 'Highlights the current target RootPart in green.'
+		Tooltip = 'Shows a green box around the current target RootPart.'
 	})
 end)
