@@ -197,6 +197,14 @@ local function inround()
     return hasTool()
 end
 
+local function getTool()
+    return lplr.Character and lplr.Character:FindFirstChildWhichIsA('Tool', true) or nil
+end
+
+local function notif(...)
+    return vape:CreateNotification(...)
+end
+
 run(function()
     local SkywarsProjAim
     local Targets
@@ -208,6 +216,7 @@ run(function()
     local CircleObject
     local ShowTarget
     local oldInvoke
+    local isInRound = false
 
     SkywarsProjAim = vape.Categories.Combat:CreateModule({
         Name = 'SkywarsProjAim',
@@ -216,14 +225,30 @@ run(function()
                 CircleObject.Visible = callback and Mode.Value == 'Mouse'
             end
             if callback then
-                -- ツールとClientControlを待機してフックするスレッド
+                isInRound = false
+                oldInvoke = nil
+
+                -- 試合開始待機 + フックスレッド
                 SkywarsProjAim:Clean(task.spawn(function()
+                    -- ① 試合開始（ツール配布）を待機
+                    notif('SkywarsProjAim', 'Waiting for round to start...', 3)
+                    while SkywarsProjAim.Enabled do
+                        if inround() then
+                            isInRound = true
+                            notif('SkywarsProjAim', 'Round started! Looking for tool...', 3)
+                            break
+                        end
+                        task.wait(0.5)
+                    end
+
+                    if not SkywarsProjAim.Enabled then return end
+
+                    -- ② ClientControl付きツールを待機してフック
                     while SkywarsProjAim.Enabled do
                         local tool = getTool()
                         if tool then
                             local clientControl = tool:FindFirstChild('ClientControl')
                             if clientControl then
-                                -- 元のOnClientInvokeを保存
                                 oldInvoke = clientControl.OnClientInvoke
 
                                 clientControl.OnClientInvoke = function(...)
@@ -261,19 +286,88 @@ run(function()
                                         return ent[targetPart].Position
                                     end
 
-                                    -- ターゲットなし → 元の処理 or ゼロ
                                     if oldInvoke then
                                         return oldInvoke(...)
                                     end
                                     return Vector3.new(0, 0, 0)
                                 end
 
-                                -- フック成功通知
                                 notif('SkywarsProjAim', 'Hooked: '..tool.Name, 3)
                                 break
                             end
                         end
                         task.wait(0.5)
+                    end
+
+                    -- ③ ツール切り替え監視（持ち替えたら再フック）
+                    while SkywarsProjAim.Enabled do
+                        task.wait(1)
+                        if not inround() then
+                            -- 試合終了 → 次ラウンド待機
+                            isInRound = false
+                            oldInvoke = nil
+                            notif('SkywarsProjAim', 'Round ended. Waiting for next round...', 3)
+                            while SkywarsProjAim.Enabled do
+                                if inround() then
+                                    isInRound = true
+                                    break
+                                end
+                                task.wait(0.5)
+                            end
+                            if not SkywarsProjAim.Enabled then break end
+                        end
+
+                        -- 新しいツールにClientControlがあれば再フック
+                        local tool = getTool()
+                        if tool then
+                            local clientControl = tool:FindFirstChild('ClientControl')
+                            if clientControl and clientControl.OnClientInvoke ~= oldInvoke then
+                                oldInvoke = clientControl.OnClientInvoke
+
+                                clientControl.OnClientInvoke = function(...)
+                                    if not SkywarsProjAim.Enabled then
+                                        return oldInvoke and oldInvoke(...) or Vector3.zero
+                                    end
+
+                                    local targetPart = 'Head'
+                                    local ent
+
+                                    if Mode.Value == 'Mouse' then
+                                        ent = entitylib.EntityMouse({
+                                            Range = Range.Value,
+                                            Wallcheck = Targets.Walls.Enabled or nil,
+                                            Part = targetPart,
+                                            Players = Targets.Players.Enabled,
+                                            NPCs = Targets.NPCs.Enabled,
+                                            Origin = gameCamera.CFrame.Position
+                                        })
+                                    else
+                                        ent = entitylib.EntityPosition({
+                                            Range = Range.Value,
+                                            Wallcheck = Targets.Walls.Enabled or nil,
+                                            Part = targetPart,
+                                            Players = Targets.Players.Enabled,
+                                            NPCs = Targets.NPCs.Enabled,
+                                            Origin = entitylib.isAlive and entitylib.character.RootPart.Position or Vector3.zero
+                                        })
+                                    end
+
+                                    if ent and ent[targetPart] then
+                                        if ShowTarget.Enabled then
+                                            targetinfo.Targets[ent] = tick() + 1
+                                        end
+                                        return ent[targetPart].Position
+                                    end
+
+                                    if oldInvoke then
+                                        return oldInvoke(...)
+                                    end
+                                    return Vector3.new(0, 0, 0)
+                                end
+
+                                notif('SkywarsProjAim', 'Re-hooked: '..tool.Name, 3)
+                            end
+                        end
                     end
                 end))
 
@@ -286,6 +380,7 @@ run(function()
 
             else
                 -- 無効化時: 元のOnClientInvokeを復元
+                isInRound = false
                 if oldInvoke then
                     local tool = getTool()
                     if tool then
@@ -299,9 +394,12 @@ run(function()
             end
         end,
         ExtraText = function()
+            if not isInRound then
+                return 'Waiting...'
+            end
             return Mode.Value
         end,
-        Tooltip = 'Automatically aims projectiles in Skywars\nby hooking ClientControl.OnClientInvoke'
+        Tooltip = 'Automatically aims projectiles in Skywars\nby hooking ClientControl.OnClientInvoke\nWaits for round to start before hooking.'
     })
 
     Targets = SkywarsProjAim:CreateTargets({Players = true})
