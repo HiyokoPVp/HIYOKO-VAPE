@@ -1,5 +1,5 @@
 --[[
-    SkywarsProjAim (Fixed & Optimized)
+    SkywarsProjAim (Fixed & Optimized with FOV Slider)
 ]]
 local run = function(func)
 	func()
@@ -44,39 +44,12 @@ local function notif(...)
 	return vape:CreateNotification(...)
 end
 
--- 最も近くにいる他のプレイヤー（敵）の頭部を取得する安全な関数
-local function getNearestEnemyHead()
-	local character = lplr.Character
-	if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
-	
-	local myRoot = character.HumanoidRootPart
-	local nearestHead = nil
-	local shortestDistance = math.huge
-	
-	for _, player in ipairs(playersService:GetPlayers()) do
-		if player ~= lplr and player.Character then
-			local enemyChar = player.Character
-			local enemyHead = enemyChar:FindFirstChild("Head")
-			local enemyHumanoid = enemyChar:FindFirstChildOfClass("Humanoid")
-			
-			if enemyHead and enemyHumanoid and enemyHumanoid.Health > 0 then
-				local distance = (myRoot.Position - enemyHead.Position).Magnitude
-				if distance < shortestDistance then
-					shortestDistance = distance
-					nearestHead = enemyHead
-				end
-			end
-		end
-	end
-	
-	return nearestHead
-end
-
 run(function()
 	local SkywarsProjAim
 	local Targets
 	local Mode
 	local Range
+	local FOVSlider
 	local CircleColor
 	local CircleTransparency
 	local CircleFilled
@@ -89,6 +62,55 @@ run(function()
 		if debugMode then
 			print('[SkywarsProjAim] ' .. tostring(msg))
 		end
+	end
+
+	-- FOV（マウスからの画面上のピクセル距離）内にいるか判定しつつ最も近い敵を取得する関数
+	local function getNearestEnemyHeadWithFOV()
+		local character = lplr.Character
+		if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+		
+		local myRoot = character.HumanoidRootPart
+		local nearestHead = nil
+		local shortestDistance = math.huge
+		local mousePos = inputService:GetMouseLocation()
+		local fovLimit = FOVSlider and FOVSlider.Value or 150
+		
+		for _, player in ipairs(playersService:GetPlayers()) do
+			if player ~= lplr and player.Character then
+				local enemyChar = player.Character
+				local enemyHead = enemyChar:FindFirstChild("Head")
+				local enemyHumanoid = enemyChar:FindFirstChildOfClass("Humanoid")
+				
+				if enemyHead and enemyHumanoid and enemyHumanoid.Health > 0 then
+					local distance = (myRoot.Position - enemyHead.Position).Magnitude
+					
+					-- 射程範囲内チェック
+					if distance <= Range.Value then
+						-- Mouseモードの場合、画面上のFOVチェックを行う
+						if Mode.Value == 'Mouse' then
+							local screenPos, onScreen = gameCamera:WorldToViewportPoint(enemyHead.Position)
+							if onScreen then
+								local screenVector = Vector2.new(screenPos.X, screenPos.Y)
+								local fovDistance = (screenVector - mousePos).Magnitude
+								
+								if fovDistance <= fovLimit and distance < shortestDistance then
+									shortestDistance = distance
+									nearestHead = enemyHead
+								end
+							end
+						else
+							-- Positionモードの場合はシンプルに距離だけで判定
+							if distance < shortestDistance then
+								shortestDistance = distance
+								nearestHead = enemyHead
+							end
+						end
+					end
+				end
+			end
+		end
+		
+		return nearestHead
 	end
 
 	SkywarsProjAim = vape.Categories.Combat:CreateModule({
@@ -110,14 +132,13 @@ run(function()
 							if tool then
 								local clientControl = tool:FindFirstChild("ClientControl")
 								if clientControl and clientControl:IsA("RemoteFunction") then
-									-- OnClientInvokeはリード（取得）できないため、直接上書きする
 									clientControl.OnClientInvoke = function(...)
 										if not SkywarsProjAim.Enabled then
 											return Vector3.new(0, 0, 0)
 										end
 
 										dbg('OnClientInvoke triggered!')
-										local targetHead = getNearestEnemyHead()
+										local targetHead = getNearestEnemyHeadWithFOV()
 										
 										if targetHead then
 											dbg('Target locked: ' .. tostring(targetHead.Parent.Name) .. ' at ' .. tostring(targetHead.Position))
@@ -128,12 +149,10 @@ run(function()
 									end
 									dbg('ClientControl successfully hooked for tool: ' .. tool.Name)
 									
-									-- DebugModeが無効な場合のみ通知を表示
 									if debugMode then
 										notif('SkywarsProjAim', 'Hooked Bow: ' .. tool.Name, 3)
 									end
 									
-									-- フック完了後はツールが外されるまで待機
 									while SkywarsProjAim.Enabled and tool.Parent == character do
 										task.wait(0.5)
 									end
@@ -159,7 +178,7 @@ run(function()
 		ExtraText = function()
 			return Mode.Value
 		end,
-		Tooltip = 'Automatically aims projectiles by hooking ClientControl.OnClientInvoke directly.'
+		Tooltip = 'Automatically aims projectiles with customizable FOV.'
 	})
 
 	Targets = SkywarsProjAim:CreateTargets({Players = true})
@@ -180,13 +199,27 @@ run(function()
 		Max = 500,
 		Default = 150,
 		Function = function(val)
+		end,
+		Suffix = function(val)
+			return val == 1 and 'stud' or 'studs'
+		end
+	})
+
+	-- 追加したFOVスライダー
+	FOVSlider = SkywarsProjAim:CreateSlider({
+		Name = 'FOV',
+		Min = 10,
+		Max = 600,
+		Default = 150,
+		Function = function(val)
 			if CircleObject then
 				CircleObject.Radius = val
 			end
 		end,
 		Suffix = function(val)
-			return val == 1 and 'stud' or 'studs'
-		end
+			return 'px'
+		end,
+		Tooltip = 'Mouse mode targeting radius (pixels)'
 	})
 
 	ShowTarget = SkywarsProjAim:CreateToggle({
@@ -201,7 +234,7 @@ run(function()
 		Tooltip = 'Prints debug logs to console'
 	})
 
-	-- Range Circle (Mouse FOV)
+	-- Range Circle (Mouse FOV) -> FOVスライダーと連動するように変更
 	SkywarsProjAim:CreateToggle({
 		Name = 'Range Circle',
 		Function = function(callback)
@@ -210,7 +243,7 @@ run(function()
 				CircleObject.Filled = CircleFilled.Enabled
 				CircleObject.Color = Color3.fromHSV(CircleColor.Hue, CircleColor.Sat, CircleColor.Value)
 				CircleObject.Position = inputService:GetMouseLocation()
-				CircleObject.Radius = Range.Value
+				CircleObject.Radius = FOVSlider.Value
 				CircleObject.NumSides = 100
 				CircleObject.Transparency = 1 - CircleTransparency.Value
 				CircleObject.Visible = SkywarsProjAim.Enabled and Mode.Value == 'Mouse'
