@@ -299,7 +299,7 @@ run(function()
 	end
 
 	SkywarsProjAim = vape.Categories.Combat:CreateModule({
-		Name = 'SkywarsProjAim',
+		Name = 'SkywarsProjectileAimbot',
 		Function = function(callback)
 			updateCircleForMode()
 
@@ -403,8 +403,6 @@ run(function()
 		end,
 		Tooltip = 'Automatically aims projectiles by hooking ClientControl.OnClientInvoke directly. Mouse mode uses FOV, optional WallCheck and target part.'
 	})
-
-	Targets = SkywarsProjAim:CreateTargets({Players = true})
 
 	Mode = SkywarsProjAim:CreateDropdown({
 		Name = 'Mode',
