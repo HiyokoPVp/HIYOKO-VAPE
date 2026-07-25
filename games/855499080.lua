@@ -45,6 +45,10 @@ local function notif(...)
 	return vape:CreateNotification(...)
 end
 
+for _, v in {'AntiRagdoll', 'TriggerBot', 'SilentAim', 'AutoRejoin', 'Rejoin', 'Disabler', 'Timer', 'ServerHop', 'MouseTP', 'MurderMystery', 'Fly'} do
+	vape:Remove(v)
+end
+
 local function getRaycastFilterType()
 	local ok, value = pcall(function()
 		return Enum.RaycastFilterType.Exclude
@@ -1062,7 +1066,7 @@ run(function()
 end)
 
 run(function()
-    local ImpulseFly
+    local SkywarsFly
     local Speed
     local VerticalSpeed
     local WallCheck
@@ -1070,17 +1074,18 @@ run(function()
     rayCheck.RespectCanCollide = true
     local up, down = 0, 0
 
-    ImpulseFly = vape.Categories.Blatant:CreateModule({
-        Name = 'Impulse Fly',
+    SkywarsFly = vape.Categories.Blatant:CreateModule({
+        Name = 'SkywarsFly',
         Function = function(callback)
-            frictionTable.ImpulseFly = callback or nil
-            updateVelocity()
+            if frictionTable then
+                frictionTable.SkywarsFly = callback or nil
+                updateVelocity()
+            end
             if callback then
-                ImpulseFly:Clean(runService.PreSimulation:Connect(function(dt)
+                SkywarsFly:Clean(runService.PreSimulation:Connect(function(dt)
                     if entitylib.isAlive and isnetworkowner(entitylib.character.RootPart) then
                         local root = entitylib.character.RootPart
                         local moveDirection = entitylib.character.Humanoid.MoveDirection
-                        local velo = getSpeed()
 
                         -- 水平移動: 目標速度との差分をImpulseで補正
                         local targetVel = moveDirection * Speed.Value
@@ -1126,7 +1131,7 @@ run(function()
                     end
                 end))
 
-                ImpulseFly:Clean(inputService.InputBegan:Connect(function(input)
+                SkywarsFly:Clean(inputService.InputBegan:Connect(function(input)
                     if not inputService:GetFocusedTextBox() then
                         if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
                             up = 1
@@ -1135,7 +1140,7 @@ run(function()
                         end
                     end
                 end))
-                ImpulseFly:Clean(inputService.InputEnded:Connect(function(input)
+                SkywarsFly:Clean(inputService.InputEnded:Connect(function(input)
                     if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
                         up = 0
                     elseif input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.ButtonL2 then
@@ -1146,7 +1151,7 @@ run(function()
                 if inputService.TouchEnabled then
                     pcall(function()
                         local jumpButton = lplr.PlayerGui.TouchGui.TouchControlFrame.JumpButton
-                        ImpulseFly:Clean(jumpButton:GetPropertyChangedSignal('ImageRectOffset'):Connect(function()
+                        SkywarsFly:Clean(jumpButton:GetPropertyChangedSignal('ImageRectOffset'):Connect(function()
                             up = jumpButton.ImageRectOffset.X == 146 and 1 or 0
                         end))
                     end)
@@ -1156,12 +1161,12 @@ run(function()
             end
         end,
         ExtraText = function()
-            return 'Skywars'
+            return 'Impulse'
         end,
         Tooltip = 'Impulse-based flight. Uses ApplyImpulse for smooth movement.'
     })
 
-    Speed = ImpulseFly:CreateSlider({
+    Speed = SkywarsFly:CreateSlider({
         Name = 'Speed',
         Min = 1,
         Max = 50,
@@ -1170,7 +1175,7 @@ run(function()
             return val == 1 and 'stud' or 'studs'
         end
     })
-    VerticalSpeed = ImpulseFly:CreateSlider({
+    VerticalSpeed = SkywarsFly:CreateSlider({
         Name = 'Vertical Speed',
         Min = 1,
         Max = 100,
@@ -1179,14 +1184,14 @@ run(function()
             return val == 1 and 'stud' or 'studs'
         end
     })
-    WallCheck = ImpulseFly:CreateToggle({
+    WallCheck = SkywarsFly:CreateToggle({
         Name = 'Wall Check',
         Default = true
     })
 end)
 
 run(function()
-    local ImpulseSpeed
+    local SkywarsSpeed
     local Value
     local WallCheck
     local AutoJump
@@ -1194,15 +1199,17 @@ run(function()
     local rayCheck = RaycastParams.new()
     rayCheck.RespectCanCollide = true
 
-    ImpulseSpeed = vape.Categories.Blatant:CreateModule({
-        Name = 'Impulse Speed',
+    SkywarsSpeed = vape.Categories.Blatant:CreateModule({
+        Name = 'SkywarsSpeed',
         Function = function(callback)
-            frictionTable.ImpulseSpeed = callback or nil
-            updateVelocity()
+            if frictionTable then
+                frictionTable.SkywarsSpeed = callback or nil
+                updateVelocity()
+            end
             if callback then
-                ImpulseSpeed:Clean(runService.PreSimulation:Connect(function(dt)
+                SkywarsSpeed:Clean(runService.PreSimulation:Connect(function(dt)
                     bedwars.StatefulEntityKnockbackController.lastImpulseTime = callback and math.huge or time()
-                    if entitylib.isAlive and not Fly.Enabled and not InfiniteFly.Enabled and not LongJump.Enabled and not ImpulseFly.Enabled and isnetworkowner(entitylib.character.RootPart) then
+                    if entitylib.isAlive and not Fly.Enabled and not InfiniteFly.Enabled and not LongJump.Enabled and not SkywarsFly.Enabled and isnetworkowner(entitylib.character.RootPart) then
                         local state = entitylib.character.Humanoid:GetState()
                         if state == Enum.HumanoidStateType.Climbing then return end
 
@@ -1223,7 +1230,6 @@ run(function()
                                 rayCheck.CollisionGroup = root.CollisionGroup
                                 local ray = workspace:Raycast(root.Position, moveDirection * 3, rayCheck)
                                 if ray then
-                                    -- 壁の法線方向の速度成分を除去
                                     local normalFlat = Vector3.new(ray.Normal.X, 0, ray.Normal.Z)
                                     if normalFlat.Magnitude > 0.1 then
                                         normalFlat = normalFlat.Unit
@@ -1234,8 +1240,7 @@ run(function()
                             root:ApplyImpulse(deltaVel * root.AssemblyMass)
                         end
 
-                        -- 垂直速度は維持（重力・ジャンプ干渉しない）
-                        -- 地面にいる場合のみY速度を0に近づける（安定化）
+                        -- 地面にいる場合のみY速度を安定化
                         if state == Enum.HumanoidStateType.Running or state == Enum.HumanoidStateType.Landed then
                             if math.abs(root.AssemblyLinearVelocity.Y) < 5 then
                                 root.AssemblyLinearVelocity = Vector3.new(
@@ -1255,12 +1260,12 @@ run(function()
             end
         end,
         ExtraText = function()
-            return 'Skywars'
+            return 'Impulse'
         end,
         Tooltip = 'Impulse-based speed. Uses ApplyImpulse for physics-friendly acceleration.'
     })
 
-    Value = ImpulseSpeed:CreateSlider({
+    Value = SkywarsSpeed:CreateSlider({
         Name = 'Speed',
         Min = 1,
         Max = 50,
@@ -1269,17 +1274,17 @@ run(function()
             return val == 1 and 'stud' or 'studs'
         end
     })
-    WallCheck = ImpulseSpeed:CreateToggle({
+    WallCheck = SkywarsSpeed:CreateToggle({
         Name = 'Wall Check',
         Default = true
     })
-    AutoJump = ImpulseSpeed:CreateToggle({
+    AutoJump = SkywarsSpeed:CreateToggle({
         Name = 'AutoJump',
         Function = function(callback)
             AlwaysJump.Object.Visible = callback
         end
     })
-    AlwaysJump = ImpulseSpeed:CreateToggle({
+    AlwaysJump = SkywarsSpeed:CreateToggle({
         Name = 'Always Jump',
         Visible = false,
         Darker = true
