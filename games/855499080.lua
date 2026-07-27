@@ -1534,327 +1534,77 @@ run(function()
 end)
 
 run(function()
-	local playersService = cloneref(game:GetService('Players'))
-	local runService = cloneref(game:GetService('RunService'))
-	local vape = shared.vape
-	if not vape then
-		return
-	end
-
-	local lplr = playersService.LocalPlayer
-	if not lplr then
-		return
-	end
-
-	local rng = Random.new()
-
-	local ReachModule
-	local ReachAmount
+	local Reach
+	local Targets
+	local Value
 	local Chance
+	local Overlay = OverlapParams.new()
+	Overlay.FilterType = Enum.RaycastFilterType.Include()
 
-	local function getRaycastFilterType()
-		local ok, value = pcall(function()
-			return Enum.RaycastFilterType.Exclude
-		end)
-
-		if ok then
-			return value
-		end
-
-		ok, value = pcall(function()
-			return Enum.RaycastFilterType.Blacklist
-		end)
-
-		if ok then
-			return value
-		end
-
-		return nil
-	end
-
-	local raycastFilterType = getRaycastFilterType()
-
-	local function getTool()
-		local character = lplr.Character
-		if not character then
-			return nil
-		end
-
-		return character:FindFirstChildWhichIsA('Tool', true) or nil
-	end
-
-	local function getHandle(tool)
-		if not tool then
-			return nil
-		end
-
-		local handle = tool:FindFirstChild('Handle')
-		if handle and handle:IsA('BasePart') then
-			return handle
-		end
-
-		return tool:FindFirstChildWhichIsA('BasePart', true)
-	end
-
-	local function buildWallCheckParams()
-		local params = RaycastParams.new()
-
-		if raycastFilterType then
-			params.FilterType = raycastFilterType
-		end
-
-		-- WallCheckは常にON
-		-- プレイヤーキャラは全部除外して、壁・マップだけを判定しやすくする
-		local filter = {}
-		for _, player in ipairs(playersService:GetPlayers()) do
-			if player.Character then
-				table.insert(filter, player.Character)
-			end
-		end
-
-		params.FilterDescendantsInstances = filter
-		params.IgnoreWater = true
-
-		pcall(function()
-			params.RespectCanCollide = false
-		end)
-
-		return params
-	end
-
-	local function isPositionVisible(originPosition, targetPosition, params)
-		local direction = targetPosition - originPosition
-		local distance = direction.Magnitude
-
-		if distance < 0.001 then
-			return true
-		end
-
-		local ok, result = pcall(function()
-			return workspace:Raycast(originPosition, direction, params)
-		end)
-
-		if not ok or not result then
-			return true
-		end
-
-		-- 壁が目標より手前にあるなら不可視扱い
-		return result.Distance >= distance - 0.5
-	end
-
-	local function getCharacterAndPlayerFromPart(part)
-		local current = part.Parent
-
-		while current do
-			if current:IsA('Model') then
-				local ok, player = pcall(function()
-					return playersService:GetPlayerFromCharacter(current)
-				end)
-
-				if ok and player then
-					return current, player
-				end
-			end
-
-			current = current.Parent
-		end
-
-		return nil, nil
-	end
-
-	local function isValidEnemy(player, characterModel)
-		if not player or player == lplr then
-			return false
-		end
-
-		-- 古いキャラモデルなどを避ける
-		if characterModel and player.Character ~= characterModel then
-			return false
-		end
-
-		-- 同じチームは狙わない
-		if lplr.Team and player.Team and lplr.Team == player.Team then
-			return false
-		end
-
-		local character = characterModel or player.Character
-		if not character then
-			return false
-		end
-
-		local humanoid = character:FindFirstChildOfClass('Humanoid')
-		return humanoid ~= nil and humanoid.Health > 0
-	end
-
-	local function fireTouch(handle, part)
-		if type(firetouchinterest) ~= 'function' then
-			return
-		end
-
-		pcall(firetouchinterest, handle, part, 1)
-		pcall(firetouchinterest, handle, part, 0)
-	end
-
-	pcall(function()
-		vape:Remove('Reach')
-	end)
-
-	local category = vape.Categories and (vape.Categories.Combat or vape.Categories.Blatant)
-	if not category then
-		return
-	end
-
-	ReachModule = category:CreateModule({
-		Name = 'Reach',
+	Reach = vape.Categories.Combat:CreateModule({
+		Name = "Reach",
+		Tooltip = "Extends tool attack reach using TouchInterest",
 		Function = function(callback)
 			if callback then
-				ReachModule:Clean(runService.Heartbeat:Connect(function()
-					if not ReachModule.Enabled then
-						return
-					end
-
-					if type(firetouchinterest) ~= 'function' then
-						return
-					end
-
-					local character = lplr.Character
-					if not character then
-						return
-					end
-
-					local humanoid = character:FindFirstChildOfClass('Humanoid')
-					if not humanoid or humanoid.Health <= 0 then
-						return
-					end
-
+				repeat
 					local tool = getTool()
-					local handle = getHandle(tool)
-					if not handle or not handle:IsDescendantOf(workspace) then
-						return
-					end
+					tool = tool and tool:FindFirstChildWhichIsA("TouchTransmitter", true)
 
-					local chance = Chance and Chance.Value or 100
-					if chance <= 0 then
-						return
-					end
+					if tool then
+						local entities = {}
 
-					local reach = ReachAmount and ReachAmount.Value or 10
-					reach = math.clamp(reach, 1, 30)
-
-					-- Handleの位置を起点にする
-					-- 方向は自キャラの前方。Handle向きにしたい場合は handle.CFrame.LookVector に変更可能
-					local root = character:FindFirstChild('HumanoidRootPart')
-					local forward = (root and root.CFrame.LookVector) or handle.CFrame.LookVector
-
-					if not forward or forward.Magnitude < 0.001 then
-						forward = Vector3.new(0, 0, -1)
-					end
-
-					forward = forward.Unit
-
-					-- 真上/真下を向いたときのlookAt破綻を軽く回避
-					local up = Vector3.new(0, 1, 0)
-					if math.abs(forward:Dot(up)) > 0.999 then
-						up = Vector3.new(0, 0, -1)
-					end
-
-					local baseCFrame = CFrame.lookAt(handle.Position, handle.Position + forward, up)
-
-					-- 前方へ reach 分だけ伸ばしたボックス
-					-- 横幅/高さは固定 4 studs。必要ならここを調整
-					local boxCFrame = baseCFrame * CFrame.new(0, 0, -reach / 2)
-					local boxSize = Vector3.new(4, 4, reach)
-
-					local okOverlap, overlapParams = pcall(function()
-						return OverlapParams.new()
-					end)
-
-					if not okOverlap or not overlapParams then
-						return
-					end
-
-					if raycastFilterType then
-						pcall(function()
-							overlapParams.FilterType = raycastFilterType
-						end)
-					end
-
-					-- 自分のキャラだけ除外
-					overlapParams.FilterDescendantsInstances = {character}
-					overlapParams.IgnoreWater = true
-
-					pcall(function()
-						overlapParams.RespectCanCollide = false
-					end)
-
-					pcall(function()
-						overlapParams.MaxParts = 100
-					end)
-
-					local ok, parts = pcall(function()
-						return workspace:GetPartBoundsInBox(boxCFrame, boxSize, overlapParams)
-					end)
-
-					if not ok or type(parts) ~= 'table' then
-						return
-					end
-
-					local wallParams = buildWallCheckParams()
-					local firedParts = {}
-
-					for _, part in ipairs(parts) do
-						if part:IsA('BasePart') and not firedParts[part] then
-							-- 敵の装備Toolそのものは除外して、身体パーツ寄りにする
-							if not part:FindFirstAncestorWhichIsA('Tool') then
-								local model, player = getCharacterAndPlayerFromPart(part)
-
-								if isValidEnemy(player, model) then
-									-- Chance はパーツごとの発火確率
-									if chance >= 100 or rng:NextInteger(1, 100) <= chance then
-										-- WallCheckは常にON
-										if isPositionVisible(handle.Position, part.Position, wallParams) then
-											firedParts[part] = true
-											fireTouch(handle, part)
-										end
-									end
-								end
+						for _, v in entitylib.List do
+							if v.Targetable then
+								if not Targets.Players.Enabled and v.Player then continue end
+								if not Targets.NPCs.Enabled and v.NPC then continue end
+								table.insert(entities, v.Character)
 							end
 						end
+
+						Overlay.FilterDescendantsInstances = entities
+
+						local parts = workspace:GetPartBoundsInBox(
+							tool.Parent.CFrame * CFrame.new(0, 0, Value.Value / 2),
+							tool.Parent.Size + Vector3.new(0, 0, Value.Value),
+							Overlay
+						)
+
+						for _, part in parts do
+							if Random.new():NextNumber(0, 100) > Chance.Value then
+								task.wait(0.2)
+								break
+							end
+
+							firetouchinterest(tool.Parent, part, 1)
+							firetouchinterest(tool.Parent, part, 0)
+						end
 					end
-				end))
+
+					task.wait()
+				until not Reach.Enabled
 			end
-		end,
-		ExtraText = function()
-			local reachText = ReachAmount and tostring(ReachAmount.Value) or '?'
-			local chanceText = Chance and tostring(Chance.Value) or '?'
-			return reachText .. ' / ' .. chanceText .. '%'
-		end,
-		Tooltip = 'Extends a forward box from the equipped tool Handle and spoofs Touch via firetouchinterest. WallCheck is always enabled.'
+		end
 	})
 
-	ReachAmount = ReachModule:CreateSlider({
-		Name = 'Reach',
-		Min = 1,
-		Max = 30,
-		Default = 10,
-		Function = function(val)
-		end,
+	Targets = Reach:CreateTargets({
+		Players = true
+	})
+
+	Value = Reach:CreateSlider({
+		Name = "Range",
+		Min = 0,
+		Max = 10,
+		Decimal = 10,
 		Suffix = function(val)
-			return val == 1 and ' stud' or ' studs'
-		end,
-		Tooltip = 'Forward distance of the reach box from the tool Handle.'
+			return val == 1 and "stud" or "studs"
+		end
 	})
 
-	Chance = ReachModule:CreateSlider({
-		Name = 'Chance',
+	Chance = Reach:CreateSlider({
+		Name = "Chance",
 		Min = 0,
 		Max = 100,
 		Default = 100,
-		Function = function(val)
-		end,
-		Suffix = function(val)
-			return '%'
-		end,
-		Tooltip = 'Chance to fire touch interest for each detected part.'
+		Suffix = "%"
 	})
 end)
