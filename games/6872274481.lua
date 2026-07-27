@@ -18880,7 +18880,7 @@ run(function()
             LagBackCT:Clean(gauge)
 
             local gaugeCorner = Instance.new('UICorner')
-            gaugeCorner.CornerRadius = UDim.new(1, 0)
+            gaugeCorner.CornerRadius = UDim.new(0, 0)
             gaugeCorner.Parent = gauge
 
             local fill = Instance.new('Frame')
