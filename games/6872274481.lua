@@ -6884,6 +6884,7 @@ run(function()
     -- 購入可能かチェック
     local function canBuy(item, currencytable, amount)
         amount = amount or 1
+        if not item then return false end
         if not currencytable[item.currency] then
             local currency = getItem(item.currency)
             currencytable[item.currency] = currency and currency.amount or 0
@@ -6903,11 +6904,21 @@ run(function()
         return currencytable[item.currency] >= (item.price * amount)
     end
 
-    -- アイテムを購入
+    -- アイテムを購入（nilガード強化版）
     local function buyItem(item, currencytable)
         if not id then return end
-        notif('AutoBuy', 'Bought ' .. bedwars.ItemMeta[item.itemType].displayName, 3)
-        bedwars.Client:Get('BedwarsPurchaseItem'):CallServerAsync({
+        if not item then return end
+
+        local meta = bedwars.ItemMeta[item.itemType]
+        notif('AutoBuy', 'Bought ' .. (meta and meta.displayName or item.itemType), 3)
+
+        local remote = bedwars.Client:Get('BedwarsPurchaseItem')
+        if not remote then
+            notif('AutoBuy', 'Remote BedwarsPurchaseItem not found', 3)
+            return
+        end
+
+        remote:CallServerAsync({
             shopItem = item,
             shopId = id
         }):andThen(function(suc)
@@ -6920,6 +6931,7 @@ run(function()
                 bedwars.BedwarsShopController.alreadyPurchasedMap[item.itemType] = true
             end
         end)
+
         currencytable[item.currency] -= item.price
     end
 
@@ -7106,7 +7118,7 @@ run(function()
     })
 
     -- ============================================================
-    -- [50] Bow  (Crossbow → Bow → Arrows の優先順位)
+    -- [50] Bow  (Bow → Arrows → Crossbow → Arrows)
     -- ============================================================
     Bow = AutoBuy:CreateToggle({
         Name = 'Buy Bow',
@@ -7116,23 +7128,13 @@ run(function()
                 if not shop then return end
                 local bought = false
 
-                -- 既に上位弓を持っているかチェック
+                local hasBow = getItem('wood_bow')
                 local hasCrossbow = getItem('wood_crossbow')
                     or getItem('tactical_crossbow')
                     or getItem('headhunter')
-                local hasBow = getItem('wood_bow')
 
-                -- 1) Crossbow (7 emerald)
-                if not hasCrossbow and not hasBow then
-                    local cb = bedwars.Shop.getShopItem('wood_crossbow', lplr)
-                    if cb and canBuy(cb, currencytable) then
-                        buyItem(cb, currencytable)
-                        bought = true
-                    end
-                end
-
-                -- 2) Bow (24 iron) — Crossbowを買えなかった / 持ってない場合
-                if not bought and not hasCrossbow and not hasBow then
+                -- 1) Bow (24 iron)
+                if not hasBow and not hasCrossbow then
                     local bow = bedwars.Shop.getShopItem('wood_bow', lplr)
                     if bow and canBuy(bow, currencytable) then
                         buyItem(bow, currencytable)
@@ -7140,11 +7142,29 @@ run(function()
                     end
                 end
 
-                -- 3) Arrows (16 iron → 8本)
-                local arrowItem = getItem('arrow')
-                if (not arrowItem or arrowItem.amount < 8) then
-                    local arrow = bedwars.Shop.getShopItem('arrow', lplr)
-                    if arrow and canBuy(arrow, currencytable) then
+                -- 2) Arrows (16 iron → 8本)
+                local arrow = bedwars.Shop.getShopItem('arrow', lplr)
+                if arrow and canBuy(arrow, currencytable) then
+                    local arrowItem = getItem('arrow')
+                    if not arrowItem or arrowItem.amount < 8 then
+                        buyItem(arrow, currencytable)
+                        bought = true
+                    end
+                end
+
+                -- 3) Crossbow (7 emerald)
+                if not hasCrossbow then
+                    local cb = bedwars.Shop.getShopItem('wood_crossbow', lplr)
+                    if cb and canBuy(cb, currencytable) then
+                        buyItem(cb, currencytable)
+                        bought = true
+                    end
+                end
+
+                -- 4) Arrows again
+                if arrow and canBuy(arrow, currencytable) then
+                    local arrowItem = getItem('arrow')
+                    if not arrowItem or arrowItem.amount < 8 then
                         buyItem(arrow, currencytable)
                         bought = true
                     end
@@ -7165,11 +7185,9 @@ run(function()
             Functions[51] = callback and function(currencytable, shop)
                 if not shop then return end
 
-                -- チームカラーのwoolを取得
                 local teamWool = bedwars.Shop.getTeamWool(lplr:GetAttribute('Team')) or 'wool_white'
                 local woolItem = getItem(teamWool, nil, true)
 
-                -- woolを持っていない / 少ない場合のみ購入
                 if not woolItem or woolItem.amount < 16 then
                     local wool = bedwars.Shop.getShopItem(teamWool, lplr)
                     if wool and canBuy(wool, currencytable) then
