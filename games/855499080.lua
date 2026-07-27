@@ -41,10 +41,6 @@ local color = vape.Libraries.color
 local whitelist = vape.Libraries.whitelist
 local prediction = vape.Libraries.prediction
 
-local function getTool()
-	return lplr.Character and lplr.Character:FindFirstChildWhichIsA('Tool', true) or nil
-end
-
 local function notif(...)
 	return vape:CreateNotification(...)
 end
@@ -1534,6 +1530,13 @@ run(function()
 end)
 
 run(function()
+
+	local function getTool()
+
+	return lplr.Character and lplr.Character:FindFirstChildWhichIsA('Tool', true) or nil
+	
+    end
+
 	local Reach
 	local Targets
 	local Value
