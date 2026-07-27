@@ -18873,7 +18873,7 @@ run(function()
 
             local gauge = Instance.new('Frame')
             gauge.Name = 'LagBackCTGauge'
-            gauge.AnchorPoint = Vector2.new(0.5, 0)
+            gauge.AnchorPoint = Vector2.new(0.5, 0) -- 中心基準
             gauge.BackgroundColor3 = Color3.new()
             gauge.BackgroundTransparency = 0.5
             gauge.BorderSizePixel = 0
@@ -18900,13 +18900,14 @@ run(function()
             -- ========== 毎フレーム更新 ==========
             LagBackCT:Clean(runService.RenderStepped:Connect(function()
                 local size    = SizeOpt.Value
-                local yOffset = -HeightOpt.Value -- 正の値 = 上へ
+                local yOffset = HeightOpt.Value -- 負 = 上 / 正 = 下
 
-                -- レイアウト
+                -- レイアウト (label も gauge も X は 0.5 + offset 0 → 中央揃え)
                 label.Position = UDim2.new(0.5, 0, 0.5, yOffset)
+
                 local gaugeWidth = size * 4
                 gauge.Size = UDim2.fromOffset(gaugeWidth, math.max(3, size / 8))
-                gauge.Position = UDim2.new(0.5, -gaugeWidth / 2, 0.5, yOffset + size * 0.75)
+                gauge.Position = UDim2.new(0.5, 0, 0.5, yOffset + size * 0.75)
                 gauge.Visible = ShowGauge.Enabled
 
                 -- 死亡中 / 地面にいる間はリセットして非表示
@@ -18943,18 +18944,18 @@ run(function()
     SizeOpt = LagBackCT:CreateSlider({
         Name = 'Size',
         Min = 12,
-        Max = 48,
-        Default = 22,
+        Max = 75,
+        Default = 48,
         Tooltip = 'Text size of the countdown'
     })
 
     HeightOpt = LagBackCT:CreateSlider({
         Name = 'Height',
-        Min = 0,
+        Min = -300,
         Max = 300,
-        Default = 0,
+        Default = -175,
         Suffix = 'px',
-        Tooltip = 'Vertical offset from screen center (higher = up)'
+        Tooltip = 'Vertical offset from screen center (negative = up, positive = down)'
     })
 
     ShowGauge = LagBackCT:CreateToggle({
