@@ -16119,30 +16119,6 @@ end)
 
 run(function()
     local old
-    
-    vape.Categories.Blatant:CreateModule({
-        Name = 'Krystal Disabler',
-        Function = function(callback)
-            if callback then
-                bedwars.GlacialSkaterController:updateMomentum(9e9)
-                old = bedwars.GlacialSkaterController.updateMomentum
-                bedwars.GlacialSkaterController.updateMomentum = function(self)
-                    self.momentum = 9e9
-                    self.lastMomentumReport = 9e9
-                    bedwars.Client:Get('MomentumUpdate'):SendToServer({
-                        momentumValue = 9e9
-                    })
-                end
-                bedwars.GlacialSkaterController:updateMomentum()
-            else
-                bedwars.GlacialSkaterController.updateMomentum = old
-            end
-        end
-    })
-end)
-
-run(function()
-    local old
 
     vape.Categories.Blatant:CreateModule({
     	Name = 'Infinite Krystal',
@@ -18861,5 +18837,129 @@ run(function()
     		return val <= 1 and 'stud' or 'studs'
     	end,
         Darker = true
+    })
+end)
+
+run(function()
+    local LagBackCT
+    local SizeOpt
+    local HeightOpt
+    local ShowGauge
+
+    local MAX_AIR_TIME = 2.5 -- 空中2.5秒でラグバック
+    local DANGER_TIME  = 0.5 -- この秒数を切ったら危険表示(パルス)
+
+    -- 残り秒数 → 色 (緑:安全 … 赤:危険)
+    local function timerColor(remaining)
+        local ratio = math.clamp(remaining / MAX_AIR_TIME, 0, 1)
+        return Color3.fromHSV(ratio * 0.33, 0.85, 1)
+    end
+
+    LagBackCT = vape.Categories.Render:CreateModule({
+        Name = 'LagBackCT',
+        Function = function(callback)
+            if not callback then return end
+
+            -- ========== UI 生成 ==========
+            local label = Instance.new('TextLabel')
+            label.Name = 'LagBackCTLabel'
+            label.AnchorPoint = Vector2.new(0.5, 0.5)
+            label.BackgroundTransparency = 1
+            label.Text = ''
+            label.Font = Enum.Font.GothamBold
+            label.TextStrokeTransparency = 0.4
+            label.Parent = vape.gui
+            LagBackCT:Clean(label)
+
+            local gauge = Instance.new('Frame')
+            gauge.Name = 'LagBackCTGauge'
+            gauge.AnchorPoint = Vector2.new(0.5, 0)
+            gauge.BackgroundColor3 = Color3.new()
+            gauge.BackgroundTransparency = 0.5
+            gauge.BorderSizePixel = 0
+            gauge.Parent = vape.gui
+            LagBackCT:Clean(gauge)
+
+            local gaugeCorner = Instance.new('UICorner')
+            gaugeCorner.CornerRadius = UDim.new(1, 0)
+            gaugeCorner.Parent = gauge
+
+            local fill = Instance.new('Frame')
+            fill.Name = 'Fill'
+            fill.Size = UDim2.fromScale(0, 1)
+            fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            fill.BorderSizePixel = 0
+            fill.Parent = gauge
+
+            local fillCorner = gaugeCorner:Clone()
+            fillCorner.Parent = fill
+
+            -- ========== 状態 ==========
+            local airStart = nil -- 空中に入った瞬間のtick (地面にいる間はnil)
+
+            -- ========== 毎フレーム更新 ==========
+            LagBackCT:Clean(runService.RenderStepped:Connect(function()
+                local size    = SizeOpt.Value
+                local yOffset = -HeightOpt.Value -- 正の値 = 上へ
+
+                -- レイアウト
+                label.Position = UDim2.new(0.5, 0, 0.5, yOffset)
+                local gaugeWidth = size * 4
+                gauge.Size = UDim2.fromOffset(gaugeWidth, math.max(3, size / 8))
+                gauge.Position = UDim2.new(0.5, -gaugeWidth / 2, 0.5, yOffset + size * 0.75)
+                gauge.Visible = ShowGauge.Enabled
+
+                -- 死亡中 / 地面にいる間はリセットして非表示
+                if not entitylib.isAlive or entitylib.character.Humanoid.FloorMaterial ~= Enum.Material.Air then
+                    airStart = nil
+                    label.Text = ''
+                    fill.Size = UDim2.fromScale(0, 1)
+                    return
+                end
+
+                -- 空中ならタイマー開始
+                airStart = airStart or tick()
+                local remaining = math.max(MAX_AIR_TIME - (tick() - airStart), 0)
+                local col = timerColor(remaining)
+
+                -- 危険域で小さくパルス
+                local pulse = 1
+                if remaining <= DANGER_TIME then
+                    pulse = 1 + math.sin(tick() * 14) * 0.05
+                end
+
+                label.Text = string.format('%.1f', remaining)
+                label.TextSize = size * pulse
+                label.TextColor3 = col
+
+                fill.Size = UDim2.fromScale(remaining / MAX_AIR_TIME, 1)
+                fill.BackgroundColor3 = col
+            end))
+        end,
+        Tooltip = 'Displays a lagback countdown timer while airborne.'
+    })
+
+    -- ========== オプション ==========
+    SizeOpt = LagBackCT:CreateSlider({
+        Name = 'Size',
+        Min = 12,
+        Max = 48,
+        Default = 22,
+        Tooltip = 'Text size of the countdown'
+    })
+
+    HeightOpt = LagBackCT:CreateSlider({
+        Name = 'Height',
+        Min = 0,
+        Max = 300,
+        Default = 0,
+        Suffix = 'px',
+        Tooltip = 'Vertical offset from screen center (higher = up)'
+    })
+
+    ShowGauge = LagBackCT:CreateToggle({
+        Name = 'Show Gauge',
+        Default = true,
+        Tooltip = 'Shows the depletion bar under the timer'
     })
 end)
