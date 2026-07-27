@@ -15766,172 +15766,6 @@ run(function()
 end)
 
 run(function()
-    local DesyncFakelag = vape.Categories.Blatant:CreateModule({
-        Name = 'Fakelag',
-        Function = function(callback)
-            if callback then
-                startDesyncFakelag()
-            else
-                stopDesyncFakelag()
-            end
-        end,
-        Tooltip = 'Advanced Fakelag + Desync Hitbox (hard to hit)'
-    })
-
-    local heartbeatConn = nil
-    local lastTriggerTime = 0
-    local pendingTask = nil
-
-    local function startDesyncFakelag()
-        local ent = entitylib.LocalEntity
-        if not ent or not ent.RootPart then return end
-
-        local root = ent.RootPart
-
-        heartbeatConn = game:GetService("RunService").Heartbeat:Connect(function()
-            if not DesyncFakelag.Enabled or not root or not root.Parent then return end
-
-            local now = tick()
-            if now - lastTriggerTime < 0.05 then return end
-
-            local vel = root.AssemblyLinearVelocity
-            local isMoving = vel.Magnitude > 2
-
-            if OnlyMoving.Enabled and not isMoving then return end
-
-            if math.random(1, 100) > Chance.Value then return end
-
-            -- 前のタスクをキャンセル
-            if pendingTask then
-                task.cancel(pendingTask)
-                pendingTask = nil
-            end
-
-            lastTriggerTime = now
-            local waitDuration = (WaitTime:GetRandomValue() or 75) / 1000
-            local realCF = root.CFrame
-            local realVel = vel
-            local mode = Mode.Value
-
-            if mode == 'Basic' then
-                root.AssemblyLinearVelocity = Vector3.zero
-                pendingTask = task.delay(waitDuration, function()
-                    if root and root.Parent then
-                        pcall(function()
-                            root.AssemblyLinearVelocity = realVel * math.max(0.1, Strength.Value / 100)
-                        end)
-                    end
-                end)
-
-            elseif mode == 'Advanced' then
-                local fakeCF = realCF 
-                    * CFrame.new(0, -math.clamp(Offset.Value, 0.1, 3.0), 0) 
-                    * CFrame.Angles(0, math.rad(math.clamp(Angle.Value, 0, 40)), 0)
-
-                pcall(function()
-                    root.CFrame = fakeCF
-                    root.AssemblyLinearVelocity = Vector3.zero
-                end)
-
-                pendingTask = task.delay(waitDuration, function()
-                    if root and root.Parent then
-                        pcall(function()
-                            root.CFrame = realCF
-                            root.AssemblyLinearVelocity = realVel * math.max(0.1, Strength.Value / 100)
-                        end)
-                    end
-                end)
-
-            elseif mode == 'Random' then
-                local intensity = math.clamp(Strength.Value / 100, 0.1, 3)
-                pcall(function()
-                    root.AssemblyLinearVelocity = Vector3.new(
-                        realVel.X * (1 - math.random() * intensity),
-                        realVel.Y,
-                        realVel.Z * (1 - math.random() * intensity)
-                    )
-                end)
-                
-                local randomWait = waitDuration * math.random(6, 14) / 10
-                pendingTask = task.delay(randomWait, function()
-                    if root and root.Parent then
-                        pcall(function()
-                            root.AssemblyLinearVelocity = realVel
-                        end)
-                    end
-                end)
-            end
-        end)
-    end
-
-    local function stopDesyncFakelag()
-        if pendingTask then
-            task.cancel(pendingTask)
-            pendingTask = nil
-        end
-        if heartbeatConn then
-            heartbeatConn:Disconnect()
-            heartbeatConn = nil
-        end
-    end
-
-    -- ==================== Settings ====================
-
-    Mode = DesyncFakelag:CreateDropdown({
-        Name = 'Mode',
-        List = {'Basic', 'Advanced', 'Random'},
-        Default = 'Advanced',
-    })
-
-    Strength = DesyncFakelag:CreateSlider({
-        Name = 'Strength',
-        Min = 10,
-        Max = 300,
-        Default = 120,
-        Suffix = '%'
-    })
-
-    WaitTime = DesyncFakelag:CreateTwoSlider({
-        Name = 'Wait Time',
-        Min = 10,
-        Max = 250,
-        DefaultMin = 40,
-        DefaultMax = 110,
-        Suffix = 'ms'
-    })
-
-    Chance = DesyncFakelag:CreateSlider({
-        Name = 'Chance',
-        Min = 10,
-        Max = 100,
-        Default = 85,
-        Suffix = '%'
-    })
-
-    OnlyMoving = DesyncFakelag:CreateToggle({
-        Name = 'Only When Moving',
-        Default = true
-    })
-
-    Offset = DesyncFakelag:CreateSlider({
-        Name = 'Desync Offset',
-        Min = 0.1,
-        Max = 3.0,
-        Default = 0.95,
-        Decimal = 10,
-        Suffix = "studs"
-    })
-
-    Angle = DesyncFakelag:CreateSlider({
-        Name = 'Angle Offset',
-        Min = 0,
-        Max = 40,
-        Default = 12,
-        Suffix = "°"
-    })
-end)
-
-run(function()
 	local PlaceReach
 	local PlaceRange
 	local Mode
@@ -18875,3 +18709,153 @@ run(function()
     })
 end)
 
+run(function()
+    local AutoKaida
+    local Targets
+    local SwingRange
+    local AttackRange
+    local Sort
+    local Limit
+    local Swing
+    local Mouse
+    local GUI
+    local Perfect
+    local Distance
+    
+    local function getAttackData()
+        local claw = (Limit.Enabled and store.hand.tool and store.hand) or not Limit.Enabled and getItem('summoner_claw', nil, true)
+        if claw and claw.tool.Name:find('summoner_claw') then
+            if Mouse.Enabled and not inputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                return false
+            end
+            if GUI.Enabled and bedwars.AppController:isLayerOpen(bedwars.UILayers.MAIN) then
+                return false
+            end
+            return claw
+        end
+        return false
+    end
+    
+    AutoKaida = vape.Categories.Blatant:CreateModule({
+        Name = 'Auto Kaida',
+        Function = function(callback)
+            if callback then
+                repeat
+                    if entitylib.isAlive and (workspace:GetServerTimeNow() - bedwars.SummonerClawHandController.lastAttackTime) > bedwars.SummonerKitBalance.CLAW_COOLDOWN then
+                        local claw = getAttackData()
+                        if claw then
+                            local ent = entitylib.EntityPosition({
+                                Range = SwingRange.Value,
+                                Wallcheck = Targets.Walls.Enabled or nil,
+                                Part = 'RootPart',
+                                Players = Targets.Players.Enabled,
+                                NPCs = Targets.NPCs.Enabled,
+                                Sort = sortmethods[Sort.Value]
+                            })
+                            if ent then
+                                local selfpos = entitylib.character.RootPart.Position
+                                local dir = CFrame.lookAt(selfpos, ent.RootPart.Position).LookVector
+                                local delta = (ent.RootPart.Position - selfpos)
+    
+                                if Perfect.Enabled and (selfpos - ent.RootPart.Position).Magnitude <= Distance.Value then
+                                    if bedwars.AbilityController:canUseAbility('summoner_start_charging') and bedwars.AbilityController:canUseAbility('summoner_finish_charging') then
+                                        bedwars.AbilityController:useAbility('summoner_start_charging')
+                                        task.wait(0.5)
+                                        bedwars.AbilityController:useAbility('summoner_finish_charging')
+                                        if not Swing.Enabled then
+                                            continue
+                                        end
+                                    end
+                                end
+    
+                                if not Swing.Enabled then
+                                    local active = false
+                                    for _, v in workspace:QueryDescendants('#Summoner_SummonCircle') do
+                                        local pivot = v:FindFirstChild('Pivot')
+                                        if pivot and math.floor(pivot.Position.X) == math.floor(entitylib.character.RootPart.Position.X) and math.floor(pivot.Position.Z) == math.floor(entitylib.character.RootPart.Position.Z) then
+                                            active = true
+                                            break
+                                        end
+                                    end
+                                    if active then
+                                        task.wait()
+                                        continue
+                                    end
+                                end
+    
+                                if (selfpos - ent.RootPart.Position).Magnitude <= AttackRange.Value then
+                                    bedwars.Client:Get('SummonerClawAttackRequest'):SendToServer({
+                                        position = selfpos + dir * math.max(delta.Magnitude - 16.399, 0),
+                                        direction = dir,
+                                        clientTime = workspace:GetServerTimeNow()
+                                    })
+                                end
+                                bedwars.SummonerClawHandController.lastAttackTime = workspace:GetServerTimeNow()
+                                bedwars.SummonerClawController:clawAttack(lplr, selfpos, dir, claw.tool.Name)
+                            end
+                        end
+                    end
+                    task.wait(0.1)
+                until not AutoKaida.Enabled
+            end
+        end
+    })
+    
+    Targets = AutoKaida:CreateTargets({Players = true})
+    SwingRange = AutoKaida:CreateSlider({
+        Name = 'Swing Range',
+        Min = 1,
+        Max = 32,
+        Default = 32,
+        Suffix = function(val)
+            return val <= 1 and 'stud' or 'studs'
+        end
+    })
+    AttackRange = AutoKaida:CreateSlider({
+        Name = 'Attack Range',
+        Min = 1,
+        Max = 32,
+        Default = 32,
+        Suffix = function(val)
+            return val <= 1 and 'stud' or 'studs'
+        end
+    })
+    local methods = {'Damage', 'Distance'}
+    for i in sortmethods do
+        if not table.find(methods, i) then
+            table.insert(methods, i)
+        end
+    end
+    Sort = AutoKaida:CreateDropdown({
+        Name = 'Target mode',
+        List = methods,
+        Default = methods[2]
+    })
+    Mouse = AutoKaida:CreateToggle({Name = 'Require mouse down'})
+    GUI = AutoKaida:CreateToggle({Name = 'GUI check'})
+    Swing = AutoKaida:CreateToggle({
+        Name = 'Swing during ability',
+        Default = true,
+        Tooltip = 'Continue claw attacks while charging ability'
+    })
+    Limit = AutoKaida:CreateToggle({Name = 'Limit to items'})
+    Perfect = AutoKaida:CreateToggle({
+        Name = 'Perfect ability',
+        Function = function(callback)
+            pcall(function()
+                Distance.Object.Visible = callback
+            end)
+        end
+    })
+    Distance = AutoKaida:CreateSlider({
+        Name = 'Distance',
+    	Min = 3,
+    	Max = 15,
+    	Default = 6,
+    	Visible = false,
+    	Suffix = function(val)
+    		return val <= 1 and 'stud' or 'studs'
+    	end,
+        Darker = true
+    })
+end)
