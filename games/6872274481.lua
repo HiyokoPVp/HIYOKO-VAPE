@@ -6918,9 +6918,7 @@ run(function()
             return
         end
 
-        -- CallServerAsync が存在しない場合のガード
         if type(remote.CallServerAsync) ~= 'function' then
-            -- フォールバック: SendToServer があればそれで送る
             if type(remote.SendToServer) == 'function' then
                 remote:SendToServer({
                     shopItem = item,
@@ -7150,8 +7148,7 @@ run(function()
     })
 
     -- ============================================================
-    -- [50] Bow  (Bow → Arrows → Crossbow → Arrows)
-    -- crossbow 所持時は bow を買わない（ダウングレード防止）
+    -- [50] Bow  (Bow → Arrows(96) → Crossbow → Arrows(96))
     -- ============================================================
     Bow = AutoBuy:CreateToggle({
         Name = 'Buy Bow',
@@ -7166,8 +7163,7 @@ run(function()
                     or getItem('tactical_crossbow')
                     or getItem('headhunter')
 
-                -- 1) Bow (24 iron)
-                --    crossbow を既に持っている場合はスキップ（ダウングレード防止）
+                -- 1) Bow (24 iron) — crossbow所持時はスキップ（ダウングレード防止）
                 if not hasBow and not hasCrossbow then
                     local bow = safeGetShopItem('wood_bow')
                     if bow and canBuy(bow, currencytable) then
@@ -7176,13 +7172,26 @@ run(function()
                     end
                 end
 
-                -- 2) Arrows (16 iron → 8本)
+                -- 2) Arrows: 目標96個、鉄が足りないなら買える分だけ
                 local arrow = safeGetShopItem('arrow')
-                if arrow and canBuy(arrow, currencytable) then
+                if arrow then
                     local arrowItem = getItem('arrow')
-                    if not arrowItem or arrowItem.amount < 8 then
-                        buyItem(arrow, currencytable)
-                        bought = true
+                    local currentArrows = arrowItem and arrowItem.amount or 0
+                    local needed = 96 - currentArrows
+                    if needed > 0 then
+                        local perBuy = arrow.amount or 8
+                        local buysNeeded = math.ceil(needed / perBuy)
+                        -- 鉄残高を確認（currencytableにまだ無ければ取得）
+                        if currencytable.iron == nil then
+                            local ironItem = getItem('iron')
+                            currencytable.iron = ironItem and ironItem.amount or 0
+                        end
+                        local affordable = math.floor(currencytable.iron / arrow.price)
+                        local buys = math.min(buysNeeded, affordable)
+                        for _ = 1, buys do
+                            buyItem(arrow, currencytable)
+                            bought = true
+                        end
                     end
                 end
 
@@ -7195,12 +7204,24 @@ run(function()
                     end
                 end
 
-                -- 4) Arrows again
-                if arrow and canBuy(arrow, currencytable) then
+                -- 4) Arrows again: 目標96個、買える分だけ
+                if arrow then
                     local arrowItem = getItem('arrow')
-                    if not arrowItem or arrowItem.amount < 8 then
-                        buyItem(arrow, currencytable)
-                        bought = true
+                    local currentArrows = arrowItem and arrowItem.amount or 0
+                    local needed = 96 - currentArrows
+                    if needed > 0 then
+                        local perBuy = arrow.amount or 8
+                        local buysNeeded = math.ceil(needed / perBuy)
+                        if currencytable.iron == nil then
+                            local ironItem = getItem('iron')
+                            currencytable.iron = ironItem and ironItem.amount or 0
+                        end
+                        local affordable = math.floor(currencytable.iron / arrow.price)
+                        local buys = math.min(buysNeeded, affordable)
+                        for _ = 1, buys do
+                            buyItem(arrow, currencytable)
+                            bought = true
+                        end
                     end
                 end
 
@@ -7210,7 +7231,7 @@ run(function()
     })
 
     -- ============================================================
-    -- [51] Wool  (8 iron → 16個, チームカラー自動対応)
+    -- [51] Wool  (64個以上でスキップ / チームカラー自動対応)
     -- ============================================================
     Wool = AutoBuy:CreateToggle({
         Name = 'Buy Wool',
@@ -7225,7 +7246,10 @@ run(function()
                 end
 
                 local woolItem = getItem(teamWool, nil, true)
-                if not woolItem or woolItem.amount < 16 then
+                local currentWool = woolItem and woolItem.amount or 0
+
+                -- 64個以上あるなら買わない
+                if currentWool < 64 then
                     local wool = safeGetShopItem(teamWool)
                     if wool and canBuy(wool, currencytable) then
                         buyItem(wool, currencytable)
