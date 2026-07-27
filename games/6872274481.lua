@@ -18867,6 +18867,7 @@ run(function()
             label.BackgroundTransparency = 1
             label.Text = ''
             label.Font = Enum.Font.ArialBold
+            label.TextStrokeTransparency = 0.4
             label.Parent = vape.gui
             LagBackCT:Clean(label)
 
@@ -18878,6 +18879,10 @@ run(function()
             gauge.BorderSizePixel = 0
             gauge.Parent = vape.gui
             LagBackCT:Clean(gauge)
+
+            local gaugeCorner = Instance.new('UICorner')
+            gaugeCorner.CornerRadius = UDim.new(1, 0)
+            gaugeCorner.Parent = gauge
 
             local fill = Instance.new('Frame')
             fill.Name = 'Fill'
