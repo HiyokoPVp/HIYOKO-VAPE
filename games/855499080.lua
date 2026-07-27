@@ -15,10 +15,6 @@ local vapeEvents = setmetatable({}, {
 	end
 })
 
-local function getTool()
-	return lplr.Character and lplr.Character:FindFirstChildWhichIsA('Tool', true) or nil
-end
-
 local playersService = cloneref(game:GetService('Players'))
 local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
 local runService = cloneref(game:GetService('RunService'))
@@ -44,6 +40,10 @@ local tween = vape.Libraries.tween
 local color = vape.Libraries.color
 local whitelist = vape.Libraries.whitelist
 local prediction = vape.Libraries.prediction
+
+local function getTool()
+	return lplr.Character and lplr.Character:FindFirstChildWhichIsA('Tool', true) or nil
+end
 
 local function notif(...)
 	return vape:CreateNotification(...)
