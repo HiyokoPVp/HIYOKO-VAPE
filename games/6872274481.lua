@@ -18866,7 +18866,7 @@ run(function()
             label.AnchorPoint = Vector2.new(0.5, 0.5)
             label.BackgroundTransparency = 1
             label.Text = ''
-            label.Font = Enum.Font.GothamBold
+            label.Font = Enum.Font.ArialBold
             label.TextStrokeTransparency = 0.4
             label.Parent = vape.gui
             LagBackCT:Clean(label)
