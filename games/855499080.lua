@@ -1539,72 +1539,60 @@ run(function()
 	local Value
 	local Chance
 	local Overlay = OverlapParams.new()
-	Overlay.FilterType = Enum.RaycastFilterType.Include()
-
+	Overlay.FilterType = Enum.RaycastFilterType.Include
+	
 	Reach = vape.Categories.Combat:CreateModule({
-		Name = "Reach",
-		Tooltip = "Extends tool attack reach using TouchInterest",
+		Name = 'Reach',
 		Function = function(callback)
 			if callback then
 				repeat
 					local tool = getTool()
-					tool = tool and tool:FindFirstChildWhichIsA("TouchTransmitter", true)
-
+					tool = tool and tool:FindFirstChildWhichIsA('TouchTransmitter', true)
 					if tool then
-						local entities = {}
-
+						local entites = {}
 						for _, v in entitylib.List do
 							if v.Targetable then
 								if not Targets.Players.Enabled and v.Player then continue end
 								if not Targets.NPCs.Enabled and v.NPC then continue end
-								table.insert(entities, v.Character)
+								table.insert(entites, v.Character)
 							end
 						end
 
-						Overlay.FilterDescendantsInstances = entities
+						Overlay.FilterDescendantsInstances = entites
+						local parts = workspace:GetPartBoundsInBox(tool.Parent.CFrame * CFrame.new(0, 0, Value.Value / 2), tool.Parent.Size + Vector3.new(0, 0, Value.Value), Overlay)
 
-						local parts = workspace:GetPartBoundsInBox(
-							tool.Parent.CFrame * CFrame.new(0, 0, Value.Value / 2),
-							tool.Parent.Size + Vector3.new(0, 0, Value.Value),
-							Overlay
-						)
-
-						for _, part in parts do
-							if Random.new():NextNumber(0, 100) > Chance.Value then
+						for _, v in parts do
+							if Random.new().NextNumber(Random.new(), 0, 100) > Chance.Value then
 								task.wait(0.2)
 								break
 							end
 
-							firetouchinterest(tool.Parent, part, 1)
-							firetouchinterest(tool.Parent, part, 0)
+							firetouchinterest(tool.Parent, v, 1)
+							firetouchinterest(tool.Parent, v, 0)
 						end
 					end
 
 					task.wait()
 				until not Reach.Enabled
 			end
-		end
+		end,
+		Tooltip = 'Extends tool attack reach (TouchInterest)'
 	})
-
-	Targets = Reach:CreateTargets({
-		Players = true
-	})
-
+	Targets = Reach:CreateTargets({Players = true})
 	Value = Reach:CreateSlider({
-		Name = "Range",
+		Name = 'Range',
 		Min = 0,
 		Max = 10,
 		Decimal = 10,
 		Suffix = function(val)
-			return val == 1 and "stud" or "studs"
+			return val == 1 and 'stud' or 'studs'
 		end
 	})
-
 	Chance = Reach:CreateSlider({
-		Name = "Chance",
+		Name = 'Chance',
 		Min = 0,
 		Max = 100,
 		Default = 100,
-		Suffix = "%"
+		Suffix = '%'
 	})
 end)
