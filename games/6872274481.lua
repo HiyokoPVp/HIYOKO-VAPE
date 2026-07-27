@@ -18964,3 +18964,59 @@ run(function()
         Tooltip = 'Shows the depletion bar under the timer'
     })
 end)
+
+run(function()
+    local DisableKrystalGui
+    local TARGETS = {'ActionBarScreenGui', 'StatusEffectHudScreen'}
+    local watchConnection
+
+    -- 安全に Enabled を書き換える (未取得 / 型違い / 破棄済みでもエラーを出さない)
+    local function setEnabled(gui, state)
+        if not gui or not gui:IsA('ScreenGui') then return end
+        pcall(function()
+            gui.Enabled = state
+        end)
+    end
+
+    -- PlayerGui 配下の対象をまとめて state にする
+    local function applyAll(state)
+        local playerGui = lplr:FindFirstChild('PlayerGui')
+        if not playerGui then return end
+        for _, name in TARGETS do
+            setEnabled(playerGui:FindFirstChild(name), state)
+        end
+    end
+
+    -- 後から (再) 生成された GUI も確実に消す
+    local function handleChild(child)
+        if not table.find(TARGETS, child.Name) then return end
+        setEnabled(child, false)
+        -- ゲーム側が遅延で Enabled を true に戻すケースへの保険
+        task.delay(0.15, function()
+            if DisableKrystalGui.Enabled then
+                setEnabled(child, false)
+            end
+        end)
+    end
+
+    DisableKrystalGui = vape.Categories.Render:CreateModule({
+        Name = 'DisableKrystalGui',
+        Function = function(callback)
+            if callback then
+                applyAll(false)
+                local playerGui = lplr:FindFirstChild('PlayerGui')
+                if playerGui then
+                    watchConnection = playerGui.ChildAdded:Connect(handleChild)
+                    DisableKrystalGui:Clean(watchConnection)
+                end
+            else
+                if watchConnection then
+                    pcall(function() watchConnection:Disconnect() end)
+                    watchConnection = nil
+                end
+                applyAll(true)
+            end
+        end,
+        Tooltip = 'Hides the ActionBar and StatusEffect HUD (Krystal UI).'
+    })
+end)
