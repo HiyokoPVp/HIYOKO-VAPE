@@ -6864,7 +6864,6 @@ run(function()
     -- ヘルパー関数
     -- ============================================================
 
-    -- 近くのショップNPCを検索
     local function getShopNPC()
         local shop, items, upgrades, newid = nil, false, false, nil
         if entitylib.isAlive then
@@ -6881,10 +6880,10 @@ run(function()
         return shop, items, upgrades, newid
     end
 
-    -- 購入可能かチェック
     local function canBuy(item, currencytable, amount)
         amount = amount or 1
         if not item then return false end
+        if not item.currency or not item.price then return false end
         if not currencytable[item.currency] then
             local currency = getItem(item.currency)
             currencytable[item.currency] = currency and currency.amount or 0
@@ -6904,41 +6903,68 @@ run(function()
         return currencytable[item.currency] >= (item.price * amount)
     end
 
-    -- アイテムを購入（nilガード強化版）
+    -- nilガード強化版 buyItem
     local function buyItem(item, currencytable)
         if not id then return end
         if not item then return end
+        if not item.itemType or not item.currency or not item.price then return end
 
         local meta = bedwars.ItemMeta[item.itemType]
         notif('AutoBuy', 'Bought ' .. (meta and meta.displayName or item.itemType), 3)
 
         local remote = bedwars.Client:Get('BedwarsPurchaseItem')
         if not remote then
-            notif('AutoBuy', 'Remote BedwarsPurchaseItem not found', 3)
+            notif('AutoBuy', 'Remote not found: BedwarsPurchaseItem', 3)
             return
         end
 
-        remote:CallServerAsync({
+        -- CallServerAsync が存在しない場合のガード
+        if type(remote.CallServerAsync) ~= 'function' then
+            -- フォールバック: SendToServer があればそれで送る
+            if type(remote.SendToServer) == 'function' then
+                remote:SendToServer({
+                    shopItem = item,
+                    shopId = id
+                })
+            end
+            currencytable[item.currency] -= item.price
+            return
+        end
+
+        local promise = remote:CallServerAsync({
             shopItem = item,
             shopId = id
-        }):andThen(function(suc)
-            if suc then
-                bedwars.SoundManager:playSound(bedwars.SoundList.BEDWARS_PURCHASE_ITEM)
-                bedwars.Store:dispatch({
-                    type = 'BedwarsAddItemPurchased',
-                    itemType = item.itemType
-                })
-                bedwars.BedwarsShopController.alreadyPurchasedMap[item.itemType] = true
-            end
-        end)
+        })
+
+        if promise and type(promise.andThen) == 'function' then
+            promise:andThen(function(suc)
+                if suc then
+                    bedwars.SoundManager:playSound(bedwars.SoundList.BEDWARS_PURCHASE_ITEM)
+                    bedwars.Store:dispatch({
+                        type = 'BedwarsAddItemPurchased',
+                        itemType = item.itemType
+                    })
+                    bedwars.BedwarsShopController.alreadyPurchasedMap[item.itemType] = true
+                end
+            end)
+        end
 
         currencytable[item.currency] -= item.price
     end
 
-    -- チームアップグレードを購入
+    -- getShopItem を安全に呼ぶラッパー
+    local function safeGetShopItem(itemType)
+        if not bedwars.Shop or type(bedwars.Shop.getShopItem) ~= 'function' then
+            return nil
+        end
+        local ok, result = pcall(bedwars.Shop.getShopItem, itemType, lplr)
+        return ok and result or nil
+    end
+
     local function buyUpgrade(upgradeType, currencytable)
         if not Upgrades.Enabled then return end
         local upgrade = bedwars.TeamUpgradeMeta[upgradeType]
+        if not upgrade then return end
         local currentUpgrades = bedwars.Store:getState().Bedwars.teamUpgrades[lplr:GetAttribute('Team')] or {}
         local currentTier = (currentUpgrades[upgradeType] or 0) + 1
         local bought = false
@@ -6949,7 +6975,10 @@ run(function()
             end
             if canBuy({currency = 'diamond', price = tier.cost}, currencytable) then
                 notif('AutoBuy', 'Bought ' .. (upgrade.name == 'Armor' and 'Protection' or upgrade.name) .. ' ' .. i, 3)
-                bedwars.Client:Get('RequestPurchaseTeamUpgrade'):CallServerAsync(upgradeType)
+                local remote = bedwars.Client:Get('RequestPurchaseTeamUpgrade')
+                if remote and type(remote.CallServerAsync) == 'function' then
+                    remote:CallServerAsync(upgradeType)
+                end
                 currencytable.diamond -= tier.cost
                 bought = true
             else
@@ -6959,7 +6988,6 @@ run(function()
         return bought
     end
 
-    -- ツールをティアアップ購入
     local function buyTool(tool, tools, currencytable)
         local bought, buyable = false
         tool = tool
@@ -6967,7 +6995,7 @@ run(function()
             and table.find(tools, tool.itemType) + 1
             or math.huge
         for i = tool, #tools do
-            local v = bedwars.Shop.getShopItem(tools[i], lplr)
+            local v = safeGetShopItem(tools[i])
             if canBuy(v, currencytable) then
                 if SmartCheck.Enabled and bedwars.ItemMeta[tools[i]].breakBlock and i > 2 then
                     if Armor.Enabled then
@@ -6984,7 +7012,7 @@ run(function()
                 bought = true
                 buyable = v
             end
-            if TierCheck.Enabled and v.nextTier then break end
+            if TierCheck.Enabled and v and v.nextTier then break end
         end
         if buyable then
             buyItem(buyable, currencytable)
@@ -7027,8 +7055,8 @@ run(function()
                         local currencytable = {}
                         local waitcheck
                         for _, tab in Callbacks do
-                            for _, callback in tab do
-                                if callback(currencytable, shop, upgrades) then
+                            for _, cb in tab do
+                                if type(cb) == 'function' and cb(currencytable, shop, upgrades) then
                                     waitcheck = true
                                 end
                             end
@@ -7046,10 +7074,8 @@ run(function()
     })
 
     -- ============================================================
-    -- トグル & コールバック登録
-    -- ============================================================
-
     -- [1] Armor
+    -- ============================================================
     Armor = AutoBuy:CreateToggle({
         Name = 'Buy Armor',
         Function = function(callback)
@@ -7066,7 +7092,9 @@ run(function()
         Default = true
     })
 
+    -- ============================================================
     -- [2] Sword
+    -- ============================================================
     Sword = AutoBuy:CreateToggle({
         Name = 'Buy Sword',
         Function = function(callback)
@@ -7093,7 +7121,9 @@ run(function()
         end
     })
 
+    -- ============================================================
     -- [3] Axe
+    -- ============================================================
     AutoBuy:CreateToggle({
         Name = 'Buy Axe',
         Function = function(callback)
@@ -7105,7 +7135,9 @@ run(function()
         end
     })
 
+    -- ============================================================
     -- [4] Pickaxe
+    -- ============================================================
     AutoBuy:CreateToggle({
         Name = 'Buy Pickaxe',
         Function = function(callback)
@@ -7119,6 +7151,7 @@ run(function()
 
     -- ============================================================
     -- [50] Bow  (Bow → Arrows → Crossbow → Arrows)
+    -- crossbow 所持時は bow を買わない（ダウングレード防止）
     -- ============================================================
     Bow = AutoBuy:CreateToggle({
         Name = 'Buy Bow',
@@ -7134,8 +7167,9 @@ run(function()
                     or getItem('headhunter')
 
                 -- 1) Bow (24 iron)
+                --    crossbow を既に持っている場合はスキップ（ダウングレード防止）
                 if not hasBow and not hasCrossbow then
-                    local bow = bedwars.Shop.getShopItem('wood_bow', lplr)
+                    local bow = safeGetShopItem('wood_bow')
                     if bow and canBuy(bow, currencytable) then
                         buyItem(bow, currencytable)
                         bought = true
@@ -7143,7 +7177,7 @@ run(function()
                 end
 
                 -- 2) Arrows (16 iron → 8本)
-                local arrow = bedwars.Shop.getShopItem('arrow', lplr)
+                local arrow = safeGetShopItem('arrow')
                 if arrow and canBuy(arrow, currencytable) then
                     local arrowItem = getItem('arrow')
                     if not arrowItem or arrowItem.amount < 8 then
@@ -7154,7 +7188,7 @@ run(function()
 
                 -- 3) Crossbow (7 emerald)
                 if not hasCrossbow then
-                    local cb = bedwars.Shop.getShopItem('wood_crossbow', lplr)
+                    local cb = safeGetShopItem('wood_crossbow')
                     if cb and canBuy(cb, currencytable) then
                         buyItem(cb, currencytable)
                         bought = true
@@ -7185,11 +7219,14 @@ run(function()
             Functions[51] = callback and function(currencytable, shop)
                 if not shop then return end
 
-                local teamWool = bedwars.Shop.getTeamWool(lplr:GetAttribute('Team')) or 'wool_white'
-                local woolItem = getItem(teamWool, nil, true)
+                local teamWool = 'wool_white'
+                if bedwars.Shop and type(bedwars.Shop.getTeamWool) == 'function' then
+                    teamWool = bedwars.Shop.getTeamWool(lplr:GetAttribute('Team')) or 'wool_white'
+                end
 
+                local woolItem = getItem(teamWool, nil, true)
                 if not woolItem or woolItem.amount < 16 then
-                    local wool = bedwars.Shop.getShopItem(teamWool, lplr)
+                    local wool = safeGetShopItem(teamWool)
                     if wool and canBuy(wool, currencytable) then
                         buyItem(wool, currencytable)
                         return true
@@ -7261,7 +7298,7 @@ run(function()
     })
 
     -- ============================================================
-    -- Custom TextList (優先度/アイテム/個数/後買い)
+    -- Custom TextList
     -- ============================================================
     AutoBuy:CreateTextList({
         Name = 'Item',
@@ -7275,18 +7312,15 @@ run(function()
                 if ind then
                     (tab[4] and CustomPost or Custom)[ind] = function(currencytable, shop)
                         if not shop then return end
-                        local v = bedwars.Shop.getShopItem(
-                            tab[2] == 'wool_white'
-                                and bedwars.Shop.getTeamWool(lplr:GetAttribute('Team'))
-                                or tab[2],
-                            lplr
-                        )
+                        local itemType = tab[2]
+                        if itemType == 'wool_white'
+                            and bedwars.Shop
+                            and type(bedwars.Shop.getTeamWool) == 'function' then
+                            itemType = bedwars.Shop.getTeamWool(lplr:GetAttribute('Team')) or itemType
+                        end
+                        local v = safeGetShopItem(itemType)
                         if v then
-                            local item = getItem(
-                                tab[2] == 'wool_white'
-                                    and bedwars.Shop.getTeamWool(lplr:GetAttribute('Team'))
-                                    or tab[2]
-                            )
+                            local item = getItem(itemType)
                             item = (item and tonumber(tab[3]) - item.amount or tonumber(tab[3])) // v.amount
                             if item > 0 and canBuy(v, currencytable, item) then
                                 for _ = 1, item do
