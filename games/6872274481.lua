@@ -18944,7 +18944,7 @@ run(function()
     SizeOpt = LagBackCT:CreateSlider({
         Name = 'Size',
         Min = 12,
-        Max = 100,
+        Max = 75,
         Default = 48,
         Tooltip = 'Text size of the countdown'
     })
