@@ -18867,7 +18867,6 @@ run(function()
             label.BackgroundTransparency = 1
             label.Text = ''
             label.Font = Enum.Font.ArialBold
-            label.TextStrokeTransparency = 0.4
             label.Parent = vape.gui
             LagBackCT:Clean(label)
 
