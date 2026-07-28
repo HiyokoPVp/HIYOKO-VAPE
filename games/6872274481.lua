@@ -19161,45 +19161,9 @@ run(function()
 end)
 
 run(function()
-    local vape = shared.vape
-    if not vape or not vape.Categories or not vape.Categories.Render then return end
-
-    local entitylib = vape.Libraries and vape.Libraries.entity
-
     local LagBackDetector
-    local Notifications
-    local Interval
-
     local lagging = false
     local initialized = false
-
-    local rawIsNetworkOwner
-
-    if type(getgenv) == 'function' then
-        rawIsNetworkOwner = rawget(getgenv(), 'isnetworkowner')
-    end
-
-    if type(rawIsNetworkOwner) ~= 'function' and type(_G) == 'table' then
-        rawIsNetworkOwner = rawget(_G, 'isnetworkowner')
-    end
-
-    if type(rawIsNetworkOwner) ~= 'function' and type(shared) == 'table' then
-        rawIsNetworkOwner = rawget(shared, 'isnetworkowner')
-    end
-
-    if type(rawIsNetworkOwner) ~= 'function' then
-        rawIsNetworkOwner = isnetworkowner
-    end
-
-    local function notify(msg, alert)
-        if Notifications and not Notifications.Enabled then return end
-
-        if alert then
-            vape:CreateNotification('LagBackDetector', msg, 5, 'alert')
-        else
-            vape:CreateNotification('LagBackDetector', msg, 5)
-        end
-    end
 
     LagBackDetector = vape.Categories.Render:CreateModule({
         Name = 'LagBackDetector',
@@ -19213,30 +19177,27 @@ run(function()
 
                 task.spawn(function()
                     while active and LagBackDetector.Enabled do
-                        if entitylib and entitylib.isAlive and entitylib.character and entitylib.character.RootPart then
-                            local ok, clientOwned = pcall(rawIsNetworkOwner, entitylib.character.RootPart)
+                        if entitylib.isAlive and entitylib.character and entitylib.character.RootPart then
+                            local clientOwned = isnetworkowner(entitylib.character.RootPart)
+                            local isLagback = not clientOwned
 
-                            if ok then
-                                local isLagback = not clientOwned
+                            if not initialized then
+                                initialized = true
+                                lagging = isLagback
 
-                                if not initialized then
-                                    initialized = true
-                                    lagging = isLagback
-
-                                    if isLagback then
-                                        notify('Lagback detected! Network ownership is server-side.', true)
-                                    end
-                                elseif isLagback and not lagging then
-                                    notify('Lagback detected! Network ownership is server-side.', true)
-                                    lagging = true
-                                elseif not isLagback and lagging then
-                                    notify('Lagback resolved! Network ownership returned to client.', false)
-                                    lagging = false
+                                if isLagback then
+                                    vape:CreateNotification('LagBackDetector', 'Lagback detected! Network ownership is server-side.', 5, 'alert')
                                 end
+                            elseif isLagback and not lagging then
+                                vape:CreateNotification('LagBackDetector', 'Lagback detected! Network ownership is server-side.', 5, 'alert')
+                                lagging = true
+                            elseif not isLagback and lagging then
+                                vape:CreateNotification('LagBackDetector', 'Lagback resolved! Network ownership returned to client.', 5)
+                                lagging = false
                             end
                         end
 
-                        task.wait(Interval and Interval.Value or 0.1)
+                        task.wait(0.1)
                     end
                 end)
             else
@@ -19244,20 +19205,6 @@ run(function()
                 initialized = false
             end
         end,
-        Tooltip = 'Notifies when isnetworkowner returns false on your RootPart.',
-    })
-
-    Notifications = LagBackDetector:CreateToggle({
-        Name = 'Notifications',
-        Default = true,
-    })
-
-    Interval = LagBackDetector:CreateSlider({
-        Name = 'Check interval',
-        Min = 0.05,
-        Max = 1,
-        Default = 0.1,
-        Decimal = 100,
-        Suffix = 's',
+        Tooltip = 'Notifies when isnetworkowner returns false on your RootPart.'
     })
 end)
