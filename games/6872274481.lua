@@ -19164,93 +19164,41 @@ run(function()
     local vape = shared.vape
     if not vape or not vape.Categories or not vape.Categories.Render then return end
 
-    local playersService = game:GetService('Players')
-    local starterGui = game:GetService('StarterGui')
-    local lplr = playersService.LocalPlayer
     local entitylib = vape.Libraries and vape.Libraries.entity
 
     local LagBackDetector
     local Notifications
     local Interval
-    local lastOwnership = 'unknown'
+
+    local lagging = false
+    local initialized = false
 
     local rawIsNetworkOwner
+
     if type(getgenv) == 'function' then
         rawIsNetworkOwner = rawget(getgenv(), 'isnetworkowner')
     end
+
     if type(rawIsNetworkOwner) ~= 'function' and type(_G) == 'table' then
         rawIsNetworkOwner = rawget(_G, 'isnetworkowner')
     end
+
     if type(rawIsNetworkOwner) ~= 'function' and type(shared) == 'table' then
         rawIsNetworkOwner = rawget(shared, 'isnetworkowner')
+    end
+
+    if type(rawIsNetworkOwner) ~= 'function' then
+        rawIsNetworkOwner = isnetworkowner
     end
 
     local function notify(msg, alert)
         if Notifications and not Notifications.Enabled then return end
 
-        if type(vape.CreateNotification) == 'function' then
-            if alert then
-                vape:CreateNotification('LagBackDetector', msg, 5, 'alert')
-            else
-                vape:CreateNotification('LagBackDetector', msg, 5)
-            end
+        if alert then
+            vape:CreateNotification('LagBackDetector', msg, 5, 'alert')
         else
-            pcall(function()
-                starterGui:SetCore('SendNotification', {
-                    Title = 'LagBackDetector',
-                    Text = msg,
-                    Duration = 5,
-                })
-            end)
+            vape:CreateNotification('LagBackDetector', msg, 5)
         end
-    end
-
-    local function getRoot()
-        if entitylib and entitylib.isAlive and entitylib.character and entitylib.character.RootPart then
-            return entitylib.character.RootPart
-        end
-
-        local char = lplr and lplr.Character
-        return char and char:FindFirstChild('HumanoidRootPart')
-    end
-
-    local function getOwnership(root)
-        if not root or not root.Parent then
-            return 'unknown'
-        end
-
-        if type(rawIsNetworkOwner) == 'function' then
-            local ok, clientOwned = pcall(rawIsNetworkOwner, root)
-            if ok then
-                return clientOwned and 'client' or 'server'
-            end
-        end
-
-        local ok, owner = pcall(function()
-            return root:GetNetworkOwner()
-        end)
-
-        if ok then
-            if owner == lplr then
-                return 'client'
-            elseif owner == nil then
-                return 'server'
-            else
-                return 'other'
-            end
-        end
-
-        return 'unknown'
-    end
-
-    local function getLostMessage(ownership)
-        if ownership == 'server' then
-            return 'Network ownership lost! Server is authoritative. Lagback detected.'
-        elseif ownership == 'other' then
-            return 'Network ownership lost! Another client is authoritative. Lagback detected.'
-        end
-
-        return 'Network ownership lost! Client is not authoritative. Lagback detected.'
     end
 
     LagBackDetector = vape.Categories.Render:CreateModule({
@@ -19265,31 +19213,38 @@ run(function()
 
                 task.spawn(function()
                     while active and LagBackDetector.Enabled do
-                        local root = getRoot()
-                        local ownership = getOwnership(root)
+                        if entitylib and entitylib.isAlive and entitylib.character and entitylib.character.RootPart then
+                            local ok, clientOwned = pcall(rawIsNetworkOwner, entitylib.character.RootPart)
 
-                        if ownership ~= 'unknown' then
-                            if lastOwnership == 'unknown' then
-                                if ownership ~= 'client' then
-                                    notify(getLostMessage(ownership), true)
+                            if ok then
+                                local isLagback = not clientOwned
+
+                                if not initialized then
+                                    initialized = true
+                                    lagging = isLagback
+
+                                    if isLagback then
+                                        notify('Lagback detected! Network ownership is server-side.', true)
+                                    end
+                                elseif isLagback and not lagging then
+                                    notify('Lagback detected! Network ownership is server-side.', true)
+                                    lagging = true
+                                elseif not isLagback and lagging then
+                                    notify('Lagback resolved! Network ownership returned to client.', false)
+                                    lagging = false
                                 end
-                            elseif lastOwnership == 'client' and ownership ~= 'client' then
-                                notify(getLostMessage(ownership), true)
-                            elseif lastOwnership ~= 'client' and ownership == 'client' then
-                                notify('Network ownership regained! Client is authoritative. You are safe.', false)
                             end
-
-                            lastOwnership = ownership
                         end
 
                         task.wait(Interval and Interval.Value or 0.1)
                     end
                 end)
             else
-                lastOwnership = 'unknown'
+                lagging = false
+                initialized = false
             end
         end,
-        Tooltip = 'Notifies when your character network ownership moves to the server and back.',
+        Tooltip = 'Notifies when isnetworkowner returns false on your RootPart.',
     })
 
     Notifications = LagBackDetector:CreateToggle({
