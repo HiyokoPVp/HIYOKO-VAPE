@@ -19293,10 +19293,14 @@ run(function()
                             if not isRecovering then
                                 isRecovering = true
                                 recoveryStart = 0
+                                -- ラグバック検知通知
+                                notif('AnticheatBypass', 'Lagback detected! Pausing...', 3, 'warning')
                             else
                                 -- 回復待機中にまた所有権を失った（治らなかった）
                                 currentSpeed = math.max(currentSpeed - 6, 20) -- 2個前（-6）に戻す
                                 recoveryStart = 0
+                                -- 修復失敗通知
+                                notif('AnticheatBypass', 'Fix failed! Reducing speed...', 3, 'alert')
                             end
                             shouldSkipSpeed = true
                         else
@@ -19308,6 +19312,8 @@ run(function()
                                     -- 5秒経過したので再開
                                     isRecovering = false
                                     recoveryStart = 0
+                                    -- 再開通知
+                                    notif('AnticheatBypass', 'Resuming speed...', 3, 'info')
                                 else
                                     shouldSkipSpeed = true -- 5秒待機中はスキップ
                                 end
@@ -19323,7 +19329,7 @@ run(function()
                         -- 10秒ごとにスピードを上昇
                         if tick() - lastIncrease >= 5 then
                             lastIncrease = tick()
-                            currentSpeed = math.min(currentSpeed + 1, 85) -- 最大85studs、10秒ごとに+3
+                            currentSpeed = math.min(currentSpeed + 1, 85) -- 最大85studs、10秒ごとに+1
                             
                             -- 85studsに達するまで "Keep moving" を通知
                             if currentSpeed < 85 then
