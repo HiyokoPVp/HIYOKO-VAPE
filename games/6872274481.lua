@@ -19180,7 +19180,7 @@ run(function()
     end
 
     local function normalizeKitName(value)
-        return tostring(value or ''):lower():gsub('[%s%-]+', '_'):gsub('[^%w_]', '')
+        return tostring(value or ''):lower():gsub('[%s%-]+', '_'):gsub('[%W_]', '')
     end
 
     local function isGlacialSkater()
@@ -19251,7 +19251,7 @@ run(function()
                 wasGlacial = false
                 isRecovering = false
                 recoveryStart = 0
-                lastOwnershipState = isnetworkowner(entitylib.character.RootPart)
+                lastOwnershipState = true
 
                 notifyIfWrongKit(true)
 
@@ -19281,47 +19281,51 @@ run(function()
                         lastIncrease = tick()
                     end
 
-                    -- ★ Fix on Lagback ロジック (指定された構造)
+                    -- ★ Fix on Lagback 修正済みロジック
                     local shouldSkipSpeed = false
 
                     if FixOnLagback.Enabled then
-                        if isnetworkowner(root) then
-                            -- 【クライアント】所有権を持っている（正常状態）
+                        local hasOwnership = isnetworkowner(root)
+
+                        if hasOwnership then
+                            -- 【正常状態】クライアントが所有権を持っている
                             if not lastOwnershipState then
-                                -- サーバー(false) -> クライアント(true) へ変化
+                                -- サーバー(false) -> クライアント(true) に戻った瞬間
                                 lastOwnershipState = true
                                 if isRecovering then
-                                    recoveryStart = tick() -- 5秒待機タイマー開始
+                                    recoveryStart = tick() -- ここから5秒の安全タイマーを開始
+                                end
+                            end
+                            
+                            -- 回復待機タイマーの処理（所有権が戻っている間のみカウントダウン）
+                            if isRecovering then
+                                if recoveryStart > 0 and tick() - recoveryStart >= 5 then
+                                    isRecovering = false
+                                    recoveryStart = 0
+                                    notif('AnticheatBypass', 'Resuming speed...', 3, 'info')
+                                else
+                                    shouldSkipSpeed = true
                                 end
                             end
                         else
-                            -- 【サーバー】所有権を奪われている（ラグバック状態）
+                            -- 【異常状態】サーバーに所有権を奪われている（ラグバック中）
+                            shouldSkipSpeed = true
+                            
                             if lastOwnershipState then
-                                -- クライアント(true) -> サーバー(false) へ変化
+                                -- クライアント(true) -> サーバー(false) に落ちた瞬間
                                 lastOwnershipState = false
                                 
                                 if not isRecovering then
+                                    -- 初めてのラグバック検出
                                     isRecovering = true
                                     recoveryStart = 0
                                     notif('AnticheatBypass', 'Lagback detected! Pausing...', 3, 'warning')
                                 else
-                                    -- 回復待機中に再び所有権を失った (修復失敗)
+                                    -- 回復しきっていない（タイマー動作中など）のに再度ラグバックした＝修復失敗
                                     currentSpeed = math.max(currentSpeed - 6, 20)
-                                    recoveryStart = 0
+                                    recoveryStart = 0 -- タイマーリセット（再度所有権が戻るまで待つ）
                                     notif('AnticheatBypass', 'Fix failed! Reducing speed...', 3, 'alert')
                                 end
-                            end
-                            shouldSkipSpeed = true
-                        end
-                        
-                        -- 回復待機中のタイマー処理
-                        if isRecovering then
-                            if recoveryStart > 0 and tick() - recoveryStart >= 5 then
-                                isRecovering = false
-                                recoveryStart = 0
-                                notif('AnticheatBypass', 'Resuming speed...', 3, 'info')
-                            else
-                                shouldSkipSpeed = true
                             end
                         end
                     end
