@@ -19170,8 +19170,8 @@ run(function()
         Function = function(callback)
             if callback then
                 -- 有効化時にキットをチェックし、glacial_skaterでなければ通知
-                if lplr:GetAttribute('PlayingAsKit') ~= 'glacial_skater' then
-                    notif('AnticheatBypass', 'クリスタルキットが必要です', 5, 'alert')
+                if lplr:GetAttribute('PlayingAsKit') == 'glacial_skater' then
+                    notif('AnticheatBypass', 'You need to be krystal kit', 5, 'alert')
                 end
 
                 currentSpeed = 20
@@ -19179,8 +19179,8 @@ run(function()
 
                 -- キットが変更された際の監視（glacial_skater以外になったら通知）
                 AnticheatBypass:Clean(lplr:GetAttributeChangedSignal('PlayingAsKit'):Connect(function()
-                    if lplr:GetAttribute('PlayingAsKit') ~= 'glacial_skater' then
-                        notif('AnticheatBypass', 'クリスタルキットが必要です', 5, 'alert')
+                    if lplr:GetAttribute('PlayingAsKit') == 'glacial_skater' then
+                        notif('AnticheatBypass', 'You need to be krystal kit', 5, 'alert')
                     end
                 end))
 
