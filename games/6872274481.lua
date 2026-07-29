@@ -19211,7 +19211,7 @@ run(function()
         local now = tick()
         if force or now - lastKitNotify >= 5 then
             lastKitNotify = now
-            notif('AnticheatBypass', 'Crystal kit is required', 5, 'warning')
+            notif('AnticheatBypass', 'Krystal kit is required', 5, 'warning')
         end
     end
 
@@ -19251,9 +19251,15 @@ run(function()
                         lastIncrease = tick()
                     end
 
+                    -- 10秒ごとにスピードを上昇
                     if tick() - lastIncrease >= 10 then
                         lastIncrease = tick()
-                        currentSpeed = math.min(currentSpeed + 5.5, 75)
+                        currentSpeed = math.min(currentSpeed + 5.5, 60) -- 最大60studs
+                        
+                        -- 60studsに達するまで "Keep moving" を通知
+                        if currentSpeed < 60 then
+                            notif('AnticheatBypass', 'Keep moving', 3, 'info')
+                        end
                     end
 
                     frictionTable.AnticheatBypass = true
@@ -19273,6 +19279,9 @@ run(function()
                 updateVelocity()
             end
         end,
-        Tooltip = 'Gradually increases speed up to 75 studs/s with Glacial Skater / Crystal kit.'
+        ExtraText = function()
+            return 'HIYOKOVAPE DEVELOPER'
+        end,
+        Tooltip = 'Gradually increases speed up to 60 studs/s with Glacial Skater / Krystal kit.'
     })
 end)
