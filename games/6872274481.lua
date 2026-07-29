@@ -19167,6 +19167,10 @@ run(function()
     local lastKitNotify = 0
     local wasGlacial = false
     local oldUpdateMomentum -- フック前の関数を保存する変数
+    
+    -- ラグバック修復用変数
+    local isRecovering = false
+    local recoveryStart = 0
 
     local function addCandidate(tab, value)
         if value ~= nil and tostring(value) ~= '' then
@@ -19247,6 +19251,8 @@ run(function()
                 lastIncrease = tick()
                 lastKitNotify = 0
                 wasGlacial = false
+                isRecovering = false
+                recoveryStart = 0
 
                 notifyIfWrongKit(true)
 
@@ -19277,27 +19283,65 @@ run(function()
                         lastIncrease = tick()
                     end
 
-                    -- 10秒ごとにスピードを上昇
-                    if tick() - lastIncrease >= 5 then
-                        lastIncrease = tick()
-                        currentSpeed = math.min(currentSpeed + 1, 85) -- 最大85studs
-                        
-                        -- 85studsに達するまで "Keep moving" を通知
-                        if currentSpeed < 85 then
-                            notif('AnticheatBypass', 'Keep moving', 3, 'info')
+                    -- ★ Fix on Lagback ロジック
+                    local shouldSkipSpeed = false
+                    local hasOwnership = isnetworkowner(root)
+
+                    if FixOnLagback.Enabled then
+                        if not hasOwnership then
+                            -- 所有権なし（ラグバック中）
+                            if not isRecovering then
+                                isRecovering = true
+                                recoveryStart = 0
+                            else
+                                -- 回復待機中にまた所有権を失った（治らなかった）
+                                currentSpeed = math.max(currentSpeed - 6, 20) -- 2個前（-6）に戻す
+                                recoveryStart = 0
+                            end
+                            shouldSkipSpeed = true
+                        else
+                            -- 所有権あり
+                            if isRecovering then
+                                if recoveryStart == 0 then
+                                    recoveryStart = tick()
+                                elseif tick() - recoveryStart >= 5 then
+                                    -- 5秒経過したので再開
+                                    isRecovering = false
+                                    recoveryStart = 0
+                                else
+                                    shouldSkipSpeed = true -- 5秒待機中はスキップ
+                                end
+                            end
                         end
                     end
 
-                    frictionTable.AnticheatBypass = true
-                    updateVelocity()
+                    if shouldSkipSpeed then
+                        -- ラグバック中または待機中は、物理演算をサーバーに任せる
+                        frictionTable.AnticheatBypass = nil
+                        updateVelocity()
+                    else
+                        -- 10秒ごとにスピードを上昇
+                        if tick() - lastIncrease >= 5 then
+                            lastIncrease = tick()
+                            currentSpeed = math.min(currentSpeed + 1, 85) -- 最大85studs、10秒ごとに+3
+                            
+                            -- 85studsに達するまで "Keep moving" を通知
+                            if currentSpeed < 85 then
+                                notif('AnticheatBypass', 'Keep moving', 3, 'info')
+                            end
+                        end
 
-                    local velo = getSpeed()
-                    local moveDirection = humanoid.MoveDirection
+                        frictionTable.AnticheatBypass = true
+                        updateVelocity()
 
-                    if moveDirection.Magnitude > 0 then
-                        local destination = moveDirection * math.max(currentSpeed - velo, 0) * dt
-                        root.CFrame += destination
-                        root.AssemblyLinearVelocity = (moveDirection * currentSpeed) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+                        local velo = getSpeed()
+                        local moveDirection = humanoid.MoveDirection
+
+                        if moveDirection.Magnitude > 0 then
+                            local destination = moveDirection * math.max(currentSpeed - velo, 0) * dt
+                            root.CFrame += destination
+                            root.AssemblyLinearVelocity = (moveDirection * currentSpeed) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
+                        end
                     end
                 end))
             else
@@ -19315,6 +19359,13 @@ run(function()
             return 'HIYOKOVAPE DEVELOPER'
         end,
         Tooltip = 'Gradually increases speed up to 85 studs/s with Glacial Skater / Krystal kit & Infinite Momentum. (Requires in-game)'
+    })
+
+    -- ★ Fix on Lagback オプションの追加
+    FixOnLagback = AnticheatBypass:CreateToggle({
+        Name = 'Fix on Lagback',
+        Default = true,
+        Tooltip = 'Pauses speed increase and recovers when network ownership is lost. Drops speed if it fails to recover.'
     })
 end)
 
