@@ -19166,6 +19166,7 @@ run(function()
     local lastIncrease = 0
     local lastKitNotify = 0
     local wasGlacial = false
+    local oldUpdateMomentum -- 追加: フック前の関数を保存する変数
 
     local function addCandidate(tab, value)
         if value ~= nil and tostring(value) ~= '' then
@@ -19219,6 +19220,24 @@ run(function()
         Name = 'AnticheatBypass',
         Function = function(callback)
             if callback then
+                -- ★ Infinite Krystal と同じ仕組みで momentum を無限にする
+                if bedwars.GlacialSkaterController then
+                    oldUpdateMomentum = bedwars.GlacialSkaterController.updateMomentum
+                    bedwars.GlacialSkaterController.updateMomentum = function(self, ...)
+                        self.momentum = 9e9
+                        self.lastMomentumReport = 9e9
+                        return oldUpdateMomentum(self, ...)
+                    end
+                end
+
+                -- クリーンアップ時に元の関数に戻すよう登録
+                AnticheatBypass:Clean(function()
+                    if oldUpdateMomentum and bedwars.GlacialSkaterController then
+                        bedwars.GlacialSkaterController.updateMomentum = oldUpdateMomentum
+                        oldUpdateMomentum = nil
+                    end
+                end)
+
                 currentSpeed = 20
                 lastIncrease = tick()
                 lastKitNotify = 0
@@ -19275,6 +19294,12 @@ run(function()
                     end
                 end))
             else
+                -- 無効化時に元の関数に戻す
+                if oldUpdateMomentum and bedwars.GlacialSkaterController then
+                    bedwars.GlacialSkaterController.updateMomentum = oldUpdateMomentum
+                    oldUpdateMomentum = nil
+                end
+
                 frictionTable.AnticheatBypass = nil
                 updateVelocity()
             end
@@ -19282,6 +19307,6 @@ run(function()
         ExtraText = function()
             return 'HIYOKOVAPE DEVELOPER'
         end,
-        Tooltip = 'Gradually increases speed up to 60 studs/s with Glacial Skater / Krystal kit.'
+        Tooltip = 'Gradually increases speed up to 60 studs/s with Glacial Skater / Krystal kit & Infinite Momentum.'
     })
 end)
