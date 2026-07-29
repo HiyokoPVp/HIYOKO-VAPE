@@ -19251,7 +19251,7 @@ run(function()
                 wasGlacial = false
                 isRecovering = false
                 recoveryStart = 0
-                lastOwnershipState = true
+                lastOwnershipState = isnetworkowner(entitylib.character.RootPart)
 
                 notifyIfWrongKit(true)
 
