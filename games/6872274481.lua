@@ -784,15 +784,9 @@ run(function()
 	vape:Clean(entitylib.Events.LocalAdded:Connect(updateVelocity))
 end)
 entitylib.start()
-local function safeGetProto(func, index)
-    if not func then return nil end
-    local success, proto = pcall(debug.getproto, func, index)
-    if success then
-        return proto
-    else
-        warn("function:", func, "index:", index) 
-        return nil
-    end
+local function safeGetProto(...)
+		local success, res = pcall(debug.getproto, ...)
+		return success and res or function() end
 end
 run(function()
 	local KnitInit, Knit
