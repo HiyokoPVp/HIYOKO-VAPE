@@ -1,6 +1,8 @@
 -- hiyoko vape ver 3.0 fixed
 local canDebug = true
 
+wait(10)
+
 local run = function(func)
 	if shared.vapesmooth then
 		task.wait()
