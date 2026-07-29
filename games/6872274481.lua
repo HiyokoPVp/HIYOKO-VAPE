@@ -19166,7 +19166,7 @@ run(function()
     local lastIncrease = 0
     local lastKitNotify = 0
     local wasGlacial = false
-    local oldUpdateMomentum -- 追加: フック前の関数を保存する変数
+    local oldUpdateMomentum -- フック前の関数を保存する変数
 
     local function addCandidate(tab, value)
         if value ~= nil and tostring(value) ~= '' then
@@ -19220,6 +19220,11 @@ run(function()
         Name = 'AnticheatBypass',
         Function = function(callback)
             if callback then
+                -- ★ 試合中（matchState == 1）でない場合は通知を出して待機状態にする
+                if store.matchState ~= 1 then
+                    notif('AnticheatBypass', 'Please join a match', 5, 'warning')
+                end
+
                 -- ★ Infinite Krystal と同じ仕組みで momentum を無限にする
                 if bedwars.GlacialSkaterController then
                     oldUpdateMomentum = bedwars.GlacialSkaterController.updateMomentum
@@ -19250,6 +19255,8 @@ run(function()
                 end))
 
                 AnticheatBypass:Clean(runService.PreSimulation:Connect(function(dt)
+                    -- ★ 試合中（matchState == 1）以外は速度操作をスキップ
+                    if store.matchState ~= 1 then return end
                     if not entitylib.isAlive then return end
 
                     local humanoid = entitylib.character.Humanoid
@@ -19273,10 +19280,10 @@ run(function()
                     -- 10秒ごとにスピードを上昇
                     if tick() - lastIncrease >= 10 then
                         lastIncrease = tick()
-                        currentSpeed = math.min(currentSpeed + 1, 85) -- 最大60studs
+                        currentSpeed = math.min(currentSpeed + 1.25, 85) -- 最大85studs
                         
-                        -- 60studsに達するまで "Keep moving" を通知
-                        if currentSpeed < 60 then
+                        -- 85studsに達するまで "Keep moving" を通知
+                        if currentSpeed < 85 then
                             notif('AnticheatBypass', 'Keep moving', 3, 'info')
                         end
                     end
@@ -19307,6 +19314,6 @@ run(function()
         ExtraText = function()
             return 'HIYOKOVAPE DEVELOPER'
         end,
-        Tooltip = 'Gradually increases speed up to 85 studs/s with Glacial Skater / Krystal kit & Infinite Momentum.'
+        Tooltip = 'Gradually increases speed up to 85 studs/s with Glacial Skater / Krystal kit & Infinite Momentum. (Requires in-game)'
     })
 end)
