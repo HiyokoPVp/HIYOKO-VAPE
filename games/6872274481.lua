@@ -1,8 +1,6 @@
 -- hiyoko vape ver 3.0 fixed
 local canDebug = true
 
-wait(10)
-
 local run = function(func)
 	if shared.vapesmooth then
 		task.wait()
@@ -787,13 +785,11 @@ run(function()
 end)
 entitylib.start()
 local function safeGetProto(func, index)
-	if not func then return nil end
-	local success, proto = pcall(debug.getproto, func, index) -- ★debug.getproto に修正
-	if success then
-		return proto
-	else
-		return nil
-	end
+    if not func then return nil end
+    local success, proto = pcall(debug.getconstant, func, index)
+    if success then
+        return proto
+    end
 end
 run(function()
 	local KnitInit, Knit
