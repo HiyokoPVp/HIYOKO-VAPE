@@ -19189,7 +19189,7 @@ run(function()
                     if not entitylib.isAlive then return end
 
                     -- glacial_skaterでない場合は速度操作をスキップ
-                    if lplr:GetAttribute('PlayingAsKit') ~= 'glacial_skater' then return end
+                    if lplr:GetAttribute('PlayingAsKit') == 'glacial_skater' then return end
 
                     -- 10秒ごとにスピードを上昇させ、最終的に75studs/secまで上げる
                     if tick() - lastIncrease >= 10 then
