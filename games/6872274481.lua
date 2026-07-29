@@ -19273,7 +19273,7 @@ run(function()
                     -- 10秒ごとにスピードを上昇
                     if tick() - lastIncrease >= 10 then
                         lastIncrease = tick()
-                        currentSpeed = math.min(currentSpeed + 5.5, 65) -- 最大60studs
+                        currentSpeed = math.min(currentSpeed + 2.5, 75) -- 最大60studs
                         
                         -- 60studsに達するまで "Keep moving" を通知
                         if currentSpeed < 60 then
