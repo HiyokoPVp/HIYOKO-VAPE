@@ -19165,39 +19165,49 @@ run(function()
     local currentSpeed = 20
     local lastIncrease = 0
 
+    local function getKit()
+        return lplr:GetAttribute('PlayingAsKits')
+            or lplr:GetAttribute('PlayingAsKit')
+            or store.equippedKit
+            or 'none'
+    end
+
+    local function isGlacialSkater()
+        return getKit() == 'glacial_skater'
+    end
+
     AnticheatBypass = vape.Categories.Blatant:CreateModule({
         Name = 'AnticheatBypass',
         Function = function(callback)
             if callback then
-                -- 有効化時にキットをチェックし、glacial_skaterでなければ通知
-                if lplr:GetAttribute('PlayingAsKit') == 'glacial_skater' then
-                    notif('AnticheatBypass', 'You need to be krystal kit', 5, 'alert')
+                if not isGlacialSkater() then
+                    notif('AnticheatBypass', 'Crystal Kit (Glacial Skater) is required', 5, 'alert')
                 end
 
                 currentSpeed = 20
                 lastIncrease = tick()
 
-                -- キットが変更された際の監視（glacial_skater以外になったら通知）
+                -- PlayingAsKit / PlayingAsKits 両方監視
                 AnticheatBypass:Clean(lplr:GetAttributeChangedSignal('PlayingAsKit'):Connect(function()
-                    if lplr:GetAttribute('PlayingAsKit') == 'glacial_skater' then
-                        notif('AnticheatBypass', 'You need to be krystal kit', 5, 'alert')
+                    if not isGlacialSkater() then
+                        notif('AnticheatBypass', 'Crystal Kit (Glacial Skater) is required', 5, 'alert')
+                    end
+                end))
+                AnticheatBypass:Clean(lplr:GetAttributeChangedSignal('PlayingAsKits'):Connect(function()
+                    if not isGlacialSkater() then
+                        notif('AnticheatBypass', 'Crystal Kit (Glacial Skater) is required', 5, 'alert')
                     end
                 end))
 
-                -- メインループ (Speedモジュールと同じCFrame・Velocity操作方式)
                 AnticheatBypass:Clean(runService.PreSimulation:Connect(function(dt)
                     if not entitylib.isAlive then return end
+                    if not isGlacialSkater() then return end
 
-                    -- glacial_skaterでない場合は速度操作をスキップ
-                    if lplr:GetAttribute('PlayingAsKit') == 'glacial_skater' then return end
-
-                    -- 10秒ごとにスピードを上昇させ、最終的に75studs/secまで上げる
                     if tick() - lastIncrease >= 10 then
                         lastIncrease = tick()
                         currentSpeed = math.min(currentSpeed + 5.5, 75)
                     end
 
-                    -- 摩擦テーブルを更新 (Speedモジュールと同様の処理)
                     frictionTable.AnticheatBypass = true
                     updateVelocity()
 
@@ -19206,14 +19216,12 @@ run(function()
                     local moveDirection = entitylib.character.Humanoid.MoveDirection
 
                     if moveDirection.Magnitude > 0 then
-                        -- 目標速度(currentSpeed)になるようにCFrameとVelocityを補正
                         local destination = (moveDirection * math.max(currentSpeed - velo, 0) * dt)
                         root.CFrame += destination
                         root.AssemblyLinearVelocity = (moveDirection * currentSpeed) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
                     end
                 end))
             else
-                -- 無効化時のクリーンアップ
                 frictionTable.AnticheatBypass = nil
                 updateVelocity()
             end
