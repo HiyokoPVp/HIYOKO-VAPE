@@ -19171,7 +19171,7 @@ run(function()
     -- ラグバック修復用変数
     local isRecovering = false
     local recoveryStart = 0
-    local lastOwnershipState = true -- ★ 前フレームの所有権状態を保存
+    local lastOwnershipState = true -- 初期状態はクライアント所有(true)と仮定
 
     local function addCandidate(tab, value)
         if value ~= nil and tostring(value) ~= '' then
@@ -19225,12 +19225,10 @@ run(function()
         Name = 'AnticheatBypass',
         Function = function(callback)
             if callback then
-                -- ★ 試合中（matchState == 1）でない場合は通知を出して待機状態にする
                 if store.matchState ~= 1 then
                     notif('AnticheatBypass', 'Please join a match', 5, 'warning')
                 end
 
-                -- ★ Infinite Krystal と同じ仕組みで momentum を無限にする
                 if bedwars.GlacialSkaterController then
                     oldUpdateMomentum = bedwars.GlacialSkaterController.updateMomentum
                     bedwars.GlacialSkaterController.updateMomentum = function(self, ...)
@@ -19240,7 +19238,6 @@ run(function()
                     end
                 end
 
-                -- クリーンアップ時に元の関数に戻すよう登録
                 AnticheatBypass:Clean(function()
                     if oldUpdateMomentum and bedwars.GlacialSkaterController then
                         bedwars.GlacialSkaterController.updateMomentum = oldUpdateMomentum
@@ -19254,7 +19251,7 @@ run(function()
                 wasGlacial = false
                 isRecovering = false
                 recoveryStart = 0
-                lastOwnershipState = true -- ★ 初期化
+                lastOwnershipState = true
 
                 notifyIfWrongKit(true)
 
@@ -19263,7 +19260,6 @@ run(function()
                 end))
 
                 AnticheatBypass:Clean(runService.PreSimulation:Connect(function(dt)
-                    -- ★ 試合中（matchState == 1）以外は速度操作をスキップ
                     if store.matchState ~= 1 then return end
                     if not entitylib.isAlive then return end
 
@@ -19285,33 +19281,37 @@ run(function()
                         lastIncrease = tick()
                     end
 
-                    -- ★ Fix on Lagback ロジック (状態変化検出方式)
-                    local hasOwnership = isnetworkowner(root)
+                    -- ★ Fix on Lagback ロジック (指定された構造)
                     local shouldSkipSpeed = false
 
                     if FixOnLagback.Enabled then
-                        -- 前フレームと状態が変化した場合のみ処理
-                        if hasOwnership ~= lastOwnershipState then
-                            lastOwnershipState = hasOwnership
-                            
-                            if not hasOwnership then
-                                -- 所有権が Client -> Server に変化した (ラグバック発生)
+                        if isnetworkowner(root) then
+                            -- 【クライアント】所有権を持っている（正常状態）
+                            if not lastOwnershipState then
+                                -- サーバー(false) -> クライアント(true) へ変化
+                                lastOwnershipState = true
+                                if isRecovering then
+                                    recoveryStart = tick() -- 5秒待機タイマー開始
+                                end
+                            end
+                        else
+                            -- 【サーバー】所有権を奪われている（ラグバック状態）
+                            if lastOwnershipState then
+                                -- クライアント(true) -> サーバー(false) へ変化
+                                lastOwnershipState = false
+                                
                                 if not isRecovering then
                                     isRecovering = true
                                     recoveryStart = 0
                                     notif('AnticheatBypass', 'Lagback detected! Pausing...', 3, 'warning')
                                 else
                                     -- 回復待機中に再び所有権を失った (修復失敗)
-                                    currentSpeed = math.max(currentSpeed - 6, 20) -- 2個前（-6）に戻す
+                                    currentSpeed = math.max(currentSpeed - 6, 20)
                                     recoveryStart = 0
                                     notif('AnticheatBypass', 'Fix failed! Reducing speed...', 3, 'alert')
                                 end
-                            else
-                                -- 所有権が Server -> Client に戻った (回復)
-                                if isRecovering then
-                                    recoveryStart = tick() -- 5秒待機タイマー開始
-                                end
                             end
+                            shouldSkipSpeed = true
                         end
                         
                         -- 回復待機中のタイマー処理
@@ -19321,26 +19321,20 @@ run(function()
                                 recoveryStart = 0
                                 notif('AnticheatBypass', 'Resuming speed...', 3, 'info')
                             else
-                                shouldSkipSpeed = true -- 待機中は速度操作をスキップ
+                                shouldSkipSpeed = true
                             end
-                        end
-                        
-                        if not hasOwnership then
-                            shouldSkipSpeed = true
                         end
                     end
 
                     if shouldSkipSpeed then
-                        -- ラグバック中または待機中は、物理演算をサーバーに任せる
                         frictionTable.AnticheatBypass = nil
                         updateVelocity()
                     else
                         -- 10秒ごとにスピードを上昇
                         if tick() - lastIncrease >= 5 then
                             lastIncrease = tick()
-                            currentSpeed = math.min(currentSpeed + 1, 85) -- 最大85studs、10秒ごとに+1
+                            currentSpeed = math.min(currentSpeed + 1, 85)
                             
-                            -- 85studsに達するまで "Keep moving" を通知
                             if currentSpeed < 85 then
                                 notif('AnticheatBypass', 'Keep moving', 3, 'info')
                             end
@@ -19360,7 +19354,6 @@ run(function()
                     end
                 end))
             else
-                -- 無効化時に元の関数に戻す
                 if oldUpdateMomentum and bedwars.GlacialSkaterController then
                     bedwars.GlacialSkaterController.updateMomentum = oldUpdateMomentum
                     oldUpdateMomentum = nil
@@ -19376,7 +19369,6 @@ run(function()
         Tooltip = 'Gradually increases speed up to 85 studs/s with Glacial Skater / Krystal kit & Infinite Momentum. (Requires in-game)'
     })
 
-    -- ★ Fix on Lagback オプションの追加
     FixOnLagback = AnticheatBypass:CreateToggle({
         Name = 'Fix on Lagback',
         Default = true,
