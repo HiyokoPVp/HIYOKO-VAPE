@@ -19164,44 +19164,92 @@ run(function()
     local AnticheatBypass
     local currentSpeed = 20
     local lastIncrease = 0
+    local lastKitNotify = 0
+    local wasGlacial = false
 
-    local function getKit()
-        return lplr:GetAttribute('PlayingAsKits')
-            or lplr:GetAttribute('PlayingAsKit')
-            or store.equippedKit
-            or 'none'
+    local function addCandidate(tab, value)
+        if value ~= nil and tostring(value) ~= '' then
+            table.insert(tab, value)
+        end
+    end
+
+    local function normalizeKitName(value)
+        return tostring(value or ''):lower():gsub('[%s%-]+', '_'):gsub('[^%w_]', '')
     end
 
     local function isGlacialSkater()
-        return getKit() == 'glacial_skater'
+        local candidates = {}
+
+        addCandidate(candidates, lplr:GetAttribute('PlayingAsKit'))
+        addCandidate(candidates, lplr:GetAttribute('Kit'))
+        addCandidate(candidates, lplr:GetAttribute('CurrentKit'))
+
+        if lplr.Character then
+            addCandidate(candidates, lplr.Character:GetAttribute('PlayingAsKit'))
+            addCandidate(candidates, lplr.Character:GetAttribute('Kit'))
+            addCandidate(candidates, lplr.Character:GetAttribute('CurrentKit'))
+        end
+
+        if store ~= nil then
+            addCandidate(candidates, store.equippedKit)
+        end
+
+        for _, value in ipairs(candidates) do
+            local id = normalizeKitName(value)
+
+            if id == 'glacial_skater' or (id:find('glacial') and id:find('skater')) then
+                return true
+            end
+        end
+
+        return false
+    end
+
+    local function notifyIfWrongKit(force)
+        if isGlacialSkater() then return end
+
+        local now = tick()
+        if force or now - lastKitNotify >= 5 then
+            lastKitNotify = now
+            notif('AnticheatBypass', 'Crystal kit is required', 5, 'warning')
+        end
     end
 
     AnticheatBypass = vape.Categories.Blatant:CreateModule({
         Name = 'AnticheatBypass',
         Function = function(callback)
             if callback then
-                if not isGlacialSkater() then
-                    notif('AnticheatBypass', 'Crystal Kit (Glacial Skater) is required', 5, 'alert')
-                end
-
                 currentSpeed = 20
                 lastIncrease = tick()
+                lastKitNotify = 0
+                wasGlacial = false
 
-                -- PlayingAsKit / PlayingAsKits 両方監視
+                notifyIfWrongKit(true)
+
                 AnticheatBypass:Clean(lplr:GetAttributeChangedSignal('PlayingAsKit'):Connect(function()
-                    if not isGlacialSkater() then
-                        notif('AnticheatBypass', 'Crystal Kit (Glacial Skater) is required', 5, 'alert')
-                    end
-                end))
-                AnticheatBypass:Clean(lplr:GetAttributeChangedSignal('PlayingAsKits'):Connect(function()
-                    if not isGlacialSkater() then
-                        notif('AnticheatBypass', 'Crystal Kit (Glacial Skater) is required', 5, 'alert')
-                    end
+                    notifyIfWrongKit(true)
                 end))
 
                 AnticheatBypass:Clean(runService.PreSimulation:Connect(function(dt)
                     if not entitylib.isAlive then return end
-                    if not isGlacialSkater() then return end
+
+                    local humanoid = entitylib.character.Humanoid
+                    local root = entitylib.character.RootPart
+                    if not humanoid or not root then return end
+
+                    local glacial = isGlacialSkater()
+
+                    if not glacial then
+                        wasGlacial = false
+                        notifyIfWrongKit(false)
+                        return
+                    end
+
+                    if not wasGlacial then
+                        wasGlacial = true
+                        currentSpeed = 20
+                        lastIncrease = tick()
+                    end
 
                     if tick() - lastIncrease >= 10 then
                         lastIncrease = tick()
@@ -19211,12 +19259,11 @@ run(function()
                     frictionTable.AnticheatBypass = true
                     updateVelocity()
 
-                    local root = entitylib.character.RootPart
                     local velo = getSpeed()
-                    local moveDirection = entitylib.character.Humanoid.MoveDirection
+                    local moveDirection = humanoid.MoveDirection
 
                     if moveDirection.Magnitude > 0 then
-                        local destination = (moveDirection * math.max(currentSpeed - velo, 0) * dt)
+                        local destination = moveDirection * math.max(currentSpeed - velo, 0) * dt
                         root.CFrame += destination
                         root.AssemblyLinearVelocity = (moveDirection * currentSpeed) + Vector3.new(0, root.AssemblyLinearVelocity.Y, 0)
                     end
@@ -19226,6 +19273,6 @@ run(function()
                 updateVelocity()
             end
         end,
-        Tooltip = 'Gradually increases speed up to 75 studs/s using Glacial Skater kit mechanics.'
+        Tooltip = 'Gradually increases speed up to 75 studs/s with Glacial Skater / Crystal kit.'
     })
 end)
