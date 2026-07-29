@@ -19171,6 +19171,7 @@ run(function()
     -- ラグバック修復用変数
     local isRecovering = false
     local recoveryStart = 0
+    local lastOwnershipState = true -- ★ 前フレームの所有権状態を保存
 
     local function addCandidate(tab, value)
         if value ~= nil and tostring(value) ~= '' then
@@ -19253,6 +19254,7 @@ run(function()
                 wasGlacial = false
                 isRecovering = false
                 recoveryStart = 0
+                lastOwnershipState = true -- ★ 初期化
 
                 notifyIfWrongKit(true)
 
@@ -19283,41 +19285,48 @@ run(function()
                         lastIncrease = tick()
                     end
 
-                    -- ★ Fix on Lagback ロジック
-                    local shouldSkipSpeed = false
+                    -- ★ Fix on Lagback ロジック (状態変化検出方式)
                     local hasOwnership = isnetworkowner(root)
+                    local shouldSkipSpeed = false
 
                     if FixOnLagback.Enabled then
-                        if not hasOwnership then
-                            -- 所有権なし（ラグバック中）
-                            if not isRecovering then
-                                isRecovering = true
-                                recoveryStart = 0
-                                -- ラグバック検知通知
-                                notif('AnticheatBypass', 'Lagback detected! Pausing...', 3, 'warning')
-                            else
-                                -- 回復待機中にまた所有権を失った（治らなかった）
-                                currentSpeed = math.max(currentSpeed - 6, 20) -- 2個前（-6）に戻す
-                                recoveryStart = 0
-                                -- 修復失敗通知
-                                notif('AnticheatBypass', 'Fix failed! Reducing speed...', 3, 'alert')
-                            end
-                            shouldSkipSpeed = true
-                        else
-                            -- 所有権あり
-                            if isRecovering then
-                                if recoveryStart == 0 then
-                                    recoveryStart = tick()
-                                elseif tick() - recoveryStart >= 5 then
-                                    -- 5秒経過したので再開
-                                    isRecovering = false
+                        -- 前フレームと状態が変化した場合のみ処理
+                        if hasOwnership ~= lastOwnershipState then
+                            lastOwnershipState = hasOwnership
+                            
+                            if not hasOwnership then
+                                -- 所有権が Client -> Server に変化した (ラグバック発生)
+                                if not isRecovering then
+                                    isRecovering = true
                                     recoveryStart = 0
-                                    -- 再開通知
-                                    notif('AnticheatBypass', 'Resuming speed...', 3, 'info')
+                                    notif('AnticheatBypass', 'Lagback detected! Pausing...', 3, 'warning')
                                 else
-                                    shouldSkipSpeed = true -- 5秒待機中はスキップ
+                                    -- 回復待機中に再び所有権を失った (修復失敗)
+                                    currentSpeed = math.max(currentSpeed - 6, 20) -- 2個前（-6）に戻す
+                                    recoveryStart = 0
+                                    notif('AnticheatBypass', 'Fix failed! Reducing speed...', 3, 'alert')
+                                end
+                            else
+                                -- 所有権が Server -> Client に戻った (回復)
+                                if isRecovering then
+                                    recoveryStart = tick() -- 5秒待機タイマー開始
                                 end
                             end
+                        end
+                        
+                        -- 回復待機中のタイマー処理
+                        if isRecovering then
+                            if recoveryStart > 0 and tick() - recoveryStart >= 5 then
+                                isRecovering = false
+                                recoveryStart = 0
+                                notif('AnticheatBypass', 'Resuming speed...', 3, 'info')
+                            else
+                                shouldSkipSpeed = true -- 待機中は速度操作をスキップ
+                            end
+                        end
+                        
+                        if not hasOwnership then
+                            shouldSkipSpeed = true
                         end
                     end
 
