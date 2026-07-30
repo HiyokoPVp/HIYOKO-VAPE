@@ -49,7 +49,7 @@ local function isnetworkowner(part)
     if successRule and rule == Enum.NetworkOwnership.Manual then
         
         pcall(function()
-            sethiddenproperty(part, "NetworkOwnershipRule", Enum.NetworkOwnership.Automatic)
+            -- sethiddenproperty(part, "NetworkOwnershipRule", Enum.NetworkOwnership.Automatic)
         end)
         lastResetTicks[part] = tick() + 8
         return false
