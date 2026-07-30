@@ -19375,23 +19375,7 @@ run(function()
     local lagging = false
     local initialized = false
 
-    local rawIsNetworkOwner
-
-    if type(getgenv) == 'function' then
-        rawIsNetworkOwner = rawget(getgenv(), 'isnetworkowner')
-    end
-
-    if type(rawIsNetworkOwner) ~= 'function' and type(_G) == 'table' then
-        rawIsNetworkOwner = rawget(_G, 'isnetworkowner')
-    end
-
-    if type(rawIsNetworkOwner) ~= 'function' and type(shared) == 'table' then
-        rawIsNetworkOwner = rawget(shared, 'isnetworkowner')
-    end
-
-    if type(rawIsNetworkOwner) ~= 'function' then
-        rawIsNetworkOwner = isnetworkowner
-    end
+    local rawIsNetworkOwner = isnetworkowner
 
     local function notify(msg, alert)
         if Notifications and not Notifications.Enabled then return end
