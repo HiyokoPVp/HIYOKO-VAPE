@@ -26,6 +26,10 @@ local getAccountTier = function(fuck)
 	end	
 end	
 
+local function FixedIsNetworkOwner(Part)
+    return not Part:IsGrounded() and Part.AssemblyRootPart.ReceiveAge == 0
+end
+
 local playersService = cloneref(game:GetService('Players'))
 local replicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
 local runService = cloneref(game:GetService('RunService'))
@@ -19327,7 +19331,7 @@ run(function()
     local lagging = false
     local initialized = false
 
-    local rawIsNetworkOwner = isnetworkowner
+    local rawIsNetworkOwner = FixedIsNetworkOwner
 
     local function notify(msg, alert)
         if Notifications and not Notifications.Enabled then return end
