@@ -29,47 +29,42 @@ end
 local lastResetTicks = setmetatable({}, {__mode = "k"})
 
 local function isnetworkowner(part)
-    if not part or typeof(part) ~= "Instance" or not part:IsA("BasePart") or part.Anchored then
+    if not part or typeof(part) ~= "Instance" or not part:IsA("BasePart") then
+        return false
+    end
+    
+    -- アンカーされているパーツは常にサーバー所有（または固定）
+    if part.Anchored then
         return false
     end
 
-    
-    local successSim, isSimOwner = pcall(function()
-        return gethiddenproperty(part, "NetworkIsSimulationOwner")
+    -- 1. 最も信頼性の高い標準APIで確認
+    local success, owner = pcall(function()
+        return part:GetNetworkOwner()
     end)
-    if successSim and type(isSimOwner) == "boolean" then
-        return isSimOwner
+    
+    if success and owner then
+        -- オーナーが自分（LocalPlayer）であれば true
+        return owner == game:GetService("Players").LocalPlayer
     end
 
-    
+    -- 2. APIが使えない場合のフォールバック（非推奨だが互換性のため残す）
+    -- ここでは NetworkOwnershipRule を書き換えず、現在の状態だけを見る
     local successRule, rule = pcall(function()
         return gethiddenproperty(part, "NetworkOwnershipRule")
     end)
 
+    -- Manual に設定されている場合は、基本的にサーバー制御なので false
     if successRule and rule == Enum.NetworkOwnership.Manual then
-        
-        pcall(function()
-            -- sethiddenproperty(part, "NetworkOwnershipRule", Enum.NetworkOwnership.Automatic)
-        end)
-        lastResetTicks[part] = tick() + 8
         return false
     end
 
+    -- Automatic の場合、物理シミュレーションがローカルで行われているかを確認
+    -- ※ ReceiveAge はネットワーク遅延によって変動するため、厳密な判定には不向き
+    -- IsGrounded() が false かつ Velocity が存在する場合などを補助的に使う
+    local isSimulatingLocally = (part.ReceiveAge == 0) or (not part:IsGrounded())
     
-    local targetTick = lastResetTicks[part]
-    if targetTick then
-        if tick() < targetTick then
-            
-            return false
-        else
-            
-            lastResetTicks[part] = nil
-        end
-    end
-
-
-    local isSimulating = part:IsGrounded() == false and part.ReceiveAge == 0
-    return isSimulating or (rule == Enum.NetworkOwnership.Automatic)
+    return isSimulatingLocally
 end
 
 
