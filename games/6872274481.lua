@@ -26,6 +26,52 @@ local getAccountTier = function(fuck)
 	end	
 end	
 
+local lastResetTicks = setmetatable({}, {__mode = "k"})
+
+local function isnetworkowner(part)
+    if not part or typeof(part) ~= "Instance" or not part:IsA("BasePart") or part.Anchored then
+        return false
+    end
+
+    
+    local successSim, isSimOwner = pcall(function()
+        return gethiddenproperty(part, "NetworkIsSimulationOwner")
+    end)
+    if successSim and type(isSimOwner) == "boolean" then
+        return isSimOwner
+    end
+
+    
+    local successRule, rule = pcall(function()
+        return gethiddenproperty(part, "NetworkOwnershipRule")
+    end)
+
+    if successRule and rule == Enum.NetworkOwnership.Manual then
+        
+        pcall(function()
+            sethiddenproperty(part, "NetworkOwnershipRule", Enum.NetworkOwnership.Automatic)
+        end)
+        lastResetTicks[part] = tick() + 8
+        return false
+    end
+
+    
+    local targetTick = lastResetTicks[part]
+    if targetTick then
+        if tick() < targetTick then
+            
+            return false
+        else
+            
+            lastResetTicks[part] = nil
+        end
+    end
+
+
+    local isSimulating = part:IsGrounded() == false and part.ReceiveAge == 0
+    return isSimulating or (rule == Enum.NetworkOwnership.Automatic)
+end
+
 
 
 local playersService = cloneref(game:GetService('Players'))
